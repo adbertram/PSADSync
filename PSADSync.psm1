@@ -292,9 +292,11 @@ function WriteLog
 	process
 	{
 		try
-		{
+		{	
+			$time = Get-Date -Format 'g'
 			$Attributes | foreach {
 				$_ | Add-Member -MemberType NoteProperty -Name 'Identifier' -Force -Value $Identifier
+				$_ | Add-Member -MemberType NoteProperty -Name 'Time' -Force -Value $time
 			}
 			
 			$Attributes | Export-Csv -Path $FilePath -Append -NoTypeInformation
