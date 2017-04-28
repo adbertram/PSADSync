@@ -190,7 +190,7 @@ function FindAttributeMismatch
 
 function SyncCompanyUser
 {
-	[OutputType([hashtable])]
+	[OutputType()]
 	[CmdletBinding(SupportsShouldProcess,ConfirmImpact = 'High')]
 	param
 	(
@@ -205,39 +205,27 @@ function SyncCompanyUser
 
 	$id = $CsvUser.($Defaults.FieldMatchIds.CSV)
 
-	if ($attribMismatches = FindAttributeMismatch -AdUser $AdUser -CsvUser $CsvUser) {
-		$replaceHt = @{}
-		foreach ($obj in $attribMismatches) {
-			$replaceHt.($obj.ADAttributeName) = $obj.CSVAttributeValue
-		}
-
-		$params = @{
-			Identity = $id
-			Replace = $replaceHt
-			#WhatIf = $true
-		}
-		if ($Defaults.Credential) {
-			$params.Credential = $Credential
-		}
-		if ($Defaults.DomainController) {
-			$params.Server = $Defaults.DomainController
-		}
-		if ($PSCmdlet.ShouldProcess("User: [$id] AD attribs: $($replaceHt.Keys -join ',')",'Set AD attributes'))
-		{
-			Write-Verbose -Message "Setting the following AD attributes for user [$id]: $($replaceHt | Out-String)"
-			Set-AdUser @params	
-		}
-	} else {
-		Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$id]"
-		$attribMisMatches = [pscustomobject]@{
-			CSVAttributeName = 'AlreadyInSync'
-			CSVAttributeValue = 'AlreadyInSync'
-			ADAttributeName = 'AlreadyInSync'
-			ADAttributeValue = 'AlreadyInSync'
-		}
+	$replaceHt = @{}
+	foreach ($obj in $attribMismatches) {
+		$replaceHt.($obj.ADAttributeName) = $obj.CSVAttributeValue
 	}
-	$attribMismatches
 
+	$params = @{
+		Identity = $id
+		Replace = $replaceHt
+		#WhatIf = $true
+	}
+	if ($Defaults.Credential) {
+		$params.Credential = $Credential
+	}
+	if ($Defaults.DomainController) {
+		$params.Server = $Defaults.DomainController
+	}
+	if ($PSCmdlet.ShouldProcess("User: [$id] AD attribs: $($replaceHt.Keys -join ',')",'Set AD attributes'))
+	{
+		Write-Verbose -Message "Setting the following AD attributes for user [$id]: $($replaceHt | Out-String)"
+		Set-AdUser @params	
+	}
 }
 
 function NewRandomPassword
@@ -318,12 +306,41 @@ function WriteLog
 	}
 }
 
+function OutReport
+{
+	[OutputType([$])]
+	[CmdletBinding()]
+	param
+	(
+		
+	)
+	begin
+	{
+		$ErrorActionPreference = 'Stop'
+	}
+	process
+	{
+		try
+		{
+
+		}
+		catch
+		{
+			$PSCmdlet.ThrowTerminatingError($_)
+		}
+	}
+}
+
 function Invoke-AdSync
 {
 	[OutputType()]
 	[CmdletBinding()]
 	param
-	()
+	(
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[switch]$ReportOnly
+	)
 	begin
 	{
 		$ErrorActionPreference = 'Stop'
@@ -336,8 +353,23 @@ function Invoke-AdSync
 			foreach ($user in $userCompareResults) {
 				$id = $user.CSVUser.($Defaults.FieldMatchIds.CSV)
 				if ($user.Match) {
-					$syncedAttribs = SyncCompanyUser -AdUser $user.ADUser -CsvUser $user.CSVUser
-					WriteLog -Identifier $id -Attributes $syncedAttribs	
+					$attribMismatches = FindAttributeMismatch -AdUser $user.ADUser -CsvUser $user.CSVUser
+					if ($attribMismatches) {
+						if ($ReportOnly.IsPresent) {
+							OutReport -Attributes $attribMismatches
+						} else {
+							SyncCompanyUser -AdUser $user.ADUser -CsvUser $user.CSVUser
+							WriteLog -Identifier $id -Attributes $attribMismatches
+						}
+					} else {
+						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$id]"
+						$attribMisMatches = [pscustomobject]@{
+							CSVAttributeName = 'AlreadyInSync'
+							CSVAttributeValue = 'AlreadyInSync'
+							ADAttributeName = 'AlreadyInSync'
+							ADAttributeValue = 'AlreadyInSync'
+						}
+					}
 				} else {
 					WriteLog -Identifier $id -Attributes ([pscustomobject]@{
 						CSVAttributeName = 'NoMatch'
@@ -354,4 +386,3 @@ function Invoke-AdSync
 		}
 	}
 }
-#endregion
