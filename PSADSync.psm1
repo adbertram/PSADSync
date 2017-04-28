@@ -87,11 +87,11 @@ function CompareCompanyUser
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[object[]]$AdUser = (GetCompanyAdUser),
+		[object[]]$AdUsers = (GetCompanyAdUser),
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[pscustomobject[]]$CsvUser = (GetCompanyCsvUser)
+		[pscustomobject[]]$CsvUsers = (GetCompanyCsvUser)
 	)
 	begin
 	{
@@ -102,9 +102,7 @@ function CompareCompanyUser
 	{
 		try
 		{
-			$adUsers = GetCompanyAdUser
 			Write-Verbose -Message "Found [$($adUsers.Count)] enabled AD users."
-			$csvUsers = GetCompanyCsvUser
 			Write-Verbose -Message "Found [$($csvUsers.Count)] users in CSV."
 			
 			@($csvUsers).foreach({
@@ -143,7 +141,12 @@ function FindUserMatch
 	)
 
 	$csvMatchFieldValue = $CsvUser.($Defaults.FieldMatchIds.CSV)
-	@($AdUsers).where({ $_.($Defaults.FieldMatchIds.AD) -eq $csvMatchFieldValue })
+	if ($matchedAdUser = @($AdUsers).where({ $_.($Defaults.FieldMatchIds.AD) -eq $csvMatchFieldValue })) {
+		Write-Verbose -Message "Found AD match for CSV user [$csvMatchFieldValue]: [$($matchedAdUser.($Defaults.FieldMatchIds.AD))]"
+		$matchedAdUser
+	} else {
+		Write-Verbose -Message "No user match found for CSV user [$csvMatchFieldValue]"
+	}
 }
 
 function FindAttributeMismatch
@@ -161,8 +164,11 @@ function FindAttributeMismatch
 		[object]$CsvUser
 	)
 
-	foreach ($csvProp in ($CsvUser.PSObject.Properties | Where { $_.Name -in $AdToCsvFieldMap.Values })) {
-		if ($adAttribMatch = $AdUser.PSObject.Properties | where { $_.Name -eq $csvProp.Name }) {
+	foreach ($csvProp in ($CsvUser.PSObject.Properties | Where { ($_.Name -in $AdToCsvFieldMap.Values) })) {
+		
+		## Ensure we're going to be checking the value on the correct CSV property and AD attribute
+		$matchingAdAttribName = ($AdToCsvFieldMap.GetEnumerator() | where { $_.Value -eq $csvProp.Name }).Name
+		if ($adAttribMatch = $AdUser.PSObject.Properties | where { $_.Name -eq $matchingAdAttribName }) {
 			if (-not $adAttribMatch.Value) {
 				$adAttribMatch.Value = ''
 			}
@@ -202,7 +208,7 @@ function SyncCompanyUser
 	if ($attribMismatches = FindAttributeMismatch -AdUser $AdUser -CsvUser $CsvUser) {
 		$replaceHt = @{}
 		foreach ($obj in $attribMismatches) {
-			$replaceHt.($obj.CSVAttributeName) = $obj.CSVAttributeValue
+			$replaceHt.($obj.ADAttributeName) = $obj.CSVAttributeValue
 		}
 
 		$params = @{
