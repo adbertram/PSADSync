@@ -14,7 +14,19 @@ function GetCompanyAdUser
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[switch]$All
+		[switch]$All,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[pscredential]$Credential = $Defaults.Credential,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$DomainController = $Defaults.DomainController,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string[]]$Properties = '*'
 	)
 	begin
 	{
@@ -27,7 +39,7 @@ function GetCompanyAdUser
 		{
 			## Find all users that have the unique AD ID and are enabled
 			$params = @{
-				Properties = [array]$AdToCsvFieldMap.Keys
+				Properties = $Properties
 			}
 			if ($All.IsPresent) {
 				$params.Filter = '*'
@@ -35,12 +47,15 @@ function GetCompanyAdUser
 				$params.LDAPFilter = "(&($($Defaults.FieldMatchIds.AD)=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
 			}
 			
-			if ($Defaults.Credential) {
-				$params.Credential = $Defaults.Credential
+			if ($Credential)
+			{
+				$params.Credential = $Credential
 			}
-			if ($Defaults.DomainController) {
-				$params.Server = $Defaults.DomainController
+
+			if ($DomainController) {
+				$params.Server = $DomainController
 			}
+
 			Get-AdUser @params
 		}
 		catch
@@ -87,7 +102,7 @@ function CompareCompanyUser
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[object[]]$AdUsers = (GetCompanyAdUser),
+		[object[]]$AdUsers = (GetCompanyAdUser -Properties ([array]$AdToCsvFieldMap.Keys)),
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
