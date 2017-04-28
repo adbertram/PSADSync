@@ -3,7 +3,7 @@
 		FieldMatchIds = @{ 'AD' = 'samAccountName'; 'CSV' = 'AD_LOGON' }
 		InputCsvFilePath = 'C:\Dropbox\GitRepos\CaviumScripts\WorkdayADSync\copy.csv'
 		Credential = $null
-		DomainController = 'DC'
+		DomainController = $null
 	}
 	FieldMap = @{
 		# GivenName = 'FIRST_NAME'
