@@ -1,22 +1,6 @@
-#requires -Module ActiveDirectory -Version 4
-
-$Defaults = @{
-	FieldMatchIds = @{ 'AD' = 'samAccountName'; 'CSV' = 'AD_LOGON' }
-	InputCsvFilePath = 'C:\Dropbox\GitRepos\CaviumScripts\WorkdayADSync\copy.csv'
-	Credential = $null
-	DomainController = 'DC'
-}
-
-$AdToCsvFieldMap = @{
-	GivenName = 'FIRST_NAME'
-	Surname = 'LAST_NAME'
-	DisplayName = 'FULL_NAME'
-	Title = 'TITLE'
-	Department = 'DEPARTMENT'
-	EmailAddress = 'EMAIL_ADDRESS'
-	OfficePhone = 'OFFICE_NUMBER'
-	MobilePhone = 'MOBILE_PHONE' 
-}
+$config = Import-PowerShellDataFile -Path "$PSScriptRoot\Configuration.psd1"
+$Defaults = $config.Defaults
+$AdToCsvFieldMap = $config.FieldMap
 
 ## Load the System.Web type to generate random password
 Add-Type -AssemblyName 'System.Web'
