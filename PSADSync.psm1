@@ -126,7 +126,7 @@ function CompareCompanyUser
 					AdUser = $null
 					Match = $false
 				}
-				if ($adUserMatch = FindUserMatch -AdUsers $adUsers -CsvUser $_) {
+				if ($adUserMatch = FindUserMatch -AdUsers $AdUsers -CsvUser $_) {
 					$output.AdUser = $adUserMatch
 					$output.Match = $true 
 				}

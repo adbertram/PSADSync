@@ -136,57 +136,186 @@ InModuleScope $ThisModuleName {
 				(diff $_.PSObject.Properties.Name @('GivenName','SurName','SamAccountName','Title','OtherProperty','DisplayName','Name')).InputObject | should benullorempty
 			})
 		}
+	}
+
+	describe 'CompareCompanyUser' {
 	
-		context 'Help' {
-			
-			$nativeParamNames = @(
-				'Verbose'
-				'Debug'
-				'ErrorAction'
-				'WarningAction'
-				'InformationAction'
-				'ErrorVariable'
-				'WarningVariable'
-				'InformationVariable'
-				'OutVariable'
-				'OutBuffer'
-				'PipelineVariable'
-				'Confirm'
-				'WhatIf'
+		$commandName = 'CompareCompanyUser'
+		$command = Get-Command -Name $commandName
+	
+		#region Mocks
+			$script:csvUsers = @(
+				[pscustomobject]@{
+					PERSON_NUM = 'foo'
+				}
+				[pscustomobject]@{
+					PERSON_NUM = 'foo2'
+				}
+				[pscustomobject]@{
+					PERSON_NUM = 'foo3'
+				}
+				[pscustomobject]@{
+					PERSON_NUM = 'notinAD'
+				}
 			)
-			
-			$command = Get-Command -Name $commandName
-			$commandParamNames = [array]($command.Parameters.Keys | where {$_ -notin $nativeParamNames})
-			$help = Get-Help -Name $commandName
-			$helpParamNames = $help.parameters.parameter.name
-			
-			it 'has a SYNOPSIS defined' {
-				$help.synopsis | should not match $commandName
-			}
-			
-			it 'has at least one example' {
-				$help.examples | should not benullorempty
-			}
-			
-			it 'all help parameters have a description' {
-				$help.Parameters | where { ('Description' -in $_.Parameter.PSObject.Properties.Name) -and (-not $_.Parameter.Description) } | should be $null
-			}
-			
-			it 'there are no help parameters that refer to non-existent command paramaters' {
-				if ($commandParamNames) {
-				@(Compare-Object -ReferenceObject $helpParamNames -DifferenceObject $commandParamNames).where({
-					$_.SideIndicator -eq '<='
-				}) | should benullorempty
+
+			$script:empIdAdUsers = @(
+				[pscustomobject]@{
+					EmployeeId = 'foo'
 				}
-			}
-			
-			it 'all command parameters have a help parameter defined' {
-				if ($commandParamNames) {
-				@(Compare-Object -ReferenceObject $helpParamNames -DifferenceObject $commandParamNames).where({
-					$_.SideIndicator -eq '=>'
-				}) | should benullorempty
+				[pscustomobject]@{
+					EmployeeId = 'foo2'
 				}
+				[pscustomobject]@{
+					EmployeeId = 'foo3'
+				}
+				[pscustomobject]@{
+					EmployeeId = 'NotinCSV'
+				}
+			)
+
+			$script:allAdUsers = @(
+				[pscustomobject]@{
+					Name = 'foo'
+					SamAccountName = 'samname'
+					GivenName = 'givenamehere'
+					Surname = 'surnamehere'
+					DisplayName = 'displaynamehere'
+					Title = 'titlehere'
+					OtherProperty = 'other'
+				}
+				[pscustomobject]@{
+					Name = 'foo2'
+					SamAccountName = 'samname2'
+					GivenName = 'givenamehere2'
+					Surname = 'surnamehere2'
+					DisplayName = 'displaynamehere2'
+					Title = 'titlehere2'
+					OtherProperty = 'other2'
+				}
+				[pscustomobject]@{
+					Name = 'foo3'
+					SamAccountName = 'samname2'
+					GivenName = 'givenamehere3'
+					Surname = 'surnamehere3'
+					DisplayName = 'displaynamehere3'
+					Title = 'titlehere3'
+					OtherProperty = 'other3'
+				}
+			)
+
+			mock 'GetCompanyAdUser' {
+				$script:allAdUsers
+			} -ParameterFilter { (diff $Properties @('EmployeeId')) -ne $null }
+
+			mock 'GetCompanyAdUser' {
+				$script:empIdAdUsers
+			} -ParameterFilter { -not (diff $Properties @('EmployeeId')) }
+
+			mock 'GetCompanyCsvUser' {
+				$script:csvUsers
 			}
+
+			mock 'FindUserMatch' {
+				@(
+					[pscustomobject]@{
+						EmployeeId = 'foo'
+					}
+				)
+			} -ParameterFilter { $CsvUser.PERSON_NUM -eq 'foo' }
+
+			mock 'FindUserMatch' {
+				@(
+					[pscustomobject]@{
+						EmployeeId = 'foo2'
+					}
+				)
+			} -ParameterFilter { $CsvUser.PERSON_NUM -eq 'foo2' }
+
+			mock 'FindUserMatch' {
+				@(
+					[pscustomobject]@{
+						EmployeeId = 'foo3'
+					}
+				)
+			} -ParameterFilter { $CsvUser.PERSON_NUM -eq 'foo3' }
+		#endregion
+		
+		$parameterSets = @(
+			@{
+				TestName = 'Default'
+			}
+		)
+	
+		$testCases = @{
+			All = $parameterSets
 		}
+
+		it 'should return the expected number of objects: <TestName>' -TestCases $testCases.All {
+			param($AdUsers,$CsvUsers)
+		
+			$result = & $commandName @PSBoundParameters
+			@($result).Count | should be 4
+		}
+
+		it 'should return the expected object properties: <TestName>' -TestCases $testCases.All {
+			param($AdUsers,$CsvUsers)
+		
+			$result = & $commandName @PSBoundParameters
+			@($result).foreach({
+				$_.PSObject.Properties.Name -contains 'CsvUser' | should be $true
+				$_.PSObject.Properties.Name -contains 'AdUser' | should be $true
+				$_.PSObject.Properties.Name -contains 'Match' | should be $true
+			})
+		}
+	
+		Context 'When a match is found' {
+
+			it 'should return the expected property values: <TestName>' -TestCases $testCases.All {
+				param($AdUsers,$CsvUsers)
+			
+				$result = & $commandName @PSBoundParameterse
+
+				(diff $result.CsvUser.PERSON_NUM @('foo','foo2','foo3','notinAD')).InputObject | should benullorempty
+				(diff $result.AdUser.EmployeeId @('foo','foo2','foo3','notinCSV')).InputObject | should benullorempty
+				(diff $result.Match @($true,$true,$true,$false)).InputObject | should benullorempty
+			}
+
+			
+		}
+
+		# context 'When a match is not found' {
+
+		# 	mock 'FindUserMatch'
+
+		# 	it 'should return the expected property values: <TestName>' -TestCases $testCases.All {
+		# 		param($AdUsers,$CsvUsers)
+			
+		# 		$result = & $commandName @PSBoundParameters
+		# 	}
+
+		# }
+	}
+
+	describe 'CompareCompanyUser' {
+	
+		$commandName = 'CompareCompanyUser'
+		$command = Get-Command -Name $commandName
+	
+		#region Mocks
+			
+		#endregion
+		
+		$parameterSets = @(
+			@{
+				TestName = ''
+			}
+		)
+	
+		$testCases = @{
+			All = $parameterSets
+		}
+	
+		
 	}
 }
