@@ -325,9 +325,17 @@ InModuleScope $ThisModuleName {
 		$command = Get-Command -Name $commandName
 	
 		#region Mocks
+			mock 'Write-Warning'
+
 			$script:csvUserMatch = @(
 				[pscustomobject]@{
 					AD_LOGON = 'foo'
+				}
+			)
+
+			$script:blankCsvUserIdentifier = @(
+				[pscustomobject]@{
+					AD_LOGON = $null
 				}
 			)
 
@@ -351,6 +359,8 @@ InModuleScope $ThisModuleName {
 					EmployeeId = 12345
 				}
 			)
+
+			mock 'Write-Debug'
 		#endregion
 		
 		$parameterSets = @(
@@ -364,12 +374,19 @@ InModuleScope $ThisModuleName {
 				CsvUser = $script:csvUserNoMatch
 				TestName = 'No Match'
 			}
+			@{
+				AdUsers = $script:AdUsers
+				CsvUser = $script:blankCsvUserIdentifier
+				TestName = 'Blank ID'
+			}
 		)
 	
 		$testCases = @{
 			All = $parameterSets
 			Match = $parameterSets.where({$_.TestName -eq 'Match'})
 			NoMatch = $parameterSets.where({$_.TestName -eq 'No Match'})
+			BlankId = $parameterSets.where({ -not $_.CsvUser.AD_LOGON })
+			ValidId = $parameterSets.where({ $_.CsvUser.AD_LOGON })
 		}
 
 		context 'When no matches could be found' {
@@ -414,12 +431,30 @@ InModuleScope $ThisModuleName {
 				Write-Error -Message 'error!'
 			}
 
-			it 'should throw an exception: <TestName>' -TestCases $testCases.All {
+			it 'should throw an exception: <TestName>' -TestCases $testCases.ValidId {
 				param($AdUsers,$CsvUser)
 			
 				$params = @{} + $PSBoundParameters
 				{ & $commandName @params } | should throw 'error!'
 			}
+		}
+
+		context 'when the identifer is blank' {
+
+			it 'should do nothing: <TestName>' -TestCases $testCases.BlankId {
+				param($AdUsers,$CsvUser)
+			
+				$result = & $commandName @PSBoundParameters
+
+				$assMParams = @{
+					CommandName = 'Write-Debug'
+					Times = 0
+					Exactly = $true
+					Scope = 'It'
+				}
+				Assert-MockCalled @assMParams
+			}
+
 		}
 	}
 
@@ -700,6 +735,11 @@ InModuleScope $ThisModuleName {
 					PERSON_NUM = 1234
 					OtherAtrrib = 'x'
 				}
+				[pscustomobject]@{
+					AD_LOGON = $null
+					PERSON_NUM = 12345
+					OtherAtrrib = 'x'
+				}
 			)
 
 			$script:AdUsers = @(
@@ -784,6 +824,8 @@ InModuleScope $ThisModuleName {
 			}
 
 			mock 'SyncCompanyUser'
+
+			mock 'Write-Warning'
 		#endregion
 		
 	
@@ -815,8 +857,9 @@ InModuleScope $ThisModuleName {
 				Times = 1
 				Exactly = $true
 				Scope = 'It'
-				ParameterFilter = { 
-					(-not (diff $CsvUsers.'AD_LOGON' @('foo','foo2','NotInAD'))) -and
+				ParameterFilter = {
+					$idFields = $CsvUsers.'AD_LOGON' | foreach { if (-not $_) { 'null' } else { $_ } }
+					(-not (diff $idFields @('foo','foo2','NotInAD','null'))) -and
 					(-not (diff $AdUsers.Name @('foo','foo2','foo3')))
 				}
 			}
@@ -849,6 +892,51 @@ InModuleScope $ThisModuleName {
 				}
 			}
 			Assert-MockCalled @assMParams
+		}
+
+		context 'when a null ID field is encountered in the CSV' {
+		
+			mock 'CompareCompanyUser' {
+				[pscustomobject]@{
+					CSVUser = [pscustomobject]@{
+						AD_LOGON = 'foo'
+						PERSON_NUM = 'x'
+					}
+					ADUser = [pscustomobject]@{
+						samAccountName = 'foo'
+						EmployeeId = 'x'
+					}
+					Match = $true
+				}
+				[pscustomobject]@{
+					CSVUser = [pscustomobject]@{
+						AD_LOGON = $null
+						PERSON_NUM = 'x'
+					}
+					ADUser = [pscustomobject]@{
+						samAccountName = 'nomatch'
+						EmployeeId = 'x'
+					}
+					Match = $false
+				}
+			}
+
+			it 'should write a warning: <TestName>' -TestCases $testCases.All {
+				param($CsvFilePath,$ReportOnly)
+			
+				$result = & $commandName @PSBoundParameters
+
+				$assMParams = @{
+					CommandName = 'Write-Warning'
+					Times = 1
+					Exactly = $true
+					Scope = 'It'
+					ParameterFilter = { $Message -match 'The CSV user identifier field' }
+				}
+				Assert-MockCalled @assMParams
+			}
+
+		
 		}
 
 		context 'When no user can be matched' {
