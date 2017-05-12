@@ -1,6 +1,9 @@
 @{
 	Defaults = @{
-		FieldMatchIds = @{ 'AD' = 'samAccountName'; 'CSV' = 'AD_LOGON' }
+		FieldMatchIds = @(
+			@{ AD = 'samAccountName'; CSV = 'AD_LOGON' }
+			@{ AD = 'EmployeeId'; CSV = 'PERSON_NUM' }
+		)
 		InputCsvFilePath = 'C:\Dropbox\GitRepos\CaviumScripts\WorkdayADSync\copy.csv'
 		Credential = $null
 		DomainController = $null
