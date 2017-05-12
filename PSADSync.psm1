@@ -186,22 +186,14 @@ function FindUserMatch
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[object]$CsvUser,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[string]$AdAttribute = $Defaults.FieldMatchIds.AD,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[string]$CsvField = $Defaults.FieldMatchIds.CSV
+		[object]$CsvUser
 	)
 	$ErrorActionPreference = 'Stop'
 
-	if ($csvMatchFieldValue = $CsvUser.$CsvField) {
+	if ($csvMatchFieldValue = $CsvUser.($Defaults.FieldMatchIds.CSV)) {
 		Write-Debug -Message "CsvFieldMatchValue is [$($csvMatchFieldValue)]"
 		Write-Debug -Message "AD field match value is $($Defaults.FieldMatchIds.AD)"
-		if ($matchedAdUser = @($AdUsers).where({ $_.$AdAttribute -eq $csvMatchFieldValue })) {
+		if ($matchedAdUser = @($AdUsers).where({ $_.($Defaults.FieldMatchIds.AD) -eq $csvMatchFieldValue })) {
 			Write-Debug -Message "Found AD match for CSV user [$csvMatchFieldValue]: [$($matchedAdUser.($Defaults.FieldMatchIds.AD))]"
 			$matchedAdUser
 		} else {
