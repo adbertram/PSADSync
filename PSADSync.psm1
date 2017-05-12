@@ -64,6 +64,43 @@ function Get-CompanyAdUser
 	}
 }
 
+function GetCsvColumnHeaders
+{
+	[OutputType([string])]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$CsvFilePath
+	)
+	
+	(Get-Content -Path $CsvFilePath | Select-Object -First 1).Split(',')
+}
+
+function TestCsvHeaderExists
+{
+	[OutputType([bool])]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$CsvFilePath = $Defaults.InputCsvFilePath,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string[]]$Header
+	)
+
+	$csvHeaders = GetCsvColumnHeaders -CsvFilePath $CsvFilePath
+	if (Compare-Object -ReferenceObject $csvHeaders -DifferenceObject $Header) {
+		$false
+	} else {
+		$true
+	}
+}
+
 function Get-CompanyCsvUser
 {
 	[OutputType([pscustomobject])]
@@ -73,7 +110,11 @@ function Get-CompanyCsvUser
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
 		[ValidateScript({Test-Path -Path $_ -PathType Leaf})]
-		[string]$CsvFilePath = $Defaults.InputCsvFilePath
+		[string]$CsvFilePath = $Defaults.InputCsvFilePath,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$Exclude
 	)
 	begin
 	{
@@ -84,7 +125,13 @@ function Get-CompanyCsvUser
 	{
 		try
 		{
-			Import-Csv -Path $CsvFilePath
+			$whereFilter = { '*' }
+			if ($PSBoundParameters.ContainsKey('Exclude'))
+			{
+				$conditions = $Exclude.GetEnumerator() | foreach { "(`$_.$($_.Key) -ne '$($_.Value)')" }
+				$whereFilter = [scriptblock]::Create($conditions -join ' -and ')
+			}
+			@(Import-Csv -Path $CsvFilePath).where($whereFilter)
 		}
 		catch
 		{
@@ -338,7 +385,11 @@ function Invoke-AdSync
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[switch]$ReportOnly
+		[switch]$ReportOnly,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$Exclude
 	)
 	begin
 	{
@@ -348,8 +399,19 @@ function Invoke-AdSync
 	{
 		try
 		{
+			$getCsvParams = @{
+				CsvFilePath = $CsvFilePath
+			}
+			if ($PSBoundParameters.ContainsKey('Exclude'))
+			{
+				if (-not (TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header [array]$Exclude.Keys)) {
+					throw 'One or more CSV headers excluded with -Exclude do not exist in the CSV file.'
+				}
+				$getCsvParams.Exclude = $Exclude
+			}
+			
 			$compParams = @{
-				CsvUsers = Get-CompanyCsvUser -CsvFilePath $CsvFilePath
+				CsvUsers = Get-CompanyCsvUser @getCsvParams
 				AdUsers = Get-CompanyAdUser -Properties ([array]$AdToCsvFieldMap.Keys)
 			}
 			$userCompareResults = CompareCompanyUser @compParams

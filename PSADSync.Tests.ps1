@@ -6,6 +6,149 @@ Import-Module -Name $ThisModule,'ActiveDirectory' -Force -ErrorAction Stop
 
 InModuleScope $ThisModuleName {
 
+	describe 'Get-CompanyCsvUser' {
+	
+		$commandName = 'Get-CompanyCsvUser'
+		$command = Get-Command -Name $commandName
+	
+		#region Mocks
+			$script:csvUsers = @(
+				[pscustomobject]@{
+					AD_LOGON = 'foo'
+					PERSON_NUM = 123
+					OtherAtrrib = 'x'
+					ExcludeCol = 'excludeme'
+					ExcludeCol2 = 'dontexcludeme'
+				}
+				[pscustomobject]@{
+					AD_LOGON = 'foo2'
+					PERSON_NUM = 1234
+					OtherAtrrib = 'x'
+					ExcludeCol = 'dontexcludeme'
+					ExcludeCol2 = 'excludeme'
+				}
+				[pscustomobject]@{
+					AD_LOGON = 'notinAD'
+					PERSON_NUM = 1234
+					OtherAtrrib = 'x'
+					ExcludeCol = 'dontexcludeme'
+					ExcludeCol2 = 'dontexcludeme'
+				}
+				[pscustomobject]@{
+					AD_LOGON = $null
+					PERSON_NUM = 12345
+					OtherAtrrib = 'x'
+					ExcludeCol = 'dontexcludeme'
+					ExcludeCol2 = 'dontexcludeme'
+				}
+			)
+
+			mock 'Import-Csv' {
+				$script:csvUsers
+			}
+
+			mock 'Test-Path' {
+				$true
+			}
+
+			$script:csvUsersNullConvert = $script:csvUsers | foreach { if (-not $_.'AD_LOGON') { $_.'AD_LOGON' = 'null' } $_ }
+		#endregion
+		
+		$parameterSets = @(
+			@{
+				CsvFilePath = 'C:\users.csv'
+				TestName = 'All users'
+			}
+			@{
+				CsvFilePath = 'C:\users.csv'
+				Exclude = @{ ExcludeCol = 'excludeme' }
+				TestName = 'Exclude 1 col'
+			}
+			@{
+				CsvFilePath = 'C:\users.csv'
+				Exclude = @{ ExcludeCol = 'excludeme';ExcludeCol2 = 'excludeme' }
+				TestName = 'Exclude 2 cols'
+			}
+		)
+	
+		$testCases = @{
+			All = $parameterSets
+			Exclude1Col = $parameterSets.where({$_.ContainsKey('Exclude') -and ($_.Exclude.Keys.Count -eq 1)})
+			Exclude2Cols = $parameterSets.where({$_.ContainsKey('Exclude') -and ($_.Exclude.Keys.Count -eq 2)})
+			NoExclusions = $parameterSets.where({ -not $_.ContainsKey('Exclude')})
+		}
+
+		it 'when excluding no cols, should return all expected users: <TestName>' -TestCases $testCases.NoExclusions {
+			param($CsvFilePath,$Exclude)
+		
+			$result = & $commandName @PSBoundParameters
+
+			(diff $script:csvUsersNullConvert.'AD_LOGON' $result.'AD_LOGON').InputObject | should benullorempty
+		}
+
+		it 'when excluding 1 col, should return all expected users: <TestName>' -TestCases $testCases.Exclude1Col {
+			param($CsvFilePath,$Exclude)
+		
+			$result = & $commandName @PSBoundParameters
+
+			(diff @('foo2','notinAD','null') $result.'AD_LOGON').InputObject | should benullorempty
+		}
+	
+		it 'when excluding 2 cols, should return all expected users: <TestName>' -TestCases $testCases.Exclude2Cols {
+			param($CsvFilePath,$Exclude)
+		
+			$result = & $commandName @PSBoundParameters
+
+			(diff @('notinAD','null') $result.'AD_LOGON').InputObject | should benullorempty
+		}
+	}
+
+	describe 'GetCsvColumnHeaders' {
+		
+		#region Mocks
+			mock 'Get-Content' {
+				@(
+					'Header1,Header2,Header3'
+					'Value1,Value2,Value3'
+					'Value4,Value5,Value6'
+				)
+			}
+		#endregion
+
+		it 'should return expected headers' {
+		
+			$result = & GetCsvColumnHeaders -CsvFilePath 'foo.csv'
+			diff $result @('Header1','Header2','Header3') | should benullorempty
+		}
+		
+	}
+
+	describe 'TestCsvHeaderExists' {
+		
+		#region Mocks
+			mock 'GetCsvColumnHeaders' {
+				'Header1','Header2','Header3'
+			}
+		#endregion
+
+
+		context 'when a header is not in the CSV' {
+		
+			it 'should return $false' {
+			
+				TestCsvHeaderExists -CsvFilePath 'foo.csv' -Header 'nothere' | should be $false
+			}	
+		
+		}
+
+		context 'when all headers are in the CSV' {
+		
+			TestCsvHeaderExists -CsvFilePath 'foo.csv' -Header 'Header1','Header2','Header3' | should be $true
+		
+		}
+		
+	}
+
 	describe 'Get-CompanyAdUser' {
 	
 		$commandName = 'Get-CompanyAdUser'
@@ -724,21 +867,25 @@ InModuleScope $ThisModuleName {
 					AD_LOGON = 'foo'
 					PERSON_NUM = 123
 					OtherAtrrib = 'x'
+					ExcludeCol = 'excludeme'
 				}
 				[pscustomobject]@{
 					AD_LOGON = 'foo2'
 					PERSON_NUM = 1234
 					OtherAtrrib = 'x'
+					ExcludeCol = 'dontexcludeme'
 				}
 				[pscustomobject]@{
 					AD_LOGON = 'notinAD'
 					PERSON_NUM = 1234
 					OtherAtrrib = 'x'
+					ExcludeCol = 'dontexcludeme'
 				}
 				[pscustomobject]@{
 					AD_LOGON = $null
 					PERSON_NUM = 12345
 					OtherAtrrib = 'x'
+					ExcludeCol = 'dontexcludeme'
 				}
 			)
 
@@ -781,7 +928,11 @@ InModuleScope $ThisModuleName {
 
 			mock 'Get-CompanyCsvUser' {
 				$script:csvUsers
-			}
+			} -ParameterFilter { -not $Exclude }
+
+			mock 'Get-CompanyCsvUser' {
+				$script:csvUsers | where { $_.ExcludeCol -ne 'excludeme' }
+			} -ParameterFilter { $Exclude }
 
 			mock 'CompareCompanyUser' {
 				[pscustomobject]@{
@@ -826,6 +977,10 @@ InModuleScope $ThisModuleName {
 			mock 'SyncCompanyUser'
 
 			mock 'Write-Warning'
+
+			mock 'TestCsvHeaderExists' {
+				$true
+			}
 		#endregion
 		
 	
@@ -839,16 +994,44 @@ InModuleScope $ThisModuleName {
 				ReportOnly = $true
 				TestName = 'Report'
 			}
+			@{
+				CsvFilePath = 'C:\log.csv'
+				Exclude = @{ ExcludeCol = 'excludeme' }
+				TestName = 'Excluded valid col'
+			}
+			@{
+				CsvFilePath = 'C:\log.csv'
+				Exclude = @{ ColNotHere = 'excludeme' }
+				TestName = 'Exclude bogus col'
+			}
 		)
 	
 		$testCases = @{
 			All = $parameterSets
 			ReportOnly = $parameterSets.where({$_.ContainsKey('ReportOnly')})
 			Sync = $parameterSets.where({-not $_.ContainsKey('ReportOnly')})
+			NoExclusions = $parameterSets.where({-not $_.ContainsKey('Exclude')})
+			ExcludeCol = $parameterSets.where({$_.ContainsKey('Exclude') -and (-not $_.Exclude.Keys.Contains('ColNotHere'))})
+			ExcludeBogusCol = $parameterSets.where({$_.ContainsKey('Exclude') -and ($_.Exclude.Keys.Contains('ColNotHere'))})
 		}
-	
+
+		context 'when a column is attempted to be excluded does not exist' {
+
+			mock 'TestCsvHeaderExists' {
+				$false
+			}
+
+			it 'should throw an exception: <TestName>' -TestCases $testCases.ExcludeBogusCol {
+				param($CsvFilePath,$ReportOnly,$Exclude)
+			
+				$params = @{} + $PSBoundParameters
+				{ & $commandName @params } | should throw 'One or more CSV headers excluded with -Exclude do not exist in the CSV file'
+			}
+		
+		}
+
 		it 'should compare the expected users: <TestName>' -TestCases $testCases.All {
-			param($CsvFilePath,$ReportOnly)
+			param($CsvFilePath,$ReportOnly,$Exclude)
 		
 			$result = & $commandName @PSBoundParameters
 
@@ -864,16 +1047,16 @@ InModuleScope $ThisModuleName {
 				}
 			}
 			Assert-MockCalled @assMParams
-		}
+		}	
 
 		it 'should return nothing: <TestName>' -TestCases $testCases.All {
-			param($CsvFilePath,$ReportOnly)
+			param($CsvFilePath,$ReportOnly,$Exclude)
 		
 			& $commandName @PSBoundParameters | should benullorempty
 		}
 
 		it 'should attempt to sync the user: <TestName>' -TestCases $testCases.Sync {
-			param($CsvFilePath,$ReportOnly)
+			param($CsvFilePath,$ReportOnly,$Exclude)
 		
 			$result = & $commandName @PSBoundParameters
 
@@ -922,7 +1105,7 @@ InModuleScope $ThisModuleName {
 			}
 
 			it 'should write a warning: <TestName>' -TestCases $testCases.All {
-				param($CsvFilePath,$ReportOnly)
+				param($CsvFilePath,$ReportOnly,$Exclude)
 			
 				$result = & $commandName @PSBoundParameters
 
@@ -956,7 +1139,7 @@ InModuleScope $ThisModuleName {
 			}
 
 			it 'should write the expected contents to the log file: <TestName>' -TestCases $testCases.All {
-			param($CsvFilePath,$ReportOnly)
+			param($CsvFilePath,$ReportOnly,$Exclude)
 			
 				$result = & $commandName @PSBoundParameters
 
@@ -983,7 +1166,7 @@ InModuleScope $ThisModuleName {
 			mock 'FindAttributeMismatch'
 
 			it 'should write the expected contents to the log file: <TestName>' -TestCases $testCases.All {
-			param($CsvFilePath,$ReportOnly)
+			param($CsvFilePath,$ReportOnly,$Exclude)
 			
 				$result = & $commandName @PSBoundParameters
 
@@ -1008,7 +1191,7 @@ InModuleScope $ThisModuleName {
 		context 'when only reporting' {
 
 			it 'should not attempt to sync the user: <TestName>' -TestCases $testCases.ReportOnly {
-				param($CsvFilePath,$ReportOnly)
+				param($CsvFilePath,$ReportOnly,$Exclude)
 			
 				$result = & $commandName @PSBoundParameters
 
@@ -1023,15 +1206,15 @@ InModuleScope $ThisModuleName {
 
 		context 'when an exception is thrown' {
 
-			mock 'Get-CompanyCsvUser' {
+			mock 'CompareCompanyUser' {
 				throw 'error!'
 			}
 
 			it 'should return a non-terminating error: <TestName>' -TestCases $testCases.All {
-				param($CsvFilePath,$ReportOnly)
+				param($CsvFilePath,$ReportOnly,$Exclude)
 			
-				try { $result = & $commandName @PSBoundParameters -ErrorAction SilentlyContinue -ErrorVariable err } catch {}
-				$err | should match 'error!'
+				try { $null = & $commandName @PSBoundParameters -ErrorAction SilentlyContinue -ErrorVariable err } catch {}
+				$err | should not benullorempty
 			}
 		}
 	}
