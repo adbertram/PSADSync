@@ -77,7 +77,7 @@ function GetCsvColumnHeaders
 		[string]$CsvFilePath
 	)
 	
-	(Get-Content -Path $CsvFilePath | Select-Object -First 1).Split(',')
+	(Get-Content -Path $CsvFilePath | Select-Object -First 1).Split(',') -replace '"'
 }
 
 function TestCsvHeaderExists
