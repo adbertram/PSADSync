@@ -96,7 +96,8 @@ function TestCsvHeaderExists
 	)
 
 	$csvHeaders = GetCsvColumnHeaders -CsvFilePath $CsvFilePath
-	if (Compare-Object -ReferenceObject $csvHeaders -DifferenceObject $Header) {
+	$matchedHeaders = $csvHeaders | where { $_ -in $Header }
+	if (@($matchedHeaders).Count -ne @($Header).Count) {
 		$false
 	} else {
 		$true
@@ -198,17 +199,17 @@ function FindUserMatch
 		$adMatchField = $_.AD
 		$csvMatchField = $_.CSV
 		if ($csvMatchVal = $CsvUser.$csvMatchField) {
-			Write-Debug -Message "CsvFieldMatchValue is [$($csvMatchVal)]"
-			Write-Debug -Message "AD field match value is $($adMatchField)"
+			Write-Verbose -Message "CsvFieldMatchValue is [$($csvMatchVal)]"
+			Write-Verbose -Message "AD field match value is $($adMatchField)"
 			if ($matchedAdUser = @($AdUsers).where({ $_.$adMatchField -eq $csvMatchVal })) {
-				Write-Debug -Message "Found AD match for CSV user [$csvMatchVal]: [$($matchedAdUser.($adMatchField))]"
+				Write-Verbose -Message "Found AD match for CSV user [$csvMatchVal]: [$($matchedAdUser.($adMatchField))]"
 				[pscustomobject]@{
 					MatchedAdUser = $matchedAdUser
 					IdMatchedOn = $csvMatchField
 				}
 				break
 			} else {
-				Write-Debug -Message "No user match found for CSV user [$csvMatchVal]"
+				Write-Verbose -Message "No user match found for CSV user [$csvMatchVal]"
 			}
 		}
 	}
@@ -231,18 +232,18 @@ function FindAttributeMismatch
 
 	$ErrorActionPreference = 'Stop'
 
-	Write-Debug "AD-CSV field map values are [$($AdToCsvFieldMap.Values | Out-String)]"
+	Write-Verbose "AD-CSV field map values are [$($AdToCsvFieldMap.Values | Out-String)]"
 	$csvPropertyNames = $CsvUser.PSObject.Properties.Name
 	$AdPropertyNames = $AdUser.PSObject.Properties.Name
-	Write-Debug "CSV properties are: [$csvPropertyNames]"
-	Write-Debug "ADUser props: [$($AdPropertyNames)]"
+	Write-Verbose "CSV properties are: [$csvPropertyNames]"
+	Write-Verbose "ADUser props: [$($AdPropertyNames)]"
 	foreach ($csvProp in ($csvPropertyNames | Where { ($_ -in @($AdToCsvFieldMap.Values)) })) {
 		
 		## Ensure we're going to be checking the value on the correct CSV property and AD attribute
 		$matchingAdAttribName = ($AdToCsvFieldMap.GetEnumerator() | where { $_.Value -eq $csvProp }).Name
-		Write-Debug -Message "Matching AD attrib name is: [$($matchingAdAttribName)]"
+		Write-Verbose -Message "Matching AD attrib name is: [$($matchingAdAttribName)]"
 		if ($adAttribMatch = $AdPropertyNames | where { $_ -eq $matchingAdAttribName }) {
-			Write-Debug -Message "ADAttribMatch: [$($adAttribMatch)]"
+			Write-Verbose -Message "ADAttribMatch: [$($adAttribMatch)]"
 			if (-not $AdUser.$adAttribMatch) {
 				$AdUser.$adAttribMatch = ''
 			}
@@ -256,7 +257,7 @@ function FindAttributeMismatch
 					ADAttributeName = $adAttribMatch
 					ADAttributeValue = $AdUser.$adAttribMatch
 				}
-				Write-Debug -Message "AD attribute mismatch found on CSV property: [$($csvProp)]. Value is [$($AdUser.$adAttribMatch)] and should be [$($CsvUser.$csvProp)]"
+				Write-Verbose -Message "AD attribute mismatch found on CSV property: [$($csvProp)]. Value is [$($AdUser.$adAttribMatch)] and should be [$($CsvUser.$csvProp)]"
 			}
 		}
 	}
@@ -314,7 +315,7 @@ function SyncCompanyUser
 	}
 	if ($PSCmdlet.ShouldProcess("User: [$Identifier] AD attribs: $($replaceHt.Keys -join ',')",'Set AD attributes'))
 	{
-		Write-Debug -Message "Setting the following AD attributes for user [$Identifier]: $($replaceHt | Out-String)"
+		Write-Verbose -Message "Setting the following AD attributes for user [$Identifier]: $($replaceHt | Out-String)"
 		Set-AdUser @params	
 	}
 }

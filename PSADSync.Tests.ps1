@@ -142,9 +142,19 @@ InModuleScope $ThisModuleName {
 		}
 
 		context 'when all headers are in the CSV' {
-		
-			TestCsvHeaderExists -CsvFilePath 'foo.csv' -Header 'Header1','Header2','Header3' | should be $true
-		
+
+			it 'should return $true' {
+				TestCsvHeaderExists -CsvFilePath 'foo.csv' -Header 'Header1','Header2','Header3' | should be $true
+			}
+	
+		}
+
+		context 'when one header is in the CSV' {
+
+			it 'should return $true' {		
+				TestCsvHeaderExists -CsvFilePath 'foo.csv' -Header 'Header1' | should be $true
+			}
+
 		}
 		
 	}
