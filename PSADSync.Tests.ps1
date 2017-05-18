@@ -492,6 +492,22 @@ InModuleScope $ThisModuleName {
 
 		}
 
+		context 'when FindUserMatch sends a break statement' {
+
+			mock 'FindUserMatch' {
+				foreach ($i in 0..1) { break }
+			}
+		
+			it 'should return the expected number of objects: <TestName>' -TestCases $testCases.All {
+				param($AdUsers,$CsvUsers)
+			
+				$result = & $commandName @PSBoundParameters
+				@($result).Count | should be 4
+			}
+			
+		
+		}
+
 		context 'when a non-terminating error occurs in the function' {
 
 			mock 'Write-Verbose' {
@@ -565,7 +581,7 @@ InModuleScope $ThisModuleName {
 				}
 			)
 
-			mock 'Write-Debug'
+			mock 'Write-Verbose'
 		#endregion
 		
 		$parameterSets = @(
@@ -661,10 +677,11 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @PSBoundParameters
 
 				$assMParams = @{
-					CommandName = 'Write-Debug'
-					Times = 3
+					CommandName = 'Write-Verbose'
+					Times = 1
 					Exactly = $true
 					Scope = 'It'
+					ParameterFilter = { $PSBoundParameters.Message -match '^CSV field match value' }
 				}
 				Assert-MockCalled @assMParams
 			}
@@ -687,10 +704,11 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @PSBoundParameters
 
 				$assMParams = @{
-					CommandName = 'Write-Debug'
-					Times = 0
+					CommandName = 'Write-Verbose'
+					Times = 2
 					Exactly = $true
 					Scope = 'It'
+					ParameterFilter = { $PSBoundParameters.Message -match '^CSV field match value' }
 				}
 				Assert-MockCalled @assMParams
 			}
@@ -718,7 +736,7 @@ InModuleScope $ThisModuleName {
 		$command = Get-Command -Name $commandName
 	
 		#region Mocks
-			mock 'Write-Debug'
+			mock 'Write-Verbose'
 
 			$script:csvUserMisMatch = [pscustomobject]@{
 				AD_LOGON = 'foo'
@@ -788,7 +806,7 @@ InModuleScope $ThisModuleName {
 		
 		context 'when a non-terminating error occurs in the function' {
 
-			mock 'Write-Debug' {
+			mock 'Write-Verbose' {
 				Write-Error -Message 'error!'
 			}
 
@@ -873,7 +891,7 @@ InModuleScope $ThisModuleName {
 
 		context 'when a non-terminating error occurs in the function' {
 
-			mock 'Write-Debug' {
+			mock 'Write-Verbose' {
 				Write-Error -Message 'error!'
 			}
 

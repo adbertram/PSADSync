@@ -195,22 +195,26 @@ function FindUserMatch
 	)
 	$ErrorActionPreference = 'Stop'
 
-	$Defaults.FieldMatchIds | foreach {
-		$adMatchField = $_.AD
-		$csvMatchField = $_.CSV
+	foreach ($matchId in $Defaults.FieldMatchIds) {
+		$adMatchField = $matchId.AD
+		$csvMatchField = $matchId.CSV
+		Write-Verbose "Match fields: CSV - [$($csvMatchField)], AD - [$($adMatchField)]"
 		if ($csvMatchVal = $CsvUser.$csvMatchField) {
 			Write-Verbose -Message "CsvFieldMatchValue is [$($csvMatchVal)]"
-			Write-Verbose -Message "AD field match value is $($adMatchField)"
+			Write-Verbose -Message "AD field value is $($adMatchVal)"
 			if ($matchedAdUser = @($AdUsers).where({ $_.$adMatchField -eq $csvMatchVal })) {
-				Write-Verbose -Message "Found AD match for CSV user [$csvMatchVal]: [$($matchedAdUser.($adMatchField))]"
+				Write-Verbose -Message "Found AD match for CSV user [$csvMatchVal]: [$($matchedAdUser.$adMatchField)]"
 				[pscustomobject]@{
 					MatchedAdUser = $matchedAdUser
 					IdMatchedOn = $csvMatchField
 				}
+				## Stop after making a single match
 				break
 			} else {
 				Write-Verbose -Message "No user match found for CSV user [$csvMatchVal]"
 			}
+		} else {
+			Write-Verbose -Message "CSV field match value [$($csvMatchField)] could not be found."
 		}
 	}
 }
