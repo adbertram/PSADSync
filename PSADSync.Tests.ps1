@@ -802,6 +802,15 @@ InModuleScope $ThisModuleName {
 			$script:AdUserNoMisMatch = New-MockObject -Type 'Microsoft.ActiveDirectory.Management.ADUser'
 			$script:AdUserNoMisMatch | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
 			$script:AdUserNoMisMatch | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value 1111 -PassThru
+
+			mock 'Get-Member' {
+				[pscustomobject]@{
+					Name = 'samAccountName'
+				}
+				[pscustomobject]@{
+					Name = 'EmployeeId'
+				}
+			}
 		#endregion
 		
 		$parameterSets = @(
@@ -823,6 +832,38 @@ InModuleScope $ThisModuleName {
 			NoMismatch = $parameterSets.where({$_.TestName -eq 'No Mismatch'})
 		}
 
+		it 'should find the correct AD property names: <TestName>' -TestCases $testCases.All {
+			param($AdUser,$CsvUser)
+		
+			$result = & $commandName @PSBoundParameters
+
+			$assMParams = @{
+				CommandName = 'Write-Verbose'
+				Times = 1
+				Exactly = $true
+				Scope = 'It'
+				ParameterFilter = { 
+					$PSBoundParameters.Message -eq "ADUser props: [samAccountName,EmployeeId]" }
+			}
+			Assert-MockCalled @assMParams
+		}
+
+		it 'should find the correct CSV property names: <TestName>' -TestCases $testCases.All {
+			param($AdUser,$CsvUser)
+		
+			$result = & $commandName @PSBoundParameters
+
+			$assMParams = @{
+				CommandName = 'Write-Verbose'
+				Times = 1
+				Exactly = $true
+				Scope = 'It'
+				ParameterFilter = { 
+					$PSBoundParameters.Message -eq 'CSV properties are: [AD_LOGON,PERSON_NUM,OtherAtrrib]' }
+			}
+
+			Assert-MockCalled @assMParams
+		}
 
 		context 'when a mismatch is found' {
 

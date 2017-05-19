@@ -179,7 +179,7 @@ function CompareCompanyUser
 
 function FindUserMatch
 {
-	[OutputType()]
+	[OutputType([pscustomobject])]
 	[CmdletBinding()]
 	param
 	(
@@ -235,18 +235,20 @@ function FindAttributeMismatch
 
 	Write-Verbose "AD-CSV field map values are [$($AdToCsvFieldMap.Values | Out-String)]"
 	$csvPropertyNames = $CsvUser.PSObject.Properties.Name
-	$AdPropertyNames = $AdUser.PSObject.Properties.Name
-	Write-Verbose "CSV properties are: [$csvPropertyNames]"
-	Write-Verbose "ADUser props: [$($AdPropertyNames)]"
+	$AdPropertyNames = ($AdUser | Get-Member -MemberType Property).Name
+	Write-Verbose "CSV properties are: [$($csvPropertyNames -join ',')]"
+	Write-Verbose "ADUser props: [$($AdPropertyNames -join ',')]"
 	foreach ($csvProp in ($csvPropertyNames | Where { ($_ -in @($AdToCsvFieldMap.Values)) })) {
 		
 		## Ensure we're going to be checking the value on the correct CSV property and AD attribute
 		$matchingAdAttribName = ($AdToCsvFieldMap.GetEnumerator() | where { $_.Value -eq $csvProp }).Name
 		Write-Verbose -Message "Matching AD attrib name is: [$($matchingAdAttribName)]"
+		Write-Verbose -Message "Matching CSV field is: [$($csvProp)]"
 		if ($adAttribMatch = $AdPropertyNames | where { $_ -eq $matchingAdAttribName }) {
 			Write-Verbose -Message "ADAttribMatch: [$($adAttribMatch)]"
 			if (-not $AdUser.$adAttribMatch) {
-				$AdUser.$adAttribMatch = ''
+				Write-Verbose -Message "[$($adAttribMatch)] value is null. Converting to empty string,.."
+				$AdUser | Add-Member -MemberType NoteProperty -Name $adAttribMatch -Force -Value ''
 			}
 			if (-not $CsvUser.$csvProp) {
 				$CsvUser.$csvProp = ''
@@ -431,7 +433,11 @@ function Invoke-AdSync
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Exclude
+		[hashtable]$Exclude,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$DomainController
 	)
 	begin
 	{
@@ -451,9 +457,18 @@ function Invoke-AdSync
 				}
 				$getCsvParams.Exclude = $Exclude
 			}
+
+			$getAdUserParams = @{
+				Properties = ([array]$AdToCsvFieldMap.Keys)
+			}
+			if ($PSBoundParameters.ContainsKey('DomainController'))
+			{
+				$getAdUserParams.DomainController = $DomainController
+			}
+			
 			$compParams = @{
 				CsvUsers = Get-CompanyCsvUser @getCsvParams
-				AdUsers = Get-CompanyAdUser -Properties ([array]$AdToCsvFieldMap.Keys)
+				AdUsers = Get-CompanyAdUser @getAdUserParams
 			}
 			$userCompareResults = CompareCompanyUser @compParams
 			foreach ($user in $userCompareResults) {
