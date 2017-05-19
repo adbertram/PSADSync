@@ -370,9 +370,13 @@ function WriteLog
 		[ValidateNotNullOrEmpty()]
 		[string]$FilePath = "$PSScriptRoot\CsvToActiveDirectorySync.log",
 
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$CsvIdentifierField,
+
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[string]$Identifier,
+		[string]$CsvIdentifierValue,
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
@@ -383,7 +387,8 @@ function WriteLog
 	
 	$time = Get-Date -Format 'g'
 	$Attributes | foreach {
-		$_ | Add-Member -MemberType NoteProperty -Name 'Identifier' -Force -Value $Identifier
+		$_ | Add-Member -MemberType NoteProperty -Name 'CsvIdentifierValue' -Force -Value $CsvIdentifierValue
+		$_ | Add-Member -MemberType NoteProperty -Name 'CsvIdentifierField' -Force -Value $CsvIdentifierField
 		$_ | Add-Member -MemberType NoteProperty -Name 'Time' -Force -Value $time
 	}
 	
@@ -446,7 +451,6 @@ function Invoke-AdSync
 				}
 				$getCsvParams.Exclude = $Exclude
 			}
-			
 			$compParams = @{
 				CsvUsers = Get-CompanyCsvUser @getCsvParams
 				AdUsers = Get-CompanyAdUser -Properties ([array]$AdToCsvFieldMap.Keys)
@@ -454,7 +458,8 @@ function Invoke-AdSync
 			$userCompareResults = CompareCompanyUser @compParams
 			foreach ($user in $userCompareResults) {
 				if ($user.Match) {
-					$id = $user.CsvUser.($user.IdMatchedOn)
+					$csvIdValue = $user.CsvUser.($user.IdMatchedOn)
+					$csvIdField = $user.IdMatchedOn
 					$attribMismatches = FindAttributeMismatch -AdUser $user.ADUser -CsvUser $user.CSVUser
 					if ($attribMismatches) {
 						$logAttribs = $attribMismatches
@@ -462,7 +467,7 @@ function Invoke-AdSync
 							SyncCompanyUser -AdUser $user.ADUser -CsvUser $user.CSVUser -Attributes $attribMismatches -Identifier $user.IdMatchedOn
 						}
 					} else {
-						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$id]"
+						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
 						$logAttribs = [pscustomobject]@{
 							CSVAttributeName = 'AlreadyInSync'
 							CSVAttributeValue = 'AlreadyInSync'
@@ -471,11 +476,14 @@ function Invoke-AdSync
 						}
 					}
 				} else {
+					
 					if (-not (TestNullCsvIdField -CsvUser $user.CsvUser)) {
+						$csvIdValue = 'N/A'
 						Write-Warning -Message 'The CSV user identifier field could not be found!'
 					} else {
-						$ids = $Defaults.FieldMatchIds.CSV | foreach { $user.CSVUser.$_ }
-						$id = $ids -join ','
+						$csvIdFields = $Defaults.FieldMatchIds.CSV
+						$csvIdField = $csvIdFields -join ','
+						$csvIdValue = ($csvIdFields | foreach { $user.CSVUser.$_ }) -join ','
 						$logAttribs = ([pscustomobject]@{
 							CSVAttributeName = 'NoMatch'
 							CSVAttributeValue = 'NoMatch'
@@ -484,7 +492,7 @@ function Invoke-AdSync
 						})
 					}
 				}
-				WriteLog -Identifier $id -Attributes $logAttribs
+				WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
 			}
 		}
 		catch

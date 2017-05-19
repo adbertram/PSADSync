@@ -963,7 +963,8 @@ InModuleScope $ThisModuleName {
 		$parameterSets = @(
 			@{
 				FilePath = 'C:\log.csv'
-				Identifier = 'username'
+				CSVIdentifierValue = 'username'
+				CSVIdentifierField = 'employeeid'
 				Attributes = [pscustomobject]@{ 
 					ADAttributeName = 'EmployeeId'
 					ADAttributeValue = $null
@@ -979,7 +980,7 @@ InModuleScope $ThisModuleName {
 		}
 	
 		it 'should export a CSV to the expected path: <TestName>' -TestCases $testCases.All {
-			param($FilePath,$Identifier,$Attributes)
+			param($FilePath,$CSVIdentifierValue,$CSVIdentifierField,$Attributes)
 		
 			$result = & $commandName @PSBoundParameters
 
@@ -994,7 +995,7 @@ InModuleScope $ThisModuleName {
 		}
 
 		it 'should appends to the CSV: <TestName>' -TestCases $testCases.All {
-			param($FilePath,$Identifier,$Attributes)
+			param($FilePath,$CSVIdentifierValue,$CSVIdentifierField,$Attributes)
 		
 			$result = & $commandName @PSBoundParameters
 
@@ -1009,7 +1010,7 @@ InModuleScope $ThisModuleName {
 		}
 
 		it 'should export as CSV with the expected values: <TestName>' -TestCases $testCases.All {
-			param($FilePath,$Identifier,$Attributes)
+			param($FilePath,$CSVIdentifierValue,$CSVIdentifierField,$Attributes)
 		
 			$result = & $commandName @PSBoundParameters
 
@@ -1020,7 +1021,8 @@ InModuleScope $ThisModuleName {
 				Scope = 'It'
 				ParameterFilter = { 
 					$InputObject.Time -eq 'time' -and
-					$InputObject.Identifier -eq $Identifier -and
+					$InputObject.CSVIdentifierValue -eq $CSVIdentifierValue -and
+					$InputObject.CSVIdentifierField -eq $CSVIdentifierField -and
 					$InputObject.ADAttributeName -eq 'EmployeeId' -and
 					$InputObject.ADAttributeValue -eq $null -and
 					$InputObject.CSVAttributeName -eq 'PERSON_NUM' -and
@@ -1204,6 +1206,20 @@ InModuleScope $ThisModuleName {
 				$params = @{} + $PSBoundParameters
 				{ & $commandName @params } | should throw 'One or more CSV headers excluded with -Exclude do not exist in the CSV file'
 			}
+
+			it 'should stop execution: <TestName>' -TestCases $testCases.ExcludeBogusCol {
+				param($CsvFilePath,$ReportOnly,$Exclude)
+			
+				try { $result = & $commandName @PSBoundParameters } catch {}
+
+				$assMParams = @{
+					CommandName = 'CompareCompanyUser'
+					Times = 0
+					Exactly = $true
+					Scope = 'It'
+				}
+				Assert-MockCalled @assMParams
+			}
 		
 		}
 
@@ -1310,8 +1326,8 @@ InModuleScope $ThisModuleName {
 						PERSON_NUM = 'x'
 					}
 					ADUser = [pscustomobject]@{
-						samAccountName = 'foo'
-						EmployeeId = 'x'
+						samAccountName = 'foonomatch'
+						EmployeeId = 'notmatch'
 					}
 					IDMatchedOn = $null
 					Match = $false
@@ -1329,7 +1345,8 @@ InModuleScope $ThisModuleName {
 					Exactly = $true
 					Scope = 'It'
 					ParameterFilter = { 
-						$PSBoundParameters.Identifier -eq 'foo,x' -and
+						$PSBoundParameters.CSVIdentifierField -eq 'AD_LOGON,PERSON_NUM' -and
+						$PSBoundParameters.CSVIdentifierValue -eq 'foo,x' -and
 						$PSBoundParameters.Attributes.CSVAttributeName -eq 'NoMatch' -and
 						$PSBoundParameters.Attributes.CSVAttributeValue -eq 'NoMatch' -and
 						$PSBoundParameters.Attributes.ADAttributeName -eq 'NoMatch' -and
@@ -1361,7 +1378,7 @@ InModuleScope $ThisModuleName {
 			mock 'FindAttributeMismatch'
 
 			it 'should write the expected contents to the log file: <TestName>' -TestCases $testCases.All {
-			param($CsvFilePath,$ReportOnly,$Exclude)
+				param($CsvFilePath,$ReportOnly,$Exclude)
 			
 				$result = & $commandName @PSBoundParameters
 
@@ -1371,7 +1388,8 @@ InModuleScope $ThisModuleName {
 					Exactly = $true
 					Scope = 'It'
 					ParameterFilter = { 
-						$Identifier -eq 'foo' -and
+						$IdentifierValu3 -eq 'foo' -and
+						$CSVIdentifierField -eq 'EmployeeId'
 						$Attributes.CSVAttributeName -eq 'AlreadyInSync' -and
 						$Attributes.CSVAttributeValue -eq 'AlreadyInSync' -and
 						$Attributes.ADAttributeName -eq 'AlreadyInSync' -and
