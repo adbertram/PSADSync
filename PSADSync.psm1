@@ -452,7 +452,7 @@ function Invoke-AdSync
 			}
 			if ($PSBoundParameters.ContainsKey('Exclude'))
 			{
-				if (-not (TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header [array]$Exclude.Keys)) {
+				if (-not (TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header ([array]$Exclude.Keys))) {
 					throw 'One or more CSV headers excluded with -Exclude do not exist in the CSV file.'
 				}
 				$getCsvParams.Exclude = $Exclude
