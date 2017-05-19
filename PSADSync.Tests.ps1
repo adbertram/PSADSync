@@ -73,9 +73,54 @@ InModuleScope $ThisModuleName {
 	
 		$testCases = @{
 			All = $parameterSets
+			Exclude = $parameterSets.where({$_.ContainsKey('Exclude')})
 			Exclude1Col = $parameterSets.where({$_.ContainsKey('Exclude') -and ($_.Exclude.Keys.Count -eq 1)})
 			Exclude2Cols = $parameterSets.where({$_.ContainsKey('Exclude') -and ($_.Exclude.Keys.Count -eq 2)})
 			NoExclusions = $parameterSets.where({ -not $_.ContainsKey('Exclude')})
+		}
+
+		context 'when at least one column is excluded' {
+
+			mock 'Where-Object' {
+				[pscustomobject]@{
+					AD_LOGON = 'foo2'
+					PERSON_NUM = 1234
+					OtherAtrrib = 'x'
+					ExcludeCol = 'dontexcludeme'
+					ExcludeCol2 = 'excludeme'
+				}
+				[pscustomobject]@{
+					AD_LOGON = 'notinAD'
+					PERSON_NUM = 1234
+					OtherAtrrib = 'x'
+					ExcludeCol = 'dontexcludeme'
+					ExcludeCol2 = 'dontexcludeme'
+				}
+				[pscustomobject]@{
+					AD_LOGON = $null
+					PERSON_NUM = 12345
+					OtherAtrrib = 'x'
+					ExcludeCol = 'dontexcludeme'
+					ExcludeCol2 = 'dontexcludeme'
+				}
+			} -ParameterFilter { $FilterScript.ToString() -notmatch '\*' }
+		
+			it 'should create the expected where filter: <TestName>' -TestCases $testCases.Exclude {
+				param($CsvFilePath,$Exclude)
+			
+				$result = & $commandName @PSBoundParameters
+
+				$assMParams = @{
+					CommandName = 'Where-Object'
+					Times = $script:csvUsers.Count
+					Exactly = $true
+					Scope = 'It'
+					ParameterFilter = { 
+						$PSBoundParameters.FilterScript.ToString() -like "(`$_.`'*' -ne '*')*" }
+				}
+				Assert-MockCalled @assMParams
+			}
+		
 		}
 
 		it 'when excluding no cols, should return all expected users: <TestName>' -TestCases $testCases.NoExclusions {

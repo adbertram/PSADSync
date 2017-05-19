@@ -129,10 +129,10 @@ function Get-CompanyCsvUser
 			$whereFilter = { '*' }
 			if ($PSBoundParameters.ContainsKey('Exclude'))
 			{
-				$conditions = $Exclude.GetEnumerator() | foreach { "(`$_.$($_.Key) -ne '$($_.Value)')" }
+				$conditions = $Exclude.GetEnumerator() | foreach { "(`$_.'$($_.Key)' -ne '$($_.Value)')" }
 				$whereFilter = [scriptblock]::Create($conditions -join ' -and ')
 			}
-			@(Import-Csv -Path $CsvFilePath).where($whereFilter)
+			Import-Csv -Path $CsvFilePath | Where-Object -FilterScript $whereFilter
 		}
 		catch
 		{
