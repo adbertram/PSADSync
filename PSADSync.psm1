@@ -49,15 +49,13 @@ function Get-CompanyAdUser
 				$params.Server = $DomainController
 			}
 
+			$whereFilter = { $adUser = $_; $Defaults.FieldMatchIds.AD | where { $adUser.$_ }}
 			if ($All.IsPresent) {
 				$params.Filter = '*'
-				Get-AdUser @params
 			} else {
-				$Defaults.FieldMatchIds.AD | foreach {
-					$params.LDAPFilter = "(&($($_)=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))"
-					Get-AdUser @params
-				}
+				$params.LDAPFilter = "(!userAccountControl:1.2.840.113556.1.4.803:=2)"
 			}
+			@(Get-AdUser @params).where($whereFilter)
 		}
 		catch
 		{
@@ -201,7 +199,6 @@ function FindUserMatch
 		Write-Verbose "Match fields: CSV - [$($csvMatchField)], AD - [$($adMatchField)]"
 		if ($csvMatchVal = $CsvUser.$csvMatchField) {
 			Write-Verbose -Message "CsvFieldMatchValue is [$($csvMatchVal)]"
-			Write-Verbose -Message "AD field value is $($adMatchVal)"
 			if ($matchedAdUser = @($AdUsers).where({ $_.$adMatchField -eq $csvMatchVal })) {
 				Write-Verbose -Message "Found AD match for CSV user [$csvMatchVal]: [$($matchedAdUser.$adMatchField)]"
 				[pscustomobject]@{
@@ -227,7 +224,7 @@ function FindAttributeMismatch
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[Microsoft.ActiveDirectory.Management.ADUser]$AdUser,
+		[object]$AdUser,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]

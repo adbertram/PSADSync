@@ -173,6 +173,8 @@ InModuleScope $ThisModuleName {
 						GivenName = 'givenamehere'
 						Surname = 'surnamehere'
 						DisplayName = 'displaynamehere'
+						OtherProperty = 'other1'
+						EmployeeId = 111
 						Title = 'titlehere'
 					}
 					[pscustomobject]@{
@@ -181,6 +183,8 @@ InModuleScope $ThisModuleName {
 						GivenName = 'givenamehere2'
 						Surname = 'surnamehere2'
 						DisplayName = 'displaynamehere2'
+						OtherProperty = 'other2'
+						EmployeeId = 222
 						Title = 'titlehere2'
 					}
 					[pscustomobject]@{
@@ -189,6 +193,28 @@ InModuleScope $ThisModuleName {
 						GivenName = 'givenamehere3'
 						Surname = 'surnamehere3'
 						DisplayName = 'displaynamehere3'
+						OtherProperty = 'other3'
+						EmployeeId = 333
+						Title = 'titlehere3'
+					}
+					[pscustomobject]@{
+						Name = 'foo4'
+						SamAccountName = $null
+						GivenName = 'givenamehere3'
+						Surname = 'surnamehere3'
+						DisplayName = 'displaynamehere3'
+						OtherProperty = 'other3'
+						EmployeeId = $null
+						Title = 'titlehere3'
+					}
+					[pscustomobject]@{
+						Name = 'foo5'
+						SamAccountName = $null
+						GivenName = 'givenamehere3'
+						Surname = 'surnamehere3'
+						DisplayName = 'displaynamehere3'
+						OtherProperty = 'other3'
+						EmployeeId = 333
 						Title = 'titlehere3'
 					}
 				)
@@ -203,6 +229,14 @@ InModuleScope $ThisModuleName {
 					[pscustomobject]@{
 						GivenName = 'givenamehere2'
 						Surname = 'surnamehere2'
+					}
+					[pscustomobject]@{
+						GivenName = 'givenamehere3'
+						Surname = 'surnamehere3'
+					}
+					[pscustomobject]@{
+						GivenName = 'givenamehere3'
+						Surname = 'surnamehere3'
 					}
 					[pscustomobject]@{
 						GivenName = 'givenamehere3'
@@ -243,6 +277,26 @@ InModuleScope $ThisModuleName {
 						EmployeeId = 333
 						Title = 'titlehere3'
 					}
+					[pscustomobject]@{
+						Name = 'foo3'
+						SamAccountName = $null
+						GivenName = 'givenamehere3'
+						Surname = 'surnamehere3'
+						DisplayName = 'displaynamehere3'
+						OtherProperty = 'other3'
+						EmployeeId = $null
+						Title = 'titlehere3'
+					}
+					[pscustomobject]@{
+						Name = 'foo3'
+						SamAccountName = $null
+						GivenName = 'givenamehere3'
+						Surname = 'surnamehere3'
+						DisplayName = 'displaynamehere3'
+						OtherProperty = 'other3'
+						EmployeeId = 333
+						Title = 'titlehere3'
+					}
 				)
 			} -ParameterFilter { $Properties -eq '*' }
 		#endregion
@@ -257,7 +311,7 @@ InModuleScope $ThisModuleName {
 			}
 			@{
 				Properties = 'GivenName','SurName'
-				TestName = 'All users'
+				TestName = 'All users / Properties'
 			}
 		)
 	
@@ -273,7 +327,7 @@ InModuleScope $ThisModuleName {
 			param($All,$Properties)
 		
 			$result = & $commandName @PSBoundParameters
-			@($result).Count | should be 3
+			@($result).Count | should be 4
 
 			$assMParams = @{
 				CommandName = 'Get-AdUser'
@@ -287,21 +341,12 @@ InModuleScope $ThisModuleName {
 			Assert-MockCalled @assMParams
 		}
 
-		it 'when All is not used, it only returns enabled users with AD field matches populated: <TestName>' -TestCases $testCases.EnabledUsers {
+		it 'it only returns users with at least one AD field match populated: <TestName>' -TestCases $testCases.AllProperties {
 			param($All,$Properties)
 		
 			$result = & $commandName @PSBoundParameters
 
-			$assMParams = @{
-				CommandName = 'Get-AdUser'
-				Times = 2
-				Exactly = $true
-				Scope = 'It'
-				ParameterFilter = {
-					$LDAPFilter -in @("(&(samAccountName=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))","(&(EmployeeId=*)(!userAccountControl:1.2.840.113556.1.4.803:=2))" ) 
-				}
-			}
-			Assert-MockCalled @assMParams
+			$result.Count | should be 4
 		}
 
 		it 'when Properties is passed, it returns expected properties: <TestName>' -TestCases $testCases.SpecificProperties {
