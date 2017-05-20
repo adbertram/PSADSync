@@ -1,8 +1,17 @@
 Write-Host 'Installing necessary PowerShell modules...'
-$null = Install-PackageProvider NuGet -MinimumVersion '2.8.5.201' -Force
-$null = Import-PackageProvider NuGet -MinimumVersion '2.8.5.201' -Force
 
-$requiredModules = @('Pester','ADSIPS')
+$provParams = @{
+	Name = 'NuGet'
+	MinimumVersion = '2.8.5.208'
+	Force = $true
+}
+
+$null = Install-PackageProvider @provParams
+$null = Import-PackageProvider @provParams
+
+$requiredModules = @('Pester','ADSIPS','PowerShellGet')
 foreach ($m in $requiredModules) {
 	Install-Module -Name $m -Force -Confirm:$false
+	Remove-Module -Name $m -Force
+	Import-Module -Name $m
 }
