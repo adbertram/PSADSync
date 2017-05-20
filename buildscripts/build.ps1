@@ -11,7 +11,7 @@ try {
 	Write-Host (Get-Content -Path $manifestFilePath -Raw)
 
 	## Publish module to PowerShell Gallery
-	Publish-Module -Path $env:APPVEYOR_BUILD_FOLDER -NuGetApiKey $env:nuget_apikey
+	Publish-Module -Path $manifestFilePath -NuGetApiKey $env:nuget_apikey
 
 } catch {
 	throw $_.Exception.Message
