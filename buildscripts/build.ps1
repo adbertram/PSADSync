@@ -1,5 +1,6 @@
+$ErrorActionPreference = 'Stop'
+
 try {
-	$ErrorActionPreference = 'Stop'
 
 	## Update module version in manifest
 	$manifestFilePath = "$env:APPVEYOR_BUILD_FOLDER\PSADSync.psd1"
@@ -23,5 +24,5 @@ try {
 	Publish-Module -Path $env:APPVEYOR_BUILD_FOLDER -NuGetApiKey $env:nuget_apikey -Confirm:$false
 
 } catch {
-	throw $_.Exception.Message
+	$host.SetShouldExit($LastExitCode)
 }
