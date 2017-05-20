@@ -20,6 +20,7 @@ try {
 	$null = mkdir $moduleFolderPath
 	Get-ChildItem -Path $env:APPVEYOR_BUILD_FOLDER -Filter '*.ps*' | Copy-Item -Destination $moduleFolderPath
 
+	Write-Host  (gc "$moduleFolderPath\PSADSync.psd1" -Raw)
 	## Publish module to PowerShell Gallery
 	$publishParams = @{
 		Path = $moduleFolderPath
