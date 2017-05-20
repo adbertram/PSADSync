@@ -12,13 +12,13 @@ try {
 	}		
 
 	$replacements.GetEnumerator() | foreach {
-		$manifestContent -replace $_.Key,$_.Value
+		$manifestContent = $manifestContent -replace $_.Key,$_.Value
 	}
 
 	$manifestContent | Set-Content -Path $manifestFilePath
 
 	## Publish module to PowerShell Gallery
-	Publish-Module -Path $manifestFilePath -NuGetApiKey $env:nuget_apikey
+	Publish-Module -Path $env:APPVEYOR_BUILD_FOLDER -NuGetApiKey $env:nuget_apikey
 
 } catch {
 	throw $_.Exception.Message
