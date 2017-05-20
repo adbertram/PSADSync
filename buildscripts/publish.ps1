@@ -9,7 +9,7 @@ try {
 	Import-Module -Name PowerShellGet
 
 	## Don't upload the build scripts to PowerShell Gallery
-	$moduleFolderPath = 'C:\Users\appveyor\Documents\WindowsPowerShell\Modules\PSADSync'
+	$moduleFolderPath = "$env:APPVEYOR_BUILD_FOLDER\PSADSync"
 	$null = mkdir $moduleFolderPath
 	Get-ChildItem -Path $env:APPVEYOR_BUILD_FOLDER -Filter '*.ps*' | Copy-Item -Destination $moduleFolderPath
 
@@ -20,6 +20,7 @@ try {
 		Confirm = $false
 		Verbose = $true
 	}
+	Write-Host ($publishParams | Out-String)
 	Publish-Module @publishParams
 
 } catch {
