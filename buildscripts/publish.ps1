@@ -14,7 +14,14 @@ try {
 	Get-ChildItem -Path $env:APPVEYOR_BUILD_FOLDER -Filter '*.ps*' | Copy-Item -Destination $moduleFolderPath
 
 	## Publish module to PowerShell Gallery
-	Publish-Module -Path $moduleFolderPath -NuGetApiKey $env:nuget_apikey -Confirm:$false -Verbose
+	$publishParams = @{
+		Path = $moduleFolderPath
+		NuGetApiKey = $env:nuget_apikey
+		Confirm = $false
+		Verbose = $true
+	}
+	Write-Host ($publishParams | Out-String)
+	Publish-Module @publishParams
 
 } catch {
 	$host.SetShouldExit($LastExitCode)
