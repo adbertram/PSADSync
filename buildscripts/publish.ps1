@@ -4,7 +4,14 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 try {
-	$null = Install-PackageProvider -Name NuGet -MinimumVersion '2.8.5.208' -Force -Verbose
+	$provParams = @{
+		Name = 'NuGet'
+		MinimumVersion = '2.8.5.208'
+		Force = $true
+		Verbose = $true
+	}
+	$null = Install-PackageProvider @provParams
+	$null = Import-PackageProvider @provParams
 
 	Import-Module -Name PowerShellGet
 
@@ -17,10 +24,10 @@ try {
 	$publishParams = @{
 		Path = $moduleFolderPath
 		NuGetApiKey = $env:nuget_apikey
-		Confirm = $false
 		Verbose = $true
+		Repository = 'PSGallery'
+		Force = $true
 	}
-	Write-Host ($publishParams | Out-String)
 	Publish-Module @publishParams
 
 } catch {
