@@ -25,9 +25,8 @@ try {
 	$publishParams = @{
 		Path = $moduleFolderPath
 		NuGetApiKey = $env:nuget_apikey
-		Verbose = $true
 		Repository = 'PSGallery'
-		Force = $true
+		RequiredVersion = $env:APPVEYOR_BUILD_VERSION
 	}
 	Publish-Module @publishParams
 
