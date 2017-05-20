@@ -27,7 +27,6 @@ try {
 		Repository = 'PSGallery'
 		Force = $true
 		Confirm = $false
-		RequiredVersion = $env:APPVEYOR_BUILD_VERSION
 	}
 	Publish-Module @publishParams
 
