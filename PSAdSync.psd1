@@ -6,7 +6,7 @@
     CompanyName = 'Adam the Automator, LLC'
     Copyright = '(c) 2017 Adam Bertram. All rights reserved.'
     Description = 'This module expedites the process of syncing a CSV file full of employees with Active Directory.'
-    RequiredModules = 'ActiveDirectory'
+    RequiredModules = 'ADSIPS'
     PowerShellVersion = '5.0'
     FunctionsToExport = '*'
     FileList = 'Configuration.psd1'

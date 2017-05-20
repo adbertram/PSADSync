@@ -7,7 +7,7 @@ Add-Type -AssemblyName 'System.Web'
 
 function Get-CompanyAdUser
 {
-	[OutputType([Microsoft.ActiveDirectory.Management.ADUser])]
+	[OutputType([System.DirectoryServices.AccountManagement.UserPrincipal])]
 	[CmdletBinding()]
 	param
 	(
@@ -17,15 +17,7 @@ function Get-CompanyAdUser
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[pscredential]$Credential = $Defaults.Credential,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[string]$DomainController = $Defaults.DomainController,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[string[]]$Properties = '*'
+		[pscredential]$Credential = $Defaults.Credential
 	)
 	begin
 	{
@@ -38,24 +30,18 @@ function Get-CompanyAdUser
 		{
 			## Find all users that have the unique AD ID and are enabled
 			$params = @{
-				Properties = $Properties
+				NoResultLimit = $true
 			}
 			if ($Credential)
 			{
 				$params.Credential = $Credential
 			}
 
-			if ($DomainController) {
-				$params.Server = $DomainController
-			}
-
 			$whereFilter = { $adUser = $_; $Defaults.FieldMatchIds.AD | where { $adUser.$_ }}
-			if ($All.IsPresent) {
-				$params.Filter = '*'
-			} else {
+			if (-not $All.IsPresent) {
 				$params.LDAPFilter = "(!userAccountControl:1.2.840.113556.1.4.803:=2)"
 			}
-			@(Get-AdUser @params).where($whereFilter)
+			@(Get-AdsiUser @params).where($whereFilter)
 		}
 		catch
 		{
@@ -149,7 +135,7 @@ function CompareCompanyUser
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[object[]]$AdUsers,
+		[System.DirectoryServices.AccountManagement.UserPrincipal[]]$AdUsers,
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
@@ -224,7 +210,7 @@ function FindAttributeMismatch
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[object]$AdUser,
+		[System.DirectoryServices.AccountManagement.UserPrincipal]$AdUser,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
@@ -274,7 +260,7 @@ function SyncCompanyUser
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[Microsoft.ActiveDirectory.Management.ADUser]$AdUser,
+		[System.DirectoryServices.AccountManagement.UserPrincipal]$AdUser,
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
@@ -433,11 +419,7 @@ function Invoke-AdSync
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Exclude,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[string]$DomainController
+		[hashtable]$Exclude
 	)
 	begin
 	{
@@ -457,18 +439,10 @@ function Invoke-AdSync
 				}
 				$getCsvParams.Exclude = $Exclude
 			}
-
-			$getAdUserParams = @{
-				Properties = ([array]$AdToCsvFieldMap.Keys)
-			}
-			if ($PSBoundParameters.ContainsKey('DomainController'))
-			{
-				$getAdUserParams.DomainController = $DomainController
-			}
 			
 			$compParams = @{
 				CsvUsers = Get-CompanyCsvUser @getCsvParams
-				AdUsers = Get-CompanyAdUser @getAdUserParams
+				AdUsers = Get-CompanyAdUser
 			}
 			$userCompareResults = CompareCompanyUser @compParams
 			foreach ($user in $userCompareResults) {

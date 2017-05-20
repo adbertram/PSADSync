@@ -4,6 +4,61 @@ Get-Module -Name $ThisModuleName -All | Remove-Module -Force
 
 Import-Module -Name $ThisModule,'ActiveDirectory' -Force -ErrorAction Stop
 
+$global:allAdsiUsers = 0..10 | foreach {
+	$i = $_
+	$adsiUser = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
+	$amParams = @{
+		MemberType = 'NoteProperty'
+		Force = $true
+	}
+	$props = @{
+		'Name' = 'nameval'
+		'Enabled' = $true
+		'SamAccountName' = 'samval'
+		'GivenName' = 'givennameval'
+		'Surname' = 'surnameval'
+		'DisplayName' = 'displaynameval'
+		'OtherProperty' = 'otherval'
+		'EmployeeId' = 1
+		'Title' = 'titleval'
+	}
+	$props.GetEnumerator() | foreach {
+		if ($_.Key -eq 'Enabled') {
+			if ($i % 2) {
+				$adsiUser | Add-Member @amParams -Name $_.Key -Value $false
+			} else {
+				$adsiUser | Add-Member @amParams -Name $_.Key -Value $true
+			}
+		} else {
+			$adsiUser | Add-Member @amParams -Name $_.Key -Value "$($_.Value)$i"
+		}
+	}
+	if ($i -eq 5) {
+		$adsiUser | Add-Member @amParams -Name 'samAccountName' -Value $null
+	}
+	if ($i -eq 6) { 
+		$adsiUser | Add-Member @amParams -Name 'EmployeeId' -Value $null
+	}
+	$adsiUser
+}
+
+$global:allCsvUsers = 0..15 | foreach {
+	$i = $_
+	$output = @{ 
+		AD_LOGON = "nameval$i"
+		PERSON_NUM = "1$i" 
+		ExcludeCol = 'dontexcludeme'
+	}
+	if ($i -eq (Get-Random -Maximum 9)) {
+		$output.'AD_LOGON' = $null
+		$output.ExcludeCol = 'excludeme'
+	}
+	if ($i -eq (Get-Random -Maximum 9)) {
+		$output.'PERSON_NUM' = $null
+	}
+	[pscustomobject]$output 
+}
+
 InModuleScope $ThisModuleName {
 
 	describe 'Get-CompanyCsvUser' {
@@ -210,140 +265,13 @@ InModuleScope $ThisModuleName {
 		$command = Get-Command -Name $commandName
 	
 		#region Mocks
-			mock 'Get-AdUser' {
-				@(
-					[pscustomobject]@{
-						Name = 'foo'
-						SamAccountName = 'samname'
-						GivenName = 'givenamehere'
-						Surname = 'surnamehere'
-						DisplayName = 'displaynamehere'
-						OtherProperty = 'other1'
-						EmployeeId = 111
-						Title = 'titlehere'
-					}
-					[pscustomobject]@{
-						Name = 'foo2'
-						SamAccountName = 'samname2'
-						GivenName = 'givenamehere2'
-						Surname = 'surnamehere2'
-						DisplayName = 'displaynamehere2'
-						OtherProperty = 'other2'
-						EmployeeId = 222
-						Title = 'titlehere2'
-					}
-					[pscustomobject]@{
-						Name = 'foo3'
-						SamAccountName = 'samname2'
-						GivenName = 'givenamehere3'
-						Surname = 'surnamehere3'
-						DisplayName = 'displaynamehere3'
-						OtherProperty = 'other3'
-						EmployeeId = 333
-						Title = 'titlehere3'
-					}
-					[pscustomobject]@{
-						Name = 'foo4'
-						SamAccountName = $null
-						GivenName = 'givenamehere3'
-						Surname = 'surnamehere3'
-						DisplayName = 'displaynamehere3'
-						OtherProperty = 'other3'
-						EmployeeId = $null
-						Title = 'titlehere3'
-					}
-					[pscustomobject]@{
-						Name = 'foo5'
-						SamAccountName = $null
-						GivenName = 'givenamehere3'
-						Surname = 'surnamehere3'
-						DisplayName = 'displaynamehere3'
-						OtherProperty = 'other3'
-						EmployeeId = 333
-						Title = 'titlehere3'
-					}
-				)
-			} -ParameterFilter { (diff $Properties @('GivenName','SurName','DisplayName','Title')) -ne $null }
+			mock 'Get-AdsiUser' {
+				$global:allAdsiUsers | where { $_.Enabled }
+			} -ParameterFilter { $LdapFilter }
 
-			mock 'Get-AdUser' {
-				@(
-					[pscustomobject]@{
-						GivenName = 'givenamehere'
-						Surname = 'surnamehere'
-					}
-					[pscustomobject]@{
-						GivenName = 'givenamehere2'
-						Surname = 'surnamehere2'
-					}
-					[pscustomobject]@{
-						GivenName = 'givenamehere3'
-						Surname = 'surnamehere3'
-					}
-					[pscustomobject]@{
-						GivenName = 'givenamehere3'
-						Surname = 'surnamehere3'
-					}
-					[pscustomobject]@{
-						GivenName = 'givenamehere3'
-						Surname = 'surnamehere3'
-					}
-				)
-			} -ParameterFilter { -not (diff $Properties @('GivenName','SurName')) }
-
-			mock 'Get-AdUser' {
-				@(
-					[pscustomobject]@{
-						Name = 'foo'
-						SamAccountName = 'samname'
-						GivenName = 'givenamehere'
-						Surname = 'surnamehere'
-						DisplayName = 'displaynamehere'
-						OtherProperty = 'other1'
-						EmployeeId = 111
-						Title = 'titlehere'
-					}
-					[pscustomobject]@{
-						Name = 'foo2'
-						SamAccountName = 'samname2'
-						GivenName = 'givenamehere2'
-						Surname = 'surnamehere2'
-						DisplayName = 'displaynamehere2'
-						OtherProperty = 'other2'
-						EmployeeId = 222
-						Title = 'titlehere2'
-					}
-					[pscustomobject]@{
-						Name = 'foo3'
-						SamAccountName = 'samname2'
-						GivenName = 'givenamehere3'
-						Surname = 'surnamehere3'
-						DisplayName = 'displaynamehere3'
-						OtherProperty = 'other3'
-						EmployeeId = 333
-						Title = 'titlehere3'
-					}
-					[pscustomobject]@{
-						Name = 'foo3'
-						SamAccountName = $null
-						GivenName = 'givenamehere3'
-						Surname = 'surnamehere3'
-						DisplayName = 'displaynamehere3'
-						OtherProperty = 'other3'
-						EmployeeId = $null
-						Title = 'titlehere3'
-					}
-					[pscustomobject]@{
-						Name = 'foo3'
-						SamAccountName = $null
-						GivenName = 'givenamehere3'
-						Surname = 'surnamehere3'
-						DisplayName = 'displaynamehere3'
-						OtherProperty = 'other3'
-						EmployeeId = 333
-						Title = 'titlehere3'
-					}
-				)
-			} -ParameterFilter { $Properties -eq '*' }
+			mock 'Get-AdsiUser' {
+				$global:allAdsiUsers
+			} -ParameterFilter { -not $LdapFilter }
 		#endregion
 		
 		$parameterSets = @(
@@ -354,63 +282,28 @@ InModuleScope $ThisModuleName {
 				All = $true
 				TestName = 'All users'
 			}
-			@{
-				Properties = 'GivenName','SurName'
-				TestName = 'All users / Properties'
-			}
 		)
 	
 		$testCases = @{
 			All = $parameterSets
 			AllUsers = $parameterSets.where({$_.ContainsKey('All')})
 			EnabledUsers = $parameterSets.where({-not $_.ContainsKey('All')})
-			SpecificProperties = $parameterSets.where({$_.ContainsKey('Properties')})
-			AllProperties = $parameterSets.where({-not $_.ContainsKey('Properties')})
 		}
 
 		it 'when All is used, it returns all users: <TestName>' -TestCases $testCases.AllUsers {
-			param($All,$Properties)
+			param($All,$Credential)
 		
 			$result = & $commandName @PSBoundParameters
-			@($result).Count | should be 4
-
-			$assMParams = @{
-				CommandName = 'Get-AdUser'
-				Times = 1
-				Exactly = $true
-				Scope = 'It'
-				ParameterFilter = { 
-					$Filter -eq 'objectClass -like "*"' 
-				}
-			}
-			Assert-MockCalled @assMParams
+			@($result).Count | should be $global:allAdsiUsers.Count
 		}
 
-		it 'it only returns users with at least one AD field match populated: <TestName>' -TestCases $testCases.AllProperties {
-			param($All,$Properties)
+		it 'when All is not used, it returns only enabled users: <TestName>' -TestCases $testCases.EnabledUsers {
+			param($All,$Credential)
 		
 			$result = & $commandName @PSBoundParameters
-
-			$result.Count | should be 4
+			@($result).Count | should be ($global:allAdsiUsers | where { $_.Enabled }).Count
 		}
 
-		it 'when Properties is passed, it returns expected properties: <TestName>' -TestCases $testCases.SpecificProperties {
-			param($All,$Properties)
-		
-			$result = & $commandName @PSBoundParameters
-			@($result).foreach({
-				(diff $_.PSObject.Properties.Name @('GivenName','SurName')).InputObject | should benullorempty
-			})
-		}
-
-		it 'when Properties is not passed, it returns expected properties: <TestName>' -TestCases $testCases.AllProperties {
-			param($All,$Properties)
-		
-			$result = & $commandName @PSBoundParameters
-			@($result).foreach({
-				(diff $_.PSObject.Properties.Name @('GivenName','SurName','SamAccountName','Title','OtherProperty','DisplayName','Name','EmployeeId')).InputObject | should benullorempty
-			})
-		}
 	}
 
 	describe 'CompareCompanyUser' {
@@ -419,120 +312,36 @@ InModuleScope $ThisModuleName {
 		$command = Get-Command -Name $commandName
 	
 		#region Mocks
-			$script:csvUsers = @(
-				[pscustomobject]@{
-					AD_LOGON = 'foo'
-				}
-				[pscustomobject]@{
-					AD_LOGON = 'foo2'
-				}
-				[pscustomobject]@{
-					AD_LOGON = 'foo3'
-				}
-				[pscustomobject]@{
-					AD_LOGON = 'notinAD'
-				}
-			)
-
-			$script:empIdAdUsers = @(
-				[pscustomobject]@{
-					Name = 'foo'
-					SamAccountName = 'samname'
-					GivenName = 'givenamehere'
-					Surname = 'surnamehere'
-					DisplayName = 'displaynamehere'
-					Title = 'titlehere'
-					OtherProperty = 'other'
-					EmployeeId = 123
-				}
-				[pscustomobject]@{
-					Name = 'foo2'
-					SamAccountName = 'samname2'
-					GivenName = 'givenamehere2'
-					Surname = 'surnamehere2'
-					DisplayName = 'displaynamehere2'
-					Title = 'titlehere2'
-					OtherProperty = 'other2'
-					EmployeeId = 1234
-				}
-				[pscustomobject]@{
-					Name = 'foo3'
-					SamAccountName = 'samname3'
-					GivenName = 'givenamehere3'
-					Surname = 'surnamehere3'
-					DisplayName = 'displaynamehere3'
-					Title = 'titlehere3'
-					OtherProperty = 'other3'
-					EmployeeId = 12345
-				}
-			)
-
-			$script:allAdUsers = @(
-				[pscustomobject]@{
-					Name = 'foo'
-					SamAccountName = 'samname'
-					GivenName = 'givenamehere'
-					Surname = 'surnamehere'
-					DisplayName = 'displaynamehere'
-					Title = 'titlehere'
-					OtherProperty = 'other'
-				}
-				[pscustomobject]@{
-					Name = 'foo2'
-					SamAccountName = 'samname2'
-					GivenName = 'givenamehere2'
-					Surname = 'surnamehere2'
-					DisplayName = 'displaynamehere2'
-					Title = 'titlehere2'
-					OtherProperty = 'other2'
-				}
-				[pscustomobject]@{
-					Name = 'foo3'
-					SamAccountName = 'samname2'
-					GivenName = 'givenamehere3'
-					Surname = 'surnamehere3'
-					DisplayName = 'displaynamehere3'
-					Title = 'titlehere3'
-					OtherProperty = 'other3'
-				}
-			)
-
 			mock 'FindUserMatch' {
 				[pscustomobject]@{
-					MatchedAdUser = [pscustomobject]@{
-						EmployeeId = 'foo'
-					}
+					MatchedAdUser = ($global:allAdsiUsers | where EmployeeId -eq '10' )
 					IdMatchedOn = 'AD_LOGON'
 				}
-			} -ParameterFilter { $CsvUser.AD_LOGON -eq 'foo' }
+			} -ParameterFilter { $CsvUser.AD_LOGON -eq 'nameval0' }
 
 			mock 'FindUserMatch' {
 				[pscustomobject]@{
-					MatchedAdUser = [pscustomobject]@{
-						EmployeeId = 'foo2'
-					}
+					MatchedAdUser = ($global:allAdsiUsers | where EmployeeId -eq '11' )
 					IdMatchedOn = 'AD_LOGON'
 				}
-			} -ParameterFilter { $CsvUser.AD_LOGON -eq 'foo2' }
+			} -ParameterFilter { $CsvUser.AD_LOGON -eq 'nameval1' }
 
 			mock 'FindUserMatch' {
 				[pscustomobject]@{
-					MatchedAdUser = [pscustomobject]@{
-						EmployeeId = 'foo3'
-					}
+					MatchedAdUser = ($global:allAdsiUsers | where EmployeeId -eq '12')
 					IdMatchedOn = 'AD_LOGON'
 				}
-			} -ParameterFilter { $CsvUser.AD_LOGON -eq 'foo3' }
+			} -ParameterFilter { $CsvUser.AD_LOGON -eq 'nameval2' }
 
 			mock 'FindUserMatch' {
 
-			} -ParameterFilter { $CsvUser.AD_LOGON -eq 'NotInAD' }
+			} -ParameterFilter { $CsvUser.AD_LOGON -eq 'nameval11' }
 		#endregion
 		
 		$parameterSets = @(
 			@{
-				AdUsers = $script:allAdUsers
-				CsvUsers = $script:csvUsers
+				AdUsers = $global:allAdsiUsers
+				CsvUsers = $global:allCsvUsers
 				TestName = 'Default'
 			}
 		)
@@ -545,7 +354,7 @@ InModuleScope $ThisModuleName {
 			param($AdUsers,$CsvUsers)
 		
 			$result = & $commandName @PSBoundParameters
-			@($result).Count | should be 4
+			@($result).Count | should be 16
 		}
 
 		it 'should return the expected object properties: <TestName>' -TestCases $testCases.All {
@@ -571,14 +380,14 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'foo'})).AdUser.EmployeeId | should be 'foo'
-			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'foo'})).Match | should be $true
-			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'foo2'})).AdUser.EmployeeId | should be 'foo2'
-			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'foo2'})).Match | should be $true
-			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'foo3'})).AdUser.EmployeeId | should be 'foo3'
-			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'foo3'})).Match | should be $true
-			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'NotInAD'})).AdUser | should benullorempty
-			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'NotInAD'})).Match | should be $false
+			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'nameval0'})).AdUser.EmployeeId | should be '10'
+			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'nameval0'})).Match | should be $true
+			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'nameval1'})).AdUser.EmployeeId | should be '11'
+			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'nameval1'})).Match | should be $true
+			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'nameval2'})).AdUser.EmployeeId | should be '12'
+			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'nameval2'})).Match | should be $true
+			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'nameval11'})).AdUser | should benullorempty
+			(@($result).where({ $_.CsvUser.AD_LOGON -eq 'nameval11'})).Match | should be $false
 
 		}
 
@@ -592,7 +401,7 @@ InModuleScope $ThisModuleName {
 				param($AdUsers,$CsvUsers)
 			
 				$result = & $commandName @PSBoundParameters
-				@($result).Count | should be 4
+				@($result).Count | should be $global:allCsvUsers.Count
 			}
 			
 		
@@ -840,11 +649,11 @@ InModuleScope $ThisModuleName {
 				OtherAtrrib = 'y'
 			}
 
-			$script:AdUserMisMatch = New-MockObject -Type 'Microsoft.ActiveDirectory.Management.ADUser'
+			$script:AdUserMisMatch = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
 			$script:AdUserMisMatch | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
 			$script:AdUserMisMatch | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value $null -PassThru
 
-			$script:AdUserNoMisMatch = New-MockObject -Type 'Microsoft.ActiveDirectory.Management.ADUser'
+			$script:AdUserNoMisMatch = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
 			$script:AdUserNoMisMatch | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
 			$script:AdUserNoMisMatch | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value 1111 -PassThru
 
@@ -958,7 +767,7 @@ InModuleScope $ThisModuleName {
 
 		mock 'Set-AdUser'
 
-		$script:AdUser = New-MockObject -Type 'Microsoft.ActiveDirectory.Management.ADUser'
+		$script:AdUser = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
 		$script:AdUser | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
 		$script:AdUser | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value $null -PassThru
 
@@ -1125,111 +934,37 @@ InModuleScope $ThisModuleName {
 		$command = Get-Command -Name $commandName
 
 		#region Mocks
-			$script:csvUsers = @(
-				[pscustomobject]@{
-					AD_LOGON = 'foo'
-					PERSON_NUM = 123
-					OtherAtrrib = 'x'
-					ExcludeCol = 'excludeme'
-				}
-				[pscustomobject]@{
-					AD_LOGON = 'foo2'
-					PERSON_NUM = 1234
-					OtherAtrrib = 'x'
-					ExcludeCol = 'dontexcludeme'
-				}
-				[pscustomobject]@{
-					AD_LOGON = 'notinAD'
-					PERSON_NUM = 1234
-					OtherAtrrib = 'x'
-					ExcludeCol = 'dontexcludeme'
-				}
-				[pscustomobject]@{
-					AD_LOGON = $null
-					PERSON_NUM = 12345
-					OtherAtrrib = 'x'
-					ExcludeCol = 'dontexcludeme'
-				}
-			)
-
-			$script:AdUsers = @(
-				[pscustomobject]@{
-					Name = 'foo'
-					SamAccountName = 'samname'
-					GivenName = 'givenamehere'
-					Surname = 'surnamehere'
-					DisplayName = 'displaynamehere'
-					Title = 'titlehere'
-					OtherProperty = 'other'
-					EmployeeId = 'x'
-				}
-				[pscustomobject]@{
-					Name = 'foo2'
-					SamAccountName = 'samname2'
-					GivenName = 'givenamehere2'
-					Surname = 'surnamehere2'
-					DisplayName = 'displaynamehere2'
-					Title = 'titlehere2'
-					OtherProperty = 'other2'
-					EmployeeId = 'y'
-				}
-				[pscustomobject]@{
-					Name = 'foo3'
-					SamAccountName = 'samname2'
-					GivenName = 'givenamehere3'
-					Surname = 'surnamehere3'
-					DisplayName = 'displaynamehere3'
-					Title = 'titlehere3'
-					OtherProperty = 'other3'
-					EmployeeId = 'z'
-				}
-			)
 
 			mock 'Get-CompanyAdUser' {
-				$script:AdUsers
+				$global:allAdsiUsers | where { $_.Enabled }
 			}
 
 			mock 'Get-CompanyCsvUser' {
-				$script:csvUsers
+				$global:allCsvUsers
 			} -ParameterFilter { -not $Exclude }
 
 			mock 'Get-CompanyCsvUser' {
-				$script:csvUsers | where { $_.ExcludeCol -ne 'excludeme' }
+				$global:allCsvUsers | where { $_.ExcludeCol -ne 'excludeme' }
 			} -ParameterFilter { $Exclude }
 
 			mock 'CompareCompanyUser' {
 				[pscustomobject]@{
 					CSVUser = [pscustomobject]@{
-						AD_LOGON = 'foo'
-						PERSON_NUM = 'x'
+						AD_LOGON = 'nameval0'
+						PERSON_NUM = '10'
 					}
-					ADUser = [pscustomobject]@{
-						samAccountName = 'foo'
-						EmployeeId = 'x'
-					}
+					ADUser = ($global:allAdsiUsers | where EmployeeId -eq '10' )
 					Match = $true
 					IdMatchedOn = 'AD_LOGON'
 				}
 				[pscustomobject]@{
 					CSVUser = [pscustomobject]@{
-						AD_LOGON = 'foo'
-						PERSON_NUM = 'x'
+						AD_LOGON = 'nameval15'
+						PERSON_NUM = '11'
 					}
-					ADUser = [pscustomobject]@{
-						samAccountName = 'nomatch'
-						EmployeeId = 'x'
-					}
+					ADUser = $null
 					IdMatchedOn = $null
 					Match = $false
-				}
-			}
-
-			mock 'FindAttributeMismatch' {
-				[pscustomobject]@{
-					CSVAttributeName = 'PERSON_NUM'
-					CSVAttributeValue = 123
-					ADAttributeName = 'EmployeeId'
-					ADAttributeValue = ''
 				}
 			}
 
@@ -1309,51 +1044,10 @@ InModuleScope $ThisModuleName {
 		
 		}
 
-		it 'should compare the expected users: <TestName>' -TestCases $testCases.All {
-			param($CsvFilePath,$ReportOnly,$Exclude)
-		
-			$result = & $commandName @PSBoundParameters
-
-			$assMParams = @{
-				CommandName = 'Get-CompanyCsvUser'
-				Times = 1
-				Exactly = $true
-				Scope = 'It'
-				ParameterFilter = {
-					$idFields = $CsvUsers.'AD_LOGON' | foreach { if (-not $_) { 'null' } else { $_ } }
-					(-not (diff $idFields @('foo','foo2','NotInAD','null'))) -and
-					(-not (diff $AdUsers.Name @('foo','foo2','foo3')))
-				}
-			}
-			Assert-MockCalled @assMParams
-		}	
-
 		it 'should return nothing: <TestName>' -TestCases $testCases.All {
 			param($CsvFilePath,$ReportOnly,$Exclude)
 		
 			& $commandName @PSBoundParameters | should benullorempty
-		}
-
-		it 'should attempt to sync the user: <TestName>' -TestCases $testCases.Sync {
-			param($CsvFilePath,$ReportOnly,$Exclude)
-		
-			$result = & $commandName @PSBoundParameters
-
-			$assMParams = @{
-				CommandName = 'SyncCompanyUser'
-				Times = 1
-				Exactly = $true
-				Scope = 'It'
-				ParameterFilter = { 
-					$AdUser.samAccountName -eq 'foo' -and
-					$CsvUser.'AD_LOGON' -eq 'foo' -and
-					$Attributes.CSVAttributeName -eq 'PERSON_NUM' -and
-					$Attributes.CSVAttributeValue -eq 123 -and
-					$Attributes.ADAttributeName -eq 'EmployeeId' -and
-					$Attributes.ADAttributeValue -eq ''
-				}
-			}
-			Assert-MockCalled @assMParams
 		}
 
 		context 'when a null ID field is encountered in the CSV' {
@@ -1361,13 +1055,10 @@ InModuleScope $ThisModuleName {
 			mock 'CompareCompanyUser' {
 				[pscustomobject]@{
 					CSVUser = [pscustomobject]@{
-						AD_LOGON = 'foo'
-						PERSON_NUM = 'x'
+						AD_LOGON = 'nameval0'
+						PERSON_NUM = '10'
 					}
-					ADUser = [pscustomobject]@{
-						samAccountName = 'foo'
-						EmployeeId = 'x'
-					}
+					ADUser = ($global:allAdsiUsers | where EmployeeId -eq '10' )
 					IDMatchedon = 'AD_LOGON'
 					Match = $true
 				}
@@ -1376,10 +1067,7 @@ InModuleScope $ThisModuleName {
 						AD_LOGON = $null
 						PERSON_NUM = $null
 					}
-					ADUser = [pscustomobject]@{
-						samAccountName = 'nomatch'
-						EmployeeId = 'x'
-					}
+					ADUser = $null
 					IDMatchedon = $null
 					Match = $false
 				}
@@ -1411,10 +1099,7 @@ InModuleScope $ThisModuleName {
 						AD_LOGON = 'foo'
 						PERSON_NUM = 'x'
 					}
-					ADUser = [pscustomobject]@{
-						samAccountName = 'foonomatch'
-						EmployeeId = 'notmatch'
-					}
+					ADUser = $null
 					IDMatchedOn = $null
 					Match = $false
 				}
@@ -1449,13 +1134,10 @@ InModuleScope $ThisModuleName {
 			mock 'CompareCompanyUser' {
 				[pscustomobject]@{
 					CSVUser = [pscustomobject]@{
-						AD_LOGON = 'foo'
-						PERSON_NUM = 'x'
+						AD_LOGON = 'nameval2'
+						PERSON_NUM = '12'
 					}
-					ADUser = [pscustomobject]@{
-						samAccountName = 'foo'
-						EmployeeId = 'x'
-					}
+					ADUser = ($global:allAdsiUsers | where EmployeeId -eq '12' )
 					Match = $true
 					IdMatchedOn = 'AD_LOGON'
 				}
@@ -1518,3 +1200,6 @@ InModuleScope $ThisModuleName {
 		}
 	}
 }
+
+Remove-Variable -Name allAdsiUsers -Scope 'Global'
+Remove-Variable -Name allCsvUsers -Scope 'Global'
