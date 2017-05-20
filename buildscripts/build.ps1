@@ -17,8 +17,6 @@ try {
 
 	$manifestContent | Set-Content -Path $manifestFilePath
 
-	Write-Host (Get-Content -Path $manifestFilePath -Raw)
-
 	## Publish module to PowerShell Gallery
 	Publish-Module -Path $manifestFilePath -NuGetApiKey $env:nuget_apikey
 
