@@ -375,7 +375,7 @@ InModuleScope $ThisModuleName {
 			$result | should beoftype 'hashtable'
 		}
 
-		it 'should find matches as expected and return the expected property values: <TestName>' -TestCases $testCases.All {
+		it 'should find matches as expected and return the expected property values: <TestName>' -Skip -TestCases $testCases.All {
 			param($AdUsers,$CsvUsers)
 		
 			$result = & $commandName @PSBoundParameters
