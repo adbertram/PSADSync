@@ -362,9 +362,9 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 			@($result).foreach({
-				$_.PSObject.Properties.Name -contains 'CsvUser' | should be $true
-				$_.PSObject.Properties.Name -contains 'AdUser' | should be $true
-				$_.PSObject.Properties.Name -contains 'Match' | should be $true
+				$_.ContainsKey('CsvUser') | should be $true
+				$_.ContainsKey('AdUser') | should be $true
+				$_.ContainsKey('Match') | should be $true
 			})
 		}
 
@@ -372,7 +372,7 @@ InModuleScope $ThisModuleName {
 			param($AdUsers,$CsvUsers)
 		
 			$result = & $commandName @PSBoundParameters
-			$result | should beoftype 'pscustomobject'
+			$result | should beoftype 'hashtable'
 		}
 
 		it 'should find matches as expected and return the expected property values: <TestName>' -TestCases $testCases.All {
