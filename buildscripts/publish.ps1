@@ -20,13 +20,13 @@ try {
 	$null = mkdir $moduleFolderPath
 	Get-ChildItem -Path $env:APPVEYOR_BUILD_FOLDER -Filter '*.ps*' | Copy-Item -Destination $moduleFolderPath
 
-	Write-Host  (gc "$moduleFolderPath\PSADSync.psd1" -Raw)
 	## Publish module to PowerShell Gallery
 	$publishParams = @{
 		Path = $moduleFolderPath
 		NuGetApiKey = $env:nuget_apikey
 		Repository = 'PSGallery'
 		Force = $true
+		Confirm = $false
 		RequiredVersion = $env:APPVEYOR_BUILD_VERSION
 	}
 	Publish-Module @publishParams
