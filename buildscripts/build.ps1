@@ -14,7 +14,7 @@ try {
 	Update-ModuleManifest @updateParams
 
 	## Publish module to PowerShell Gallery
-	Publish-Module -Path $env:APPVEYOR_BUILD_FOLDER -NuGetApiKey $env:nuget_apikey -Confirm:$false
+	Publish-Module -Path $env:APPVEYOR_BUILD_FOLDER -NuGetApiKey $env:nuget_apikey -Confirm:$false -Verbose
 
 } catch {
 	$host.SetShouldExit($LastExitCode)
