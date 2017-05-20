@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 try {
 	## Don't upload the build scripts to PowerShell Gallery
-	$moduleFolderPath = "$env:APPVEYOR_BUILD_FOLDER\Module"
+	$moduleFolderPath = "$env:APPVEYOR_BUILD_FOLDER\PSADSync"
 	$null = mkdir $moduleFolderPath
 	Get-ChildItem -Path $env:APPVEYOR_BUILD_FOLDER -Filter '*.ps*' | Copy-Item -Destination $moduleFolderPath
 
