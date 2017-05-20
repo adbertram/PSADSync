@@ -1,6 +1,7 @@
 try {
 	$ErrorActionPreference = 'Stop'
 
+	Write-Host (ls env:\ | Out-String)
 	## Update module version in manifest
 	$manifestFilePath = "$env:APPVEYOR_BUILD_FOLDER\PSADSync.psd1"
 	((Get-Content -Path $manifestFilePath) -replace "ModuleVersion = '.*'","ModuleVersion = '$env:APPVEYOR_BUILD_VERSION'") | Set-Content -Path $manifestFilePath

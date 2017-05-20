@@ -129,7 +129,7 @@ function Get-CompanyCsvUser
 
 function CompareCompanyUser
 {
-	[OutputType([pscustomobject])]
+	[OutputType([hashtable])]
 	[CmdletBinding()]
 	param
 	(
@@ -159,7 +159,7 @@ function CompareCompanyUser
 			$output.IdMatchedOn = $adUserMatch.IdMatchedOn
 			$output.Match = $true 
 		}
-		[pscustomobject]$output
+		$output
 	})
 }
 
@@ -210,7 +210,7 @@ function FindAttributeMismatch
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[System.DirectoryServices.AccountManagement.UserPrincipal]$AdUser,
+		[object]$AdUser,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
