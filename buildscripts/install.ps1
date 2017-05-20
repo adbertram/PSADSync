@@ -12,6 +12,6 @@ $null = Import-PackageProvider @provParams
 $requiredModules = @('Pester','ADSIPS','PowerShellGet')
 foreach ($m in $requiredModules) {
 	Install-Module -Name $m -Force -Confirm:$false
-	Remove-Module -Name $m -Force
+	Remove-Module -Name $m -Force -ErrorAction Ignore
 	Import-Module -Name $m
 }
