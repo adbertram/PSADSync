@@ -3,10 +3,19 @@ try {
 
 	## Update module version in manifest
 	$manifestFilePath = "$env:APPVEYOR_BUILD_FOLDER\PSADSync.psd1"
-	((Get-Content -Path $manifestFilePath) -replace "ModuleVersion = '.*'","ModuleVersion = '$env:APPVEYOR_BUILD_VERSION'") | Set-Content -Path $manifestFilePath
+	$manifestContent = Get-Content -Path $manifestFilePath 
 
-	## Export only certain functions
-	((Get-Content -Path $manifestFilePath) -replace "FunctionsToExport = '\*'","FunctionsToExport = 'Invoke-AdSync'") | Set-Content -Path $manifestFilePath
+	## Update the module version based on the build version and limit exported functions
+	$replacements = @{
+		"ModuleVersion = '.*'" = "ModuleVersion = '$env:APPVEYOR_BUILD_VERSION'"
+		"FunctionsToExport = '\*'" = "FunctionsToExport = 'Invoke-AdSync'"
+	}		
+
+	$replacements.GetEnumerator() | foreach {
+		$manifestContent -replace $_.Key,$_.Value
+	}
+
+	$manifestContent | Set-Content -Path $manifestFilePath
 
 	Write-Host (Get-Content -Path $manifestFilePath -Raw)
 
