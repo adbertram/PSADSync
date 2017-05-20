@@ -1,6 +1,10 @@
 $ErrorActionPreference = 'Stop'
 
 try {
+	Install-PackageProvider -Name NuGet -MinimumVersion '2.8.5.208' -Force -Verbose
+	
+	Import-Module -Name PowerShellGet
+
 	## Don't upload the build scripts to PowerShell Gallery
 	$moduleFolderPath = "$env:APPVEYOR_BUILD_FOLDER\PSADSync"
 	$null = mkdir $moduleFolderPath

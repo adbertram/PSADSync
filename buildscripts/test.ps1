@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 try {
+	Import-Module -Name Pester
 	$ProjectRoot = $ENV:APPVEYOR_BUILD_FOLDER
 
 	$testResultsFilePath = "$ProjectRoot\TestResults.xml"
