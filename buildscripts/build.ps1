@@ -3,22 +3,24 @@ try {
 
 	## Update module version in manifest
 	$manifestFilePath = "$env:APPVEYOR_BUILD_FOLDER\PSADSync.psd1"
-	$manifestContent = Get-Content -Path $manifestFilePath 
 
-	## Update the module version based on the build version and limit exported functions
-	$replacements = @{
-		"ModuleVersion = '.*'" = "ModuleVersion = '$env:APPVEYOR_BUILD_VERSION'"
-		"FunctionsToExport = '\*'" = "FunctionsToExport = 'Invoke-AdSync'"
-	}		
-
-	$replacements.GetEnumerator() | foreach {
-		$manifestContent = $manifestContent -replace $_.Key,$_.Value
+	$manifestKeys = @{
+		ModuleVersion = $env:APPVEYOR_BUILD_VERSION
+		FunctionsToExport = 'Invoke-AdSync'
+	}
+	
+	$updateParams = @{
+		Path = $manifestFilePath
+		OutputPath = $manifestFilePath
 	}
 
-	$manifestContent | Set-Content -Path $manifestFilePath
+	$manifestKeys.GetEnumerator() | foreach {
+		$updateParams.$_.Key = $_.Value
+		Update-ModuleManifest @updateParams
+	}
 
 	## Publish module to PowerShell Gallery
-	Publish-Module -Path $env:APPVEYOR_BUILD_FOLDER -NuGetApiKey $env:nuget_apikey
+	Publish-Module -Path $env:APPVEYOR_BUILD_FOLDER -NuGetApiKey $env:nuget_apikey -Confirm:$false
 
 } catch {
 	throw $_.Exception.Message
