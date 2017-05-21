@@ -5,20 +5,36 @@ $AdToCsvFieldMap = $config.FieldMap
 ## Load the System.Web type to generate random password
 Add-Type -AssemblyName 'System.Web'
 
+function GetAdUser
+{
+	[OutputType([System.DirectoryServices.AccountManagement.UserPrincipal])]
+	[CmdletBinding()]
+	param
+	()
+
+	Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+
+	$context = New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalContext -ArgumentList 'Domain',$Env:USERDNSDOMAIN
+	$DirectoryEntry = New-Object -TypeName DirectoryServices.DirectoryEntry
+	$DirectorySearcher = new-object -TypeName System.DirectoryServices.DirectorySearcher
+	$DirectorySearcher.SearchRoot = $DirectoryEntry
+	@($DirectorySearcher.FindAll()).foreach({
+		[System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($context, ($_.path -replace 'LDAP://'))
+	})
+	
+
+	$UserPrincipal = New-object -TypeName System.DirectoryServices.AccountManagement.UserPrincipal -ArgumentList $Context
+	$Searcher = new-object System.DirectoryServices.AccountManagement.PrincipalSearcher
+	$Searcher.QueryFilter = $UserPrincipal
+	$DirectorySearcher.FindAll()
+}
+
 function Get-CompanyAdUser
 {
 	[OutputType([System.DirectoryServices.AccountManagement.UserPrincipal])]
 	[CmdletBinding()]
 	param
-	(
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[switch]$All,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[pscredential]$Credential = $Defaults.Credential
-	)
+	()
 	begin
 	{
 		$ErrorActionPreference = 'Stop'
@@ -28,20 +44,8 @@ function Get-CompanyAdUser
 	{
 		try
 		{
-			## Find all users that have the unique AD ID and are enabled
-			$params = @{
-				NoResultLimit = $true
-			}
-			if ($Credential)
-			{
-				$params.Credential = $Credential
-			}
-
 			$whereFilter = { $adUser = $_; $Defaults.FieldMatchIds.AD | where { $adUser.$_ }}
-			if (-not $All.IsPresent) {
-				$params.LDAPFilter = "(!userAccountControl:1.2.840.113556.1.4.803:=2)"
-			}
-			@(Get-AdsiUser @params).where($whereFilter)
+			@(GetAdUser).where({$whereFilter})
 		}
 		catch
 		{

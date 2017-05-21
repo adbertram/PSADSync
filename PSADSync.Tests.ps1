@@ -265,43 +265,30 @@ InModuleScope $ThisModuleName {
 		$command = Get-Command -Name $commandName
 	
 		#region Mocks
-			mock 'Get-AdsiUser' {
+			mock 'GetAdUser' {
 				$script:AllAdsiUsers | where { $_.Enabled }
 			} -ParameterFilter { $LdapFilter }
 
-			mock 'Get-AdsiUser' {
+			mock 'GetAdUser' {
 				$script:AllAdsiUsers
 			} -ParameterFilter { -not $LdapFilter }
 		#endregion
 		
 		$parameterSets = @(
 			@{
-				TestName = 'Only enabled users'
-			}
-			@{
-				All = $true
 				TestName = 'All users'
 			}
 		)
 	
 		$testCases = @{
 			All = $parameterSets
-			AllUsers = $parameterSets.where({$_.ContainsKey('All')})
-			EnabledUsers = $parameterSets.where({-not $_.ContainsKey('All')})
 		}
 
-		it 'when All is used, it returns all users: <TestName>' -TestCases $testCases.AllUsers {
+		it 'should return all users: <TestName>' -TestCases $testCases.All {
 			param($All,$Credential)
 		
 			$result = & $commandName @PSBoundParameters
-			@($result).Count | should be $script:AllAdsiUsers.Count
-		}
-
-		it 'when All is not used, it returns only enabled users: <TestName>' -TestCases $testCases.EnabledUsers {
-			param($All,$Credential)
-		
-			$result = & $commandName @PSBoundParameters
-			@($result).Count | should be ($script:AllAdsiUsers | where { $_.Enabled }).Count
+			@($result).Count | should be @($script:AllAdsiUsers).Count
 		}
 
 	}
