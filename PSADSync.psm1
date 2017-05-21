@@ -4,6 +4,7 @@ $AdToCsvFieldMap = $config.FieldMap
 
 ## Load the System.Web type to generate random password
 Add-Type -AssemblyName 'System.Web'
+Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
 
 function GetAdUser
 {
@@ -12,8 +13,6 @@ function GetAdUser
 	param
 	()
 
-	Add-Type -AssemblyName System.DirectoryServices.AccountManagement
-
 	$context = New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalContext -ArgumentList 'Domain',$Env:USERDNSDOMAIN
 	$DirectoryEntry = New-Object -TypeName DirectoryServices.DirectoryEntry
 	$DirectorySearcher = new-object -TypeName System.DirectoryServices.DirectorySearcher
@@ -21,12 +20,6 @@ function GetAdUser
 	@($DirectorySearcher.FindAll()).foreach({
 		[System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($context, ($_.path -replace 'LDAP://'))
 	})
-	
-
-	$UserPrincipal = New-object -TypeName System.DirectoryServices.AccountManagement.UserPrincipal -ArgumentList $Context
-	$Searcher = new-object System.DirectoryServices.AccountManagement.PrincipalSearcher
-	$Searcher.QueryFilter = $UserPrincipal
-	$DirectorySearcher.FindAll()
 }
 
 function Get-CompanyAdUser
@@ -131,42 +124,6 @@ function Get-CompanyCsvUser
 	}
 }
 
-function CompareCompanyUser
-{
-	[OutputType([hashtable])]
-	[CmdletBinding()]
-	param
-	(
-		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
-		[System.DirectoryServices.AccountManagement.UserPrincipal[]]$AdUsers,
-
-		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
-		[pscustomobject[]]$CsvUsers
-	)
-
-	$ErrorActionPreference = 'Stop'
-	Write-Verbose -Message "Beginning Company AD <--> CSV compare..."
-	Write-Verbose -Message "Found [$(@($AdUsers).Count)] enabled AD users."
-	Write-Verbose -Message "Found [$(@($csvUsers).Count)] users in CSV."
-	
-	@($csvUsers).foreach({
-		$output = @{
-			CsvUser = $_
-			AdUser = $null
-			IdMatchedOn = $null
-			Match = $false
-		}
-		if ($adUserMatch = FindUserMatch -AdUsers $AdUsers -CsvUser $_) {
-			$output.AdUser = $adUserMatch.MatchedAdUser
-			$output.IdMatchedOn = $adUserMatch.IdMatchedOn
-			$output.Match = $true 
-		}
-		$output
-	})
-}
-
 function FindUserMatch
 {
 	[OutputType([pscustomobject])]
@@ -174,8 +131,7 @@ function FindUserMatch
 	param
 	(
 		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[object[]]$AdUsers,
+		[object[]]$AdUsers = $script:adUsers,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
@@ -443,21 +399,22 @@ function Invoke-AdSync
 				}
 				$getCsvParams.Exclude = $Exclude
 			}
+
+			$script:adUsers = Get-CompanyAdUser
+			$csvusers = Get-CompanyCsvUser @getCsvParams
 			
-			$compParams = @{
-				CsvUsers = Get-CompanyCsvUser @getCsvParams
-				AdUsers = Get-CompanyAdUser
-			}
-			$userCompareResults = CompareCompanyUser @compParams
-			foreach ($user in $userCompareResults) {
-				if ($user.Match) {
-					$csvIdValue = $user.CsvUser.($user.IdMatchedOn)
-					$csvIdField = $user.IdMatchedOn
-					$attribMismatches = FindAttributeMismatch -AdUser $user.ADUser -CsvUser $user.CSVUser
+			@($csvUsers).foreach({
+				$csvUser = $_
+				if ($adUserMatch = FindUserMatch -CsvUser $csvUser) {
+					Write-Verbose -Message 'Match'
+					$userMatchedOn = $adUserMatch.IdMatchedOn
+					$csvIdValue = $adUserMatch.CsvUser.$userMatchedOn
+					$csvIdField = $userMatchedOn
+					$attribMismatches = FindAttributeMismatch -AdUser $adUserMatch.MatchedAdUser -CsvUser $adUserMatch.CSVUser
 					if ($attribMismatches) {
 						$logAttribs = $attribMismatches
 						if (-not $ReportOnly.IsPresent) {
-							SyncCompanyUser -AdUser $user.ADUser -CsvUser $user.CSVUser -Attributes $attribMismatches -Identifier $user.IdMatchedOn
+							SyncCompanyUser -AdUser $user.ADUser -CsvUser $adUserMatch.CSVUser -Attributes $attribMismatches -Identifier $userMatchedOn
 						}
 					} else {
 						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
@@ -469,14 +426,13 @@ function Invoke-AdSync
 						}
 					}
 				} else {
-					
-					if (-not (TestNullCsvIdField -CsvUser $user.CsvUser)) {
+					if (-not (TestNullCsvIdField -CsvUser $csvUser)) {
 						$csvIdValue = 'N/A'
 						Write-Warning -Message 'The CSV user identifier field could not be found!'
 					} else {
 						$csvIdFields = $Defaults.FieldMatchIds.CSV
 						$csvIdField = $csvIdFields -join ','
-						$csvIdValue = ($csvIdFields | foreach { $user.CSVUser.$_ }) -join ','
+						$csvIdValue = ($csvIdFields | foreach { $csvuser.$_ }) -join ','
 						$logAttribs = ([pscustomobject]@{
 							CSVAttributeName = 'NoMatch'
 							CSVAttributeValue = 'NoMatch'
@@ -486,7 +442,7 @@ function Invoke-AdSync
 					}
 				}
 				WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
-			}
+			})
 		}
 		catch
 		{
