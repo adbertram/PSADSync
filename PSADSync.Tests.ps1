@@ -1,8 +1,23 @@
-$ThisModule = "$($MyInvocation.MyCommand.Path -replace '\.Tests\.ps1$', '').psm1"
-$ThisModuleName = (($ThisModule | Split-Path -Leaf) -replace '\.psm1')
+,#region import modules
+$ThisModule = "$($MyInvocation.MyCommand.Path -replace '\.Tests\.ps1$', '').psd1"
+$ThisModuleName = (($ThisModule | Split-Path -Leaf) -replace '\.psd1')
 Get-Module -Name $ThisModuleName -All | Remove-Module -Force
 
-Import-Module -Name "$PSScriptRoot\$ThisModuleName.psd1" -Force -ErrorAction Stop
+Import-Module -Name $ThisModule -Force -ErrorAction Stop
+#endregion
+
+describe 'Module-level tests' {
+	
+	it 'should validate the module manifest' {
+	
+		{ Test-ModuleManifest -Path $ThisModule -ErrorAction Stop } | should not throw
+	}
+
+	it 'should pass all error-level script analyzer rules' {
+		Invoke-PSScriptAnalyzer -Path $PSScriptRoot -Severity Error
+	}
+
+}
 
 InModuleScope $ThisModuleName {
 
