@@ -16,7 +16,6 @@ describe 'Module-level tests' {
 	it 'should pass all error-level script analyzer rules' {
 		Invoke-PSScriptAnalyzer -Path $PSScriptRoot -Severity Error
 	}
-
 }
 
 InModuleScope $ThisModuleName {

@@ -9,7 +9,7 @@ $provParams = @{
 $null = Install-PackageProvider @provParams
 $null = Import-PackageProvider @provParams
 
-$requiredModules = @('Pester','PowerShellGet')
+$requiredModules = @('Pester','PowerShellGet','PSScriptAnalyzer')
 foreach ($m in $requiredModules) {
 	Install-Module -Name $m -Force -Confirm:$false
 	Remove-Module -Name $m -Force -ErrorAction Ignore
