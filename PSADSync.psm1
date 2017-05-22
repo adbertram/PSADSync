@@ -410,11 +410,11 @@ function Invoke-AdSync
 					$userMatchedOn = $adUserMatch.IdMatchedOn
 					$csvIdValue = $adUserMatch.CsvUser.$userMatchedOn
 					$csvIdField = $userMatchedOn
-					$attribMismatches = FindAttributeMismatch -AdUser $adUserMatch.MatchedAdUser -CsvUser $adUserMatch.CSVUser
+					$attribMismatches = FindAttributeMismatch -AdUser $adUserMatch.MatchedAdUser -CsvUser $csvUser
 					if ($attribMismatches) {
 						$logAttribs = $attribMismatches
 						if (-not $ReportOnly.IsPresent) {
-							SyncCompanyUser -AdUser $user.ADUser -CsvUser $adUserMatch.CSVUser -Attributes $attribMismatches -Identifier $userMatchedOn
+							SyncCompanyUser -AdUser $user.ADUser -CsvUser $csvUser -Attributes $attribMismatches -Identifier $userMatchedOn
 						}
 					} else {
 						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
