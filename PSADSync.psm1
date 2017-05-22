@@ -408,7 +408,7 @@ function Invoke-AdSync
 				if ($adUserMatch = FindUserMatch -CsvUser $csvUser) {
 					Write-Verbose -Message 'Match'
 					$userMatchedOn = $adUserMatch.IdMatchedOn
-					$csvIdValue = $adUserMatch.CsvUser.$userMatchedOn
+					$csvIdValue = $csvUser.$userMatchedOn
 					$csvIdField = $userMatchedOn
 					$attribMismatches = FindAttributeMismatch -AdUser $adUserMatch.MatchedAdUser -CsvUser $csvUser
 					if ($attribMismatches) {
