@@ -885,6 +885,10 @@ InModuleScope $ThisModuleName {
 		}
 
 		context 'when a null ID field is encountered in the CSV' {
+
+			mock 'TestNullCsvIdField' {
+				$false
+			}
 		
 			it 'should write a warning: <TestName>' -TestCases $testCases.All {
 				param($CsvFilePath,$ReportOnly,$Exclude)
