@@ -16,6 +16,7 @@ function GetAdUser
 	$context = New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalContext -ArgumentList 'Domain',$Env:USERDNSDOMAIN
 	$DirectoryEntry = New-Object -TypeName DirectoryServices.DirectoryEntry
 	$DirectorySearcher = new-object -TypeName System.DirectoryServices.DirectorySearcher
+	$DirectorySearcher.PageSize = 1000
 	$DirectorySearcher.SearchRoot = $DirectoryEntry
 	@($DirectorySearcher.FindAll()).foreach({
 		[System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($context, ($_.path -replace 'LDAP://'))
