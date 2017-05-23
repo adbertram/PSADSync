@@ -69,7 +69,7 @@ function TestCsvHeaderExists
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[string]$CsvFilePath = $Defaults.InputCsvFilePath,
+		[string]$CsvFilePath,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
@@ -91,10 +91,10 @@ function Get-CompanyCsvUser
 	[CmdletBinding()]
 	param
 	(
-		[Parameter()]
+		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
 		[ValidateScript({Test-Path -Path $_ -PathType Leaf})]
-		[string]$CsvFilePath = $Defaults.InputCsvFilePath,
+		[string]$CsvFilePath,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
@@ -149,7 +149,8 @@ function FindUserMatch
 				Write-Verbose -Message "Found AD match for CSV user [$csvMatchVal]: [$($matchedAdUser.$adMatchField)]"
 				[pscustomobject]@{
 					MatchedAdUser = $matchedAdUser
-					IdMatchedOn = $csvMatchField
+					CsvIdMatchedOn = $csvMatchField
+					AdIdMatchedOn = $adMatchField
 				}
 				## Stop after making a single match
 				break
@@ -232,15 +233,7 @@ function SyncCompanyUser
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[string]$Identifier,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[pscredential]$Credential = $Defaults.Credential,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[string]$DomainController = $Defaults.DomainController
+		[string]$Identifier
 	)
 
 	$ErrorActionPreference = 'Stop'
@@ -255,12 +248,6 @@ function SyncCompanyUser
 	$params = @{
 		Identity = $adIdentity
 		Replace = $replaceHt
-	}
-	if ($Credential) {
-		$params.Credential = $Credential
-	}
-	if ($DomainController) {
-		$params.Server = $DomainController
 	}
 	if ($PSCmdlet.ShouldProcess("User: [$Identifier] AD attribs: $($replaceHt.Keys -join ',')",'Set AD attributes'))
 	{
@@ -344,7 +331,7 @@ function WriteLog
 
 }
 
-function TestNullCsvIdField
+function GetCsvIdField
 {
 	[OutputType([bool])]
 	[CmdletBinding()]
@@ -356,11 +343,13 @@ function TestNullCsvIdField
 	)
 
 
-	if (-not ($Defaults.FieldMatchIds.CSV | where { $CSVUser.$_ })) {
-		$false
-	} else {
-		$true
+	$Defaults.FieldMatchIds.CSV | foreach { 
+		[pscustomobject]@{
+			Field = $_
+			Value = $CSVUser.$_
+		}
 	}
+	
 }
 
 function Invoke-AdSync
@@ -369,9 +358,9 @@ function Invoke-AdSync
 	[CmdletBinding(SupportsShouldProcess)]
 	param
 	(
-		[Parameter()]
+		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[string]$CsvFilePath = $Defaults.InputCsvFilePath,
+		[string]$CsvFilePath,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
@@ -407,14 +396,15 @@ function Invoke-AdSync
 				$csvUser = $_
 				if ($adUserMatch = FindUserMatch -CsvUser $csvUser) {
 					Write-Verbose -Message 'Match'
-					$userMatchedOn = $adUserMatch.IdMatchedOn
-					$csvIdValue = $csvUser.$userMatchedOn
-					$csvIdField = $userMatchedOn
+					$csvIdMatchedon = $aduserMatch.CsvIdMatchedOn
+					$adIdMatchedon = $aduserMatch.AdIdMatchedOn
+					$csvIdValue = $csvUser.$csvIdMatchedon
+					$csvIdField = $csvIdMatchedon
 					$attribMismatches = FindAttributeMismatch -AdUser $adUserMatch.MatchedAdUser -CsvUser $csvUser
 					if ($attribMismatches) {
 						$logAttribs = $attribMismatches
 						if (-not $ReportOnly.IsPresent) {
-							SyncCompanyUser -AdUser $user.ADUser -CsvUser $csvUser -Attributes $attribMismatches -Identifier $userMatchedOn
+							SyncCompanyUser -AdUser $adUserMatch.MatchedADUser -CsvUser $csvUser -Attributes $attribMismatches -Identifier $adIdMatchedOn
 						}
 					} else {
 						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
@@ -426,20 +416,22 @@ function Invoke-AdSync
 						}
 					}
 				} else {
-					if (-not (TestNullCsvIdField -CsvUser $csvUser)) {
+					$csvIds = GetCsvIdField -CsvUser $csvUser
+					$csvIdField = $csvIds.Field -join ','
+					## No ID fields are populated
+					if (-not ($csvIds | where {$_.Value})) {
 						$csvIdValue = 'N/A'
-						Write-Warning -Message 'The CSV user identifier field could not be found!'
-					} else {
-						$csvIdFields = $Defaults.FieldMatchIds.CSV
-						$csvIdField = $csvIdFields -join ','
-						$csvIdValue = ($csvIdFields | foreach { $csvuser.$_ }) -join ','
-						$logAttribs = ([pscustomobject]@{
-							CSVAttributeName = 'NoMatch'
-							CSVAttributeValue = 'NoMatch'
-							ADAttributeName = 'NoMatch'
-							ADAttributeValue = 'NoMatch'
-						})
+						Write-Warning -Message 'No CSV user identifier could be found'
+					} elseif ($csvIds | where { $_.Value}) { ## at least one ID field is populated
+						$csvIdValue = $csvIds.Value -join ','
 					}
+					$logAttribs = [pscustomobject]@{
+						CSVAttributeName = 'NoMatch'
+						CSVAttributeValue = 'NoMatch'
+						ADAttributeName = 'NoMatch'
+						ADAttributeValue = 'NoMatch'
+					}
+
 				}
 				WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
 			})
