@@ -1,8 +1,8 @@
 @{
 	Defaults = @{
 		FieldMatchIds = @(
-			@{ AD = 'samAccountName'; CSV = 'AD_LOGON' }
 			@{ AD = 'EmployeeId'; CSV = 'PERSON_NUM' }
+			@{ AD = 'samAccountName'; CSV = 'AD_LOGON' }
 		)
 	}
 	FieldMap = @{
