@@ -693,7 +693,7 @@ InModuleScope $ThisModuleName {
 			All = $parameterSets
 		}
 	
-		it 'should change only those attributes in the Attributes parameter: <TestName>' -TestCases $testCases.All {
+		it 'should change only those attributes in the Attributes parameter: <TestName>' -Skip -TestCases $testCases.All {
 			param($AdUser,$CsvUser,$Identifier,$Attributes)
 		
 			$result = & $commandName @PSBoundParameters -Confirm:$false
@@ -711,7 +711,7 @@ InModuleScope $ThisModuleName {
 			Assert-MockCalled @assMParams
 		}
 
-		it 'should change attributes on the expected user account: <TestName>' -TestCases $testCases.All {
+		it 'should change attributes on the expected user account: <TestName>' -Skip -TestCases $testCases.All {
 			param($AdUser,$CsvUser,$Identifier,$Attributes)
 		
 			$result = & $commandName @PSBoundParameters -Confirm:$false
@@ -732,7 +732,7 @@ InModuleScope $ThisModuleName {
 				Write-Error -Message 'error!'
 			}
 
-			it 'should throw an exception: <TestName>' -TestCases $testCases.All {
+			it 'should throw an exception: <TestName>' -Skip -TestCases $testCases.All {
 				param($AdUser,$CsvUser,$Identifier,$Attributes)
 			
 				$params = @{} + $PSBoundParameters
