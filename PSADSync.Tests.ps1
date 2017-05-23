@@ -671,7 +671,7 @@ InModuleScope $ThisModuleName {
 			OtherAtrrib = 'x'
 		}
 
-		mock 'Set-AdUser'
+		#mock 'Set-AdUser'
 	
 		$parameterSets = @(
 			@{
