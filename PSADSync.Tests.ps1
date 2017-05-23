@@ -331,8 +331,8 @@ InModuleScope $ThisModuleName {
 
 			$script:OneblankCsvUserIdentifier = @(
 				[pscustomobject]@{
-					AD_LOGON = $null
-					PERSON_NUM = 111
+					PERSON_NUM = $null
+					AD_LOGON = 'foo'				
 				}
 			)
 
@@ -408,7 +408,7 @@ InModuleScope $ThisModuleName {
 			MatchOnOneId = $parameterSets.where({$_.TestName -eq 'Match on 1 ID'})
 			MatchOnAllIds = $parameterSets.where({$_.TestName -eq 'Match on all IDs'})
 			NoMatch = $parameterSets.where({$_.TestName -eq 'No Match'})
-			OneBlankId = $parameterSets.where({ -not $_.CsvUser.AD_LOGON -and ($_.CsvUser.PERSON_NUM) })
+			OneBlankId = $parameterSets.where({ $_.CsvUser.AD_LOGON -and (-not $_.CsvUser.PERSON_NUM) })
 			AllBlankIds = $parameterSets.where({ -not $_.CsvUser.AD_LOGON -and (-not $_.CsvUser.PERSON_NUM) })
 		}
 
@@ -456,13 +456,13 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @PSBoundParameters
 
 				$result.MatchedAdUser.EmployeeId | should be 123
-				$result.CsvIdMatchedOn | should be 'AD_LOGON'
-				$result.AdIdMatchedOn | should be 'samAccountName'
+				$result.CsvIdMatchedOn | should be 'PERSON_NUM'
+				$result.AdIdMatchedOn | should be 'employeeid'
 
 			}
 		}
 
-		context 'when one identifer is blank' {
+		context 'when a blank identifier is queried before finding a match' {
 
 			it 'should do nothing: <TestName>' -TestCases $testCases.OneBlankId {
 				param($AdUsers,$CsvUser)
@@ -483,9 +483,9 @@ InModuleScope $ThisModuleName {
 				param($AdUsers,$CsvUser)
 			
 				$result = & $commandName @PSBoundParameters
-				$result.MatchedAdUser.EmployeeId | should be 111
-				$result.CsvIdMatchedOn | should be 'PERSON_NUM'
-				$result.AdIdMatchedOn | should be 'EmployeeId'
+				$result.MatchedAdUser.samAccountName | should be 'foo'
+				$result.CsvIdMatchedOn | should be 'AD_LOGON'
+				$result.AdIdMatchedOn | should be 'samAccountName'
 			}
 
 		}
@@ -518,8 +518,8 @@ InModuleScope $ThisModuleName {
 				@($result.MatchedAdUser).foreach({
 					$_.PSObject.Properties.Name -contains 'EmployeeId' | should be $true
 				})
-				$result.CsvIdMatchedOn | should be 'AD_LOGON'
-				$result.AdIdMatchedOn | should be 'samAccountName'
+				$result.CsvIdMatchedOn | should be 'PERSON_NUM'
+				$result.AdIdMatchedOn | should be 'employeeId'
 			}
 		
 		}
@@ -950,7 +950,7 @@ InModuleScope $ThisModuleName {
 						Exactly = $true
 						Scope = 'It'
 						ParameterFilter = { 
-							$PSBoundParameters.CSVIdentifierField -eq 'AD_LOGON,PERSON_NUM' -and
+							$PSBoundParameters.CSVIdentifierField -eq 'PERSON_NUM,AD_LOGON' -and
 							$PSBoundParameters.CSVIdentifierValue -eq 'N/A' -and
 							$PSBoundParameters.Attributes.CSVAttributeName -eq 'NoMatch' -and
 							$PSBoundParameters.Attributes.CSVAttributeValue -eq 'NoMatch' -and
@@ -982,8 +982,8 @@ InModuleScope $ThisModuleName {
 						Exactly = $true
 						Scope = 'It'
 						ParameterFilter = { 
-							$PSBoundParameters.CSVIdentifierField -eq 'AD_LOGON,PERSON_NUM' -and
-							$PSBoundParameters.CSVIdentifierValue -eq ',999' -and
+							$PSBoundParameters.CSVIdentifierField -eq 'PERSON_NUM,AD_LOGON' -and
+							$PSBoundParameters.CSVIdentifierValue -eq '999,' -and
 							$PSBoundParameters.Attributes.CSVAttributeName -eq 'NoMatch' -and
 							$PSBoundParameters.Attributes.CSVAttributeValue -eq 'NoMatch' -and
 							$PSBoundParameters.Attributes.ADAttributeName -eq 'NoMatch' -and
