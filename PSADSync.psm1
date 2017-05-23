@@ -303,7 +303,7 @@ function WriteLog
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$FilePath = "$PSScriptRoot\CsvToActiveDirectorySync.log",
+		[string]$FilePath = '.\PSAdSync.csv',
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]

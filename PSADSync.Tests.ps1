@@ -781,7 +781,7 @@ InModuleScope $ThisModuleName {
 				Times = 1
 				Exactly = $true
 				Scope = 'It'
-				ParameterFilter = { $Path -eq 'C:\log.csv' }
+				ParameterFilter = { $PSBoundParameters.Path -eq $FilePath }
 			}
 			Assert-MockCalled @assMParams
 		}
