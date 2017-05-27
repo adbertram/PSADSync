@@ -18,7 +18,10 @@ describe 'Module-level tests' {
 		$excludedRules = @(
 			'PSUseShouldProcessForStateChangingFunctions',
 			'PSUseToExportFieldsInManifest',
-			'PSAvoidInvokingEmptyMembers'
+			'PSAvoidInvokingEmptyMembers',
+			'PSAvoidUsingConvertToSecureStringWithPlainText'
+			'PSUsePSCredentialType',
+			'PSAvoidUsingPlainTextForPassword'
 		)
 
 		Invoke-ScriptAnalyzer -Path $PSScriptRoot -ExcludeRule $excludedRules -Severity Error | should benullorempty
@@ -27,7 +30,7 @@ describe 'Module-level tests' {
 
 InModuleScope $ThisModuleName {
 
-	$script:AllAdsiUsers = 0..10 | foreach {
+	$script:AllAdsiUsers = 0..10 | ForEach-Object {
 		$i = $_
 		$adsiUser = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
 		$amParams = @{
@@ -45,7 +48,7 @@ InModuleScope $ThisModuleName {
 			'EmployeeId' = 1
 			'Title' = 'titleval'
 		}
-		$props.GetEnumerator() | foreach {
+		$props.GetEnumerator() | ForEach-Object {
 			if ($_.Key -eq 'Enabled') {
 				if ($i % 2) {
 					$adsiUser | Add-Member @amParams -Name $_.Key -Value $false
@@ -65,7 +68,7 @@ InModuleScope $ThisModuleName {
 		$adsiUser
 	}
 
-	$script:AllCsvUsers = 0..15 | foreach {
+	$script:AllCsvUsers = 0..15 | ForEach-Object {
 		$i = $_
 		$output = @{ 
 			AD_LOGON = "nameval$i"
@@ -85,7 +88,6 @@ InModuleScope $ThisModuleName {
 	describe 'Get-CompanyCsvUser' {
 	
 		$commandName = 'Get-CompanyCsvUser'
-		$command = Get-Command -Name $commandName
 	
 		#region Mocks
 			$script:csvUsers = @(
@@ -127,7 +129,7 @@ InModuleScope $ThisModuleName {
 				$true
 			}
 
-			$script:csvUsersNullConvert = $script:csvUsers | foreach { if (-not $_.'AD_LOGON') { $_.'AD_LOGON' = 'null' } $_ }
+			$script:csvUsersNullConvert = $script:csvUsers | ForEach-Object { if (-not $_.'AD_LOGON') { $_.'AD_LOGON' = 'null' } $_ }
 		#endregion
 		
 		$parameterSets = @(
@@ -184,7 +186,7 @@ InModuleScope $ThisModuleName {
 			it 'should create the expected where filter: <TestName>' -TestCases $testCases.Exclude {
 				param($CsvFilePath,$Exclude)
 			
-				$result = & $commandName @PSBoundParameters
+				& $commandName @PSBoundParameters
 
 				$assMParams = @{
 					CommandName = 'Where-Object'
@@ -204,7 +206,7 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			(diff $script:csvUsersNullConvert.'AD_LOGON' $result.'AD_LOGON').InputObject | should benullorempty
+			(Compare-Object $script:csvUsersNullConvert.'AD_LOGON' $result.'AD_LOGON').InputObject | should benullorempty
 		}
 
 		it 'when excluding 1 col, should return all expected users: <TestName>' -TestCases $testCases.Exclude1Col {
@@ -212,7 +214,7 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			(diff @('foo2','notinAD','null') $result.'AD_LOGON').InputObject | should benullorempty
+			(Compare-Object @('foo2','notinAD','null') $result.'AD_LOGON').InputObject | should benullorempty
 		}
 	
 		it 'when excluding 2 cols, should return all expected users: <TestName>' -TestCases $testCases.Exclude2Cols {
@@ -220,7 +222,7 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			(diff @('notinAD','null') $result.'AD_LOGON').InputObject | should benullorempty
+			(Compare-Object @('notinAD','null') $result.'AD_LOGON').InputObject | should benullorempty
 		}
 	}
 
@@ -239,7 +241,7 @@ InModuleScope $ThisModuleName {
 		it 'should return expected headers' {
 		
 			$result = & GetCsvColumnHeaders -CsvFilePath 'foo.csv'
-			diff $result @('Header1','Header2','Header3') | should benullorempty
+			Compare-Object $result @('Header1','Header2','Header3') | should benullorempty
 		}
 		
 	}
@@ -283,11 +285,11 @@ InModuleScope $ThisModuleName {
 	describe 'Get-CompanyAdUser' {
 	
 		$commandName = 'Get-CompanyAdUser'
-		$command = Get-Command -Name $commandName
+
 	
 		#region Mocks
 			mock 'GetAdUser' {
-				$script:AllAdsiUsers | where { $_.Enabled }
+				$script:AllAdsiUsers | Where-Object { $_.Enabled }
 			} -ParameterFilter { $LdapFilter }
 
 			mock 'GetAdUser' {
@@ -317,7 +319,7 @@ InModuleScope $ThisModuleName {
 	describe 'FindUserMatch' {
 	
 		$commandName = 'FindUserMatch'
-		$command = Get-Command -Name $commandName
+		
 	
 		#region Mocks
 			mock 'Write-Warning'
@@ -474,7 +476,7 @@ InModuleScope $ThisModuleName {
 			it 'should do nothing: <TestName>' -TestCases $testCases.OneBlankId {
 				param($AdUsers,$CsvUser)
 			
-				$result = & $commandName @PSBoundParameters
+				& $commandName @PSBoundParameters
 
 				$assMParams = @{
 					CommandName = 'Write-Verbose'
@@ -502,7 +504,7 @@ InModuleScope $ThisModuleName {
 			it 'should do nothing: <TestName>' -TestCases $testCases.AllBlankIds {
 				param($AdUsers,$CsvUser)
 			
-				$result = & $commandName @PSBoundParameters
+				& $commandName @PSBoundParameters
 
 				$assMParams = @{
 					CommandName = 'Write-Verbose'
@@ -535,7 +537,7 @@ InModuleScope $ThisModuleName {
 	describe 'FindAttributeMismatch' {
 	
 		$commandName = 'FindAttributeMismatch'
-		$command = Get-Command -Name $commandName
+		
 	
 		#region Mocks
 			mock 'Write-Verbose'
@@ -592,7 +594,7 @@ InModuleScope $ThisModuleName {
 		it 'should find the correct AD property names: <TestName>' -TestCases $testCases.All {
 			param($AdUser,$CsvUser)
 		
-			$result = & $commandName @PSBoundParameters
+			& $commandName @PSBoundParameters
 
 			$assMParams = @{
 				CommandName = 'Write-Verbose'
@@ -608,7 +610,7 @@ InModuleScope $ThisModuleName {
 		it 'should find the correct CSV property names: <TestName>' -TestCases $testCases.All {
 			param($AdUser,$CsvUser)
 		
-			$result = & $commandName @PSBoundParameters
+			& $commandName @PSBoundParameters
 
 			$assMParams = @{
 				CommandName = 'Write-Verbose'
@@ -666,7 +668,7 @@ InModuleScope $ThisModuleName {
 	describe 'SetAduser' {
 	
 		$commandName = 'SetAduser'
-		$command = Get-Command -Name $commandName
+		
 
 		mock 'SaveAdUser'
 
@@ -705,7 +707,7 @@ InModuleScope $ThisModuleName {
 		it 'should save the expected attribute' -TestCases $testCases.All {
 			param($Identity,$Attribute)
 		
-			$result = & $commandName @PSBoundParameters
+			& $commandName @PSBoundParameters
 
 			$assMParams = @{
 				CommandName = 'SaveAdUser'
@@ -713,8 +715,8 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { 
-					(-not (diff $PSBoundParameters.Parameters.Attribute.Keys $Attribute.Keys)) -and
-					(-not (diff $PSBoundParameters.Parameters.Attribute.Values $Attribute.Values))
+					(-not (Compare-Object $PSBoundParameters.Parameters.Attribute.Keys $Attribute.Keys)) -and
+					(-not (Compare-Object $PSBoundParameters.Parameters.Attribute.Values $Attribute.Values))
 				}
 			}
 			Assert-MockCalled @assMParams
@@ -723,7 +725,7 @@ InModuleScope $ThisModuleName {
 		it 'should save on the expected identity' -TestCases $testCases.All {
 			param($Identity,$Attribute)
 
-			$result = & $commandName @PSBoundParameters
+			& $commandName @PSBoundParameters
 		
 			$assMParams = @{
 				CommandName = 'SaveAdUser'
@@ -742,7 +744,7 @@ InModuleScope $ThisModuleName {
 	describe 'SyncCompanyUser' {
 	
 		$commandName = 'SyncCompanyUser'
-		$command = Get-Command -Name $commandName
+		
 
 		$script:AdUserUpn = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
 		$script:AdUserUpn | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
@@ -754,7 +756,7 @@ InModuleScope $ThisModuleName {
 			OtherAtrrib = 'x'
 		}
 
-		mock 'SetAdser'
+		mock 'SetAduser'
 	
 		$parameterSets = @(
 			@{
@@ -768,9 +770,26 @@ InModuleScope $ThisModuleName {
 			 	}
 				Identifier = 'samAccountName'
 				Confirm = $false
-				ExpectedSetAdUserAttributes = @{
-
-				}
+				TestName = 'Single attribute'
+			}
+			@{
+				AdUser = $script:AdUserUpn
+				CsvUser = $script:csvUser
+				Attributes = @(@{ 
+					ADAttributeName = 'EmployeeId'
+					ADAttributeValue = $null
+					CSVAttributeName = 'username'
+					CSVAttributeValue = 'userhere'
+			 	},
+				 @{ 
+					ADAttributeName = 'EmployeeId'
+					ADAttributeValue = $null
+					CSVAttributeName = 'username'
+					CSVAttributeValue = 'userhere'
+			 	})
+				Identifier = 'employeeId'
+				Confirm = $false
+				TestName = 'Multiple attributes'
 			}
 		)
 	
@@ -781,16 +800,18 @@ InModuleScope $ThisModuleName {
 		it 'should change only those attributes in the Attributes parameter: <TestName>' -TestCases $testCases.All {
 			param($AdUser,$CsvUser,$Identifier,$Attributes)
 		
-			$result = & $commandName @PSBoundParameters -Confirm:$false
+			& $commandName @PSBoundParameters -Confirm:$false
 
 			$assMParams = @{
-				CommandName = 'Set-AdUser'
-				Times = 1
+				CommandName = 'SetAdUser'
+				Times = @($Attributes).Count
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = {
-					($Replace.EmployeeId -eq 123) -and
-					(-not ($Replace.GetEnumerator() | where { $_.Key -ne 'EmployeeId'}))
+					foreach ($i in $Attributes) {
+						$PSBoundParameters.Attribute.($i.ADAttributeName) -eq ($i.CSVAttributeValue)
+					}
+					
 				 }
 			}
 			Assert-MockCalled @assMParams
@@ -799,14 +820,15 @@ InModuleScope $ThisModuleName {
 		it 'should change attributes on the expected user account: <TestName>' -TestCases $testCases.All {
 			param($AdUser,$CsvUser,$Identifier,$Attributes)
 		
-			$result = & $commandName @PSBoundParameters -Confirm:$false
+			& $commandName @PSBoundParameters -Confirm:$false
 
 			$assMParams = @{
-				CommandName = 'Set-AdUser'
-				Times = 1
+				CommandName = 'SetAdUser'
+				Times = @($Attributes).Count
 				Exactly = $true
 				Scope = 'It'
-				ParameterFilter = { [string]$Identity -eq 'foo' }
+				ParameterFilter = { 
+					$PSBoundParameters.Identity.$Identifier -eq $AdUser.$Identifier }
 			}
 			Assert-MockCalled @assMParams
 		}
@@ -817,7 +839,7 @@ InModuleScope $ThisModuleName {
 				Write-Error -Message 'error!'
 			}
 
-			it 'should throw an exception: <TestName>' -Skip -TestCases $testCases.All {
+			it 'should throw an exception: <TestName>' -TestCases $testCases.All {
 				param($AdUser,$CsvUser,$Identifier,$Attributes)
 			
 				$params = @{} + $PSBoundParameters
@@ -829,7 +851,7 @@ InModuleScope $ThisModuleName {
 	describe 'WriteLog' {
 	
 		$commandName = 'WriteLog'
-		$command = Get-Command -Name $commandName
+		
 
 		mock 'Get-Date' {
 			'time'
@@ -842,7 +864,7 @@ InModuleScope $ThisModuleName {
 				FilePath = 'C:\log.csv'
 				CSVIdentifierValue = 'username'
 				CSVIdentifierField = 'employeeid'
-				Attributes = [pscustomobject]@{ 
+				Attributes = @{ 
 					ADAttributeName = 'EmployeeId'
 					ADAttributeValue = $null
 					CSVAttributeName = 'PERSON_NUM'
@@ -859,7 +881,7 @@ InModuleScope $ThisModuleName {
 		it 'should export a CSV to the expected path: <TestName>' -TestCases $testCases.All {
 			param($FilePath,$CSVIdentifierValue,$CSVIdentifierField,$Attributes)
 		
-			$result = & $commandName @PSBoundParameters
+			& $commandName @PSBoundParameters
 
 			$assMParams = @{
 				CommandName = 'Export-Csv'
@@ -874,7 +896,7 @@ InModuleScope $ThisModuleName {
 		it 'should appends to the CSV: <TestName>' -TestCases $testCases.All {
 			param($FilePath,$CSVIdentifierValue,$CSVIdentifierField,$Attributes)
 		
-			$result = & $commandName @PSBoundParameters
+			& $commandName @PSBoundParameters
 
 			$assMParams = @{
 				CommandName = 'Export-Csv'
@@ -889,7 +911,7 @@ InModuleScope $ThisModuleName {
 		it 'should export as CSV with the expected values: <TestName>' -TestCases $testCases.All {
 			param($FilePath,$CSVIdentifierValue,$CSVIdentifierField,$Attributes)
 		
-			$result = & $commandName @PSBoundParameters
+			& $commandName @PSBoundParameters
 
 			$assMParams = @{
 				CommandName = 'Export-Csv'
@@ -913,7 +935,7 @@ InModuleScope $ThisModuleName {
 	describe 'Invoke-AdSync' {
 	
 		$commandName = 'Invoke-AdSync'
-		$command = Get-Command -Name $commandName
+		
 
 		#region Mocks
 
@@ -934,7 +956,7 @@ InModuleScope $ThisModuleName {
 					'EmployeeId' = 1
 					'Title' = 'titleval'
 				}
-				$props.GetEnumerator() | foreach {
+				$props.GetEnumerator() | ForEach-Object {
 					$adsiUser | Add-Member @amParams -Name $_.Key -Value $_.Value
 				}
 				$adsiUser
@@ -1010,7 +1032,7 @@ InModuleScope $ThisModuleName {
 				it 'should write a warning: <TestName>' -TestCases $testCases.All {
 					param($CsvFilePath,$ReportOnly,$Exclude)
 				
-					$result = & $commandName @PSBoundParameters
+					& $commandName @PSBoundParameters
 
 					$assMParams = @{
 						CommandName = 'Write-Warning'
@@ -1027,7 +1049,7 @@ InModuleScope $ThisModuleName {
 				it 'should write the expected contents to the log file: <TestName>' -TestCases $testCases.All {
 					param($CsvFilePath,$ReportOnly,$Exclude)
 				
-					$result = & $commandName @PSBoundParameters
+					& $commandName @PSBoundParameters
 
 					$assMParams = @{
 						CommandName = 'WriteLog'
@@ -1059,7 +1081,7 @@ InModuleScope $ThisModuleName {
 				it 'should write the expected contents to the log file: <TestName>' -TestCases $testCases.All {
 					param($CsvFilePath,$ReportOnly,$Exclude)
 				
-					$result = & $commandName @PSBoundParameters
+					& $commandName @PSBoundParameters
 
 					$assMParams = @{
 						CommandName = 'WriteLog'
@@ -1099,7 +1121,7 @@ InModuleScope $ThisModuleName {
 				'EmployeeId' = 1
 				'Title' = 'titleval'
 			}
-			$props.GetEnumerator() | foreach {
+			$props.GetEnumerator() | ForEach-Object {
 				$matchedAdUser | Add-Member @amParams -Name $_.Key -Value $_.Value
 			}
 
@@ -1118,7 +1140,7 @@ InModuleScope $ThisModuleName {
 				it 'should write the expected contents to the log file: <TestName>' -TestCases $testCases.All {
 					param($CsvFilePath,$ReportOnly,$Exclude)
 				
-					$result = & $commandName @PSBoundParameters
+					& $commandName @PSBoundParameters
 
 					$assMParams = @{
 						CommandName = 'WriteLog'
@@ -1141,7 +1163,7 @@ InModuleScope $ThisModuleName {
 			context 'when an attribute mismatch is found' {
 
 				mock 'FindAttributeMismatch' {
-					[pscustomobject]@{
+					@{
 						CSVAttributeName = 'PERSON_NUM'
 						CSVAttributeValue = '1'
 						ADAttributeName = 'EmployeeId'
@@ -1152,7 +1174,7 @@ InModuleScope $ThisModuleName {
 				it 'when ReportOnly is used, should not attempt to sync the user: <TestName>' -TestCases $testCases.ReportOnly {
 					param($CsvFilePath,$ReportOnly,$Exclude)
 				
-					$result = & $commandName @PSBoundParameters
+					& $commandName @PSBoundParameters
 
 					$assMParams = @{
 						CommandName = 'SyncCompanyUser'
@@ -1164,7 +1186,7 @@ InModuleScope $ThisModuleName {
 				it 'when ReportOnly is not used, should attempt to sync the user: <TestName>' -TestCases $testCases.Sync {
 					param($CsvFilePath,$ReportOnly,$Exclude)
 				
-					$result = & $commandName @PSBoundParameters
+					& $commandName @PSBoundParameters
 
 					$assMParams = @{
 						CommandName = 'SyncCompanyUser'
@@ -1200,7 +1222,7 @@ InModuleScope $ThisModuleName {
 			it 'should return a non-terminating error: <TestName>' -TestCases $testCases.All {
 				param($CsvFilePath,$ReportOnly,$Exclude)
 			
-				try { $null = & $commandName @PSBoundParameters -ErrorAction SilentlyContinue -ErrorVariable err } catch {}
+				try { $null = & $commandName @PSBoundParameters -ErrorAction SilentlyContinue -ErrorVariable err } catch { $null }
 				$err | should not benullorempty
 			}
 

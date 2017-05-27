@@ -108,7 +108,7 @@ function Get-CompanyAdUser
 	{
 		try
 		{
-			$whereFilter = { $adUser = $_; $Defaults.FieldMatchIds.AD | where { $adUser.$_ }}
+			$whereFilter = { $adUser = $_; $Defaults.FieldMatchIds.AD | Where-Object { $adUser.$_ }}
 			@(GetAdUser).where({$whereFilter})
 		}
 		catch
@@ -148,7 +148,7 @@ function TestCsvHeaderExists
 	)
 
 	$csvHeaders = GetCsvColumnHeaders -CsvFilePath $CsvFilePath
-	$matchedHeaders = $csvHeaders | where { $_ -in $Header }
+	$matchedHeaders = $csvHeaders | Where-Object { $_ -in $Header }
 	if (@($matchedHeaders).Count -ne @($Header).Count) {
 		$false
 	} else {
@@ -183,7 +183,7 @@ function Get-CompanyCsvUser
 			$whereFilter = { '*' }
 			if ($PSBoundParameters.ContainsKey('Exclude'))
 			{
-				$conditions = $Exclude.GetEnumerator() | foreach { "(`$_.'$($_.Key)' -ne '$($_.Value)')" }
+				$conditions = $Exclude.GetEnumerator() | ForEach-Object { "(`$_.'$($_.Key)' -ne '$($_.Value)')" }
 				$whereFilter = [scriptblock]::Create($conditions -join ' -and ')
 			}
 			Import-Csv -Path $CsvFilePath | Where-Object -FilterScript $whereFilter
@@ -254,13 +254,15 @@ function FindAttributeMismatch
 	Write-Verbose "AD-CSV field map values are [$($AdToCsvFieldMap.Values | Out-String)]"
 	$csvPropertyNames = $CsvUser.PSObject.Properties.Name
 	$AdPropertyNames = ($AdUser | Get-Member -MemberType Property).Name
-	foreach ($csvProp in ($csvPropertyNames | Where { ($_ -in @($AdToCsvFieldMap.Values)) })) {
+	Write-Verbose "CSV properties are: [$($csvPropertyNames -join ',')]"
+	Write-Verbose "ADUser props: [$($AdPropertyNames -join ',')]"
+	foreach ($csvProp in ($csvPropertyNames | Where-Object { ($_ -in @($AdToCsvFieldMap.Values)) })) {
 		
 		## Ensure we're going to be checking the value on the correct CSV property and AD attribute
-		$matchingAdAttribName = ($AdToCsvFieldMap.GetEnumerator() | where { $_.Value -eq $csvProp }).Name
+		$matchingAdAttribName = ($AdToCsvFieldMap.GetEnumerator() | Where-Object { $_.Value -eq $csvProp }).Name
 		Write-Verbose -Message "Matching AD attrib name is: [$($matchingAdAttribName)]"
 		Write-Verbose -Message "Matching CSV field is: [$($csvProp)]"
-		if ($adAttribMatch = $AdPropertyNames | where { $_ -eq $matchingAdAttribName }) {
+		if ($adAttribMatch = $AdPropertyNames | Where-Object { $_ -eq $matchingAdAttribName }) {
 			Write-Verbose -Message "ADAttribMatch: [$($adAttribMatch)]"
 			if (-not $AdUser.$adAttribMatch) {
 				Write-Verbose -Message "[$($adAttribMatch)] value is null. Converting to empty string,.."
@@ -306,16 +308,19 @@ function SyncCompanyUser
 	)
 
 	$ErrorActionPreference = 'Stop'
-
-	$setParams = @{
-		Identity = @{ $Identifier = $AdUser.$Identifier }
-	}
-	foreach ($attrib in $Attributes) {
-		$setParams.Attribute = @{ $attrib.ADAttributeName = $attrib.CSVAttributeValue }
-		if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($setParams.Attribute.Keys -join ',')]",'Set AD attributes')) {
-			Write-Verbose -Message "Setting the following AD attributes for user [$Identifier]: $($setParams.Attribute | Out-String)"
-			SetAdUser @setParams
+	try {
+		$setParams = @{
+			Identity = @{ $Identifier = $AdUser.$Identifier }
 		}
+		foreach ($attrib in $Attributes) {
+			$setParams.Attribute = @{ $attrib.ADAttributeName = $attrib.CSVAttributeValue }
+			if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($setParams.Attribute.Keys -join ',')]",'Set AD attributes')) {
+				Write-Verbose -Message "Setting the following AD attributes for user [$Identifier]: $($setParams.Attribute | Out-String)"
+				SetAdUser @setParams
+			}
+		}
+	} catch {
+		$PSCmdlet.ThrowTerminatingError($_)
 	}
 }
 
@@ -404,7 +409,7 @@ function GetCsvIdField
 	)
 
 
-	$Defaults.FieldMatchIds.CSV | foreach { 
+	$Defaults.FieldMatchIds.CSV | ForEach-Object { 
 		[pscustomobject]@{
 			Field = $_
 			Value = $CSVUser.$_
@@ -480,10 +485,10 @@ function Invoke-AdSync
 					$csvIds = GetCsvIdField -CsvUser $csvUser
 					$csvIdField = $csvIds.Field -join ','
 					## No ID fields are populated
-					if (-not ($csvIds | where {$_.Value})) {
+					if (-not ($csvIds | Where-Object {$_.Value})) {
 						$csvIdValue = 'N/A'
 						Write-Warning -Message 'No CSV user identifier could be found'
-					} elseif ($csvIds | where { $_.Value}) { ## at least one ID field is populated
+					} elseif ($csvIds | Where-Object { $_.Value}) { ## at least one ID field is populated
 						$csvIdValue = $csvIds.Value -join ','
 					}
 					$logAttribs = @{
