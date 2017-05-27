@@ -629,7 +629,7 @@ InModuleScope $ThisModuleName {
 			
 				$result = & $commandName @PSBoundParameters
 				@($result).Count | should be 1
-				$result | should beoftype 'pscustomobject'
+				$result | should beoftype 'hashtable'
 				$result.CSVAttributeName | should be 'PERSON_NUM'
 				$result.CSVAttributeValue | should be 123
 				$result.ADAttributeName | should be 'EmployeeId'
@@ -663,36 +663,32 @@ InModuleScope $ThisModuleName {
 	
 	}
 
-	describe 'SyncCompanyUser' {
+	describe 'SetAduser' {
 	
-		$commandName = 'SyncCompanyUser'
+		$commandName = 'SetAduser'
 		$command = Get-Command -Name $commandName
 
-		$script:AdUser = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
-		$script:AdUser | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
-		$script:AdUser | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value $null -PassThru
+		mock 'SaveAdUser'
 
-		$script:csvUser = [pscustomobject]@{
-			AD_LOGON = 'foo'
-			PERSON_NUM = 123
-			OtherAtrrib = 'x'
-		}
+		mock 'GetAdUser' {
+			$obj = New-MockObject -Type 'System.DirectoryServices.SearchResult'
+			$obj | Add-Member -MemberType NoteProperty -Name 'Properties' -PassThru -Force -Value ([pscustomobject]@{
+				adsPath = 'adspathhere'
+			})
+		} -ParameterFilter { $OutputAs -eq 'SearchResult' }
 
-		#mock 'Set-AdUser'
+		mock 'GetAdUser' {
+			New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
+		} -ParameterFilter { $OutputAs -ne 'SearchResult' }
 	
 		$parameterSets = @(
 			@{
-				AdUser = $script:AdUser
-				CsvUser = $script:csvUser
-				Attributes = [pscustomobject]@{ 
-					ADAttributeName = 'EmployeeId'
-					ADAttributeValue = $null
-					CSVAttributeName = 'PERSON_NUM'
-					CSVAttributeValue = 123
-			 	}
-				Identifier = 'samAccountName'
-				Confirm = $false
-				TestName = 'Standard'
+				Identity = @{ samAccountName = 'samnamehere'}
+				Attribute = @{ employeeId = 'empidhere' }
+			}
+			@{
+				Identity = @{ employeeId = 'empidhere'}
+				Attribute = @{ displayName = 'displaynamehere' }
 			}
 		)
 	
@@ -700,7 +696,89 @@ InModuleScope $ThisModuleName {
 			All = $parameterSets
 		}
 	
-		it 'should change only those attributes in the Attributes parameter: <TestName>' -Skip -TestCases $testCases.All {
+		it 'returns nothing' -TestCases $testCases.All {
+			param($Identity,$Attribute)
+
+			& $commandName @PSBoundParameters | should benullorempty
+		}
+
+		it 'should save the expected attribute' -TestCases $testCases.All {
+			param($Identity,$Attribute)
+		
+			$result = & $commandName @PSBoundParameters
+
+			$assMParams = @{
+				CommandName = 'SaveAdUser'
+				Times = 1
+				Exactly = $true
+				Scope = 'It'
+				ParameterFilter = { 
+					(-not (diff $PSBoundParameters.Parameters.Attribute.Keys $Attribute.Keys)) -and
+					(-not (diff $PSBoundParameters.Parameters.Attribute.Values $Attribute.Values))
+				}
+			}
+			Assert-MockCalled @assMParams
+		}
+
+		it 'should save on the expected identity' -TestCases $testCases.All {
+			param($Identity,$Attribute)
+
+			$result = & $commandName @PSBoundParameters
+		
+			$assMParams = @{
+				CommandName = 'SaveAdUser'
+				Times = 1
+				Exactly = $true
+				Scope = 'It'
+				ParameterFilter = { 
+					$PSBoundParameters.Parameters.AdsPath -eq 'adspathhere'
+				}
+			}
+			Assert-MockCalled @assMParams
+		}
+	
+	}
+
+	describe 'SyncCompanyUser' {
+	
+		$commandName = 'SyncCompanyUser'
+		$command = Get-Command -Name $commandName
+
+		$script:AdUserUpn = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
+		$script:AdUserUpn | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
+		$script:AdUserUpn | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value $null -PassThru
+
+		$script:csvUser = [pscustomobject]@{
+			AD_LOGON = 'foo'
+			PERSON_NUM = 123
+			OtherAtrrib = 'x'
+		}
+
+		mock 'SetAdser'
+	
+		$parameterSets = @(
+			@{
+				AdUser = $script:AdUserUpn
+				CsvUser = $script:csvUser
+				Attributes = @{ 
+					ADAttributeName = 'EmployeeId'
+					ADAttributeValue = $null
+					CSVAttributeName = 'username'
+					CSVAttributeValue = 'userhere'
+			 	}
+				Identifier = 'samAccountName'
+				Confirm = $false
+				ExpectedSetAdUserAttributes = @{
+
+				}
+			}
+		)
+	
+		$testCases = @{
+			All = $parameterSets
+		}
+	
+		it 'should change only those attributes in the Attributes parameter: <TestName>' -TestCases $testCases.All {
 			param($AdUser,$CsvUser,$Identifier,$Attributes)
 		
 			$result = & $commandName @PSBoundParameters -Confirm:$false
@@ -718,7 +796,7 @@ InModuleScope $ThisModuleName {
 			Assert-MockCalled @assMParams
 		}
 
-		it 'should change attributes on the expected user account: <TestName>' -Skip -TestCases $testCases.All {
+		it 'should change attributes on the expected user account: <TestName>' -TestCases $testCases.All {
 			param($AdUser,$CsvUser,$Identifier,$Attributes)
 		
 			$result = & $commandName @PSBoundParameters -Confirm:$false
