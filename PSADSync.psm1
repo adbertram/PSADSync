@@ -32,7 +32,7 @@ function Get-CompanyAdUser
 	begin
 	{
 		$ErrorActionPreference = 'Stop'
-		Write-Verbose -Message "Finding all enabled AD users in domain with field(s) used: $($Defaults.FieldMatchIds.AD -join ',')"
+		Write-Verbose -Message "Finding all AD users in domain with properties: $($Defaults.FieldMatchIds.AD -join ',')"
 	}
 	process
 	{
@@ -391,6 +391,7 @@ function Invoke-AdSync
 			}
 
 			$script:adUsers = Get-CompanyAdUser
+			Write-Host ($getCsvParams | Out-String)
 			$csvusers = Get-CompanyCsvUser @getCsvParams
 			
 			@($csvUsers).foreach({

@@ -14,7 +14,14 @@ describe 'Module-level tests' {
 	}
 
 	it 'should pass all error-level script analyzer rules' {
-		Invoke-ScriptAnalyzer -Path $PSScriptRoot -Severity Error
+
+		$excludedRules = @(
+			'PSUseShouldProcessForStateChangingFunctions',
+			'PSUseToExportFieldsInManifest',
+			'PSAvoidInvokingEmptyMembers'
+		)
+
+		Invoke-ScriptAnalyzer -Path $PSScriptRoot -ExcludeRule $excludedRules -Severity Error | should benullorempty
 	}
 }
 
