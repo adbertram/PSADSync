@@ -19,7 +19,6 @@ describe 'Module-level tests' {
 			'PSUseShouldProcessForStateChangingFunctions',
 			'PSUseToExportFieldsInManifest',
 			'PSAvoidInvokingEmptyMembers',
-			'PSAvoidUsingConvertToSecureStringWithPlainText'
 			'PSUsePSCredentialType',
 			'PSAvoidUsingPlainTextForPassword'
 		)

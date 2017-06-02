@@ -324,45 +324,6 @@ function SyncCompanyUser
 	}
 }
 
-function NewRandomPassword
-{
-	[CmdletBinding()]
-	[OutputType([System.Security.SecureString])]
-	param
-	(
-		[Parameter()]
-		[ValidateRange(8, 64)]
-		[uint32]$Length = (Get-Random -Minimum 20 -Maximum 32),
-
-		[Parameter()]
-		[ValidateRange(0, 8)]
-		[uint32]$Complexity = 3
-	)
-
-	try
-	{
-		$ErrorActionPreference = [System.Management.Automation.ActionPreference]::Stop;
-
-		# Generate a password with the specified length and complexity.
-		$password = [System.Web.Security.Membership]::GeneratePassword($Length, $Complexity);
-
-		# Remove any restricted characters that makes the password unfriendly to XML.
-		@('"', "'", '<', '>', '&', '/') | ForEach-Object {
-			$password = $password.Replace($_, '');
-		}
-
-		# Convert the password to a secure string so we don't put plain text passwords on the pipeline.
-		[pscustomobject]@{
-			SecurePassword = ConvertTo-SecureString -String $password -AsPlainText -Force
-			PlainTextPassword = $password
-		}
-	}
-	catch
-	{
-		Write-Error -Message $_.Exception.Message
-	}
-}
-
 function WriteLog
 {
 	[OutputType([void])]
