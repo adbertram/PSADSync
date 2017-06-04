@@ -1056,6 +1056,8 @@ InModuleScope $ThisModuleName {
 					Value = 'y'
 				}
 			}
+
+			mock 'Write-Host'
 		#endregion
 
 		$parameterSets = @(
@@ -1252,17 +1254,6 @@ InModuleScope $ThisModuleName {
 								}
 
 								$result = & $commandName @parameters
-
-								it 'should display a warning' {
-									$assMParams = @{
-										CommandName = 'Write-Warning'
-										Times = 1
-										Exactly = $true
-										ParameterFilter = { 
-											$PSBoundParameters.Message -eq 'No CSV user identifier could be found' }
-									}
-									Assert-MockCalled @assMParams
-								}
 
 								it 'should pass N/A as the CSV id field for WriteLog' {
 

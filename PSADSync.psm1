@@ -388,6 +388,19 @@ function GetCsvIdField
 	
 }
 
+function Write-ProgressHelper {
+	param (
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[int]$StepNumber,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Message
+	)
+	Write-Progress -Activity 'Active Directory Report/Sync' -Status $Message -PercentComplete (($StepNumber / $script:totalSteps) * 100)
+}
+
 function Invoke-AdSync
 {
 	[OutputType()]
@@ -433,14 +446,19 @@ function Invoke-AdSync
 				$getCsvParams.Exclude = $Exclude
 			}
 
+			Write-Host 'Enumerating all Active Diretory users. This may take a few minutes depending on the number of users...'
 			if (-not ($script:adUsers = Get-CompanyAdUser -FieldMatchMap $FieldMatchMap)) {
 				throw 'No AD users found'
 			}
+			Write-Host 'Enumerating all CSV users...'
 			if (-not ($csvusers = Get-CompanyCsvUser @getCsvParams)) {
 				throw 'No CSV users found'
 			}
-			
+
+			$script:totalSteps = @($csvusers).Count
+			$stepCounter = 0
 			@($csvUsers).foreach({
+				Write-ProgressHelper -Message "Attempting to find attribute mismatch for user in CSV row [$($stepCounter + 1)]" -StepNumber ($stepCounter++)
 				$csvUser = $_
 				if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
 					Write-Verbose -Message 'Match'
@@ -471,7 +489,7 @@ function Invoke-AdSync
 					## No ID fields are populated
 					if (-not ($csvIds | Where-Object {$_.Value})) {
 						$csvIdValue = 'N/A'
-						Write-Warning -Message 'No CSV user identifier could be found'
+						Write-Verbose -Message 'No CSV user identifier could be found'
 					} elseif ($csvIds | Where-Object { $_.Value}) { ## at least one ID field is populated
 						$csvIdValue = $csvIds.Value -join ','
 					}
