@@ -298,6 +298,7 @@ InModuleScope $ThisModuleName {
 		
 		$parameterSets = @(
 			@{
+				FieldMatchMap = @{ 'csvid' = 'adid' }
 				TestName = 'All users'
 			}
 		)
@@ -307,7 +308,7 @@ InModuleScope $ThisModuleName {
 		}
 
 		it 'should return all users: <TestName>' -TestCases $testCases.All {
-			param($All,$Credential)
+			param($All,$Credential,$FieldMatchMap)
 		
 			$result = & $commandName @PSBoundParameters
 			@($result).Count | should be @($script:AllAdsiUsers).Count
@@ -340,7 +341,7 @@ InModuleScope $ThisModuleName {
 			$script:OneblankCsvUserIdentifier = @(
 				[pscustomobject]@{
 					PERSON_NUM = $null
-					AD_LOGON = 'foo'				
+					AD_LOGON = 'foo'
 				}
 			)
 
@@ -387,26 +388,37 @@ InModuleScope $ThisModuleName {
 			@{
 				AdUsers = $script:AdUsers
 				CsvUser = $script:csvUserMatchOnOneIdentifer
+				FieldMatchMap = @{ 'AD_LOGON' = 'samAccountName' }
 				TestName = 'Match on 1 ID'
 			}
 			@{
 				AdUsers = $script:AdUsers
 				CsvUser = $script:csvUserMatchOnAllIdentifers
+				FieldMatchMap = @{ 'PERSON_NUM' = 'EmployeeId' }
 				TestName = 'Match on all IDs'
 			}
 			@{
 				AdUsers = $script:AdUsers
 				CsvUser = $script:csvUserNoMatch
+				FieldMatchMap = @{ 'PERSON_NUM' = 'EmployeeId' }
 				TestName = 'No Match'
 			}
 			@{
 				AdUsers = $script:AdUsers
 				CsvUser = $script:OneblankCsvUserIdentifier
+				FieldMatchMap = [ordered]@{ 
+					'PERSON_NUM' = 'EmployeeId'
+					'AD_LOGON' = 'samAccountName'
+				}
 				TestName = 'One Blank ID'
 			}
 			@{
 				AdUsers = $script:AdUsers
 				CsvUser = $script:AllblankCsvUserIdentifier
+				FieldMatchMap = @{ 
+					'PERSON_NUM' = 'EmployeeId'
+					'AD_LOGON' = 'samAccountName'
+				}
 				TestName = 'All Blank IDs'
 			}
 		)
@@ -416,13 +428,13 @@ InModuleScope $ThisModuleName {
 			MatchOnOneId = $parameterSets.where({$_.TestName -eq 'Match on 1 ID'})
 			MatchOnAllIds = $parameterSets.where({$_.TestName -eq 'Match on all IDs'})
 			NoMatch = $parameterSets.where({$_.TestName -eq 'No Match'})
-			OneBlankId = $parameterSets.where({ $_.CsvUser.AD_LOGON -and (-not $_.CsvUser.PERSON_NUM) })
+			OneBlankId = $parameterSets.where({ $_.CsvUser.AD_LOGON -and -not $_.CsvUser.PERSON_NUM })
 			AllBlankIds = $parameterSets.where({ -not $_.CsvUser.AD_LOGON -and (-not $_.CsvUser.PERSON_NUM) })
 		}
 
 		context 'When no matches could be found' {
 			it 'should return the expected number of objects: <TestName>' -TestCases $testCases.NoMatch {
-				param($AdUsers,$CsvUser)
+				param($AdUsers,$CsvUser,$FieldMatchMap)
 			
 				& $commandName @PSBoundParameters | should benullorempty
 			}
@@ -431,14 +443,14 @@ InModuleScope $ThisModuleName {
 		context 'When one match can be found' {
 
 			it 'should return the expected number of objects: <TestName>' -TestCases $testCases.MatchOnOneId {
-				param($AdUsers,$CsvUser)
+				param($AdUsers,$CsvUser,$FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
 				@($result).Count | should be 1
 			}
 
 			it 'should find matches as expected and return the expected property values: <TestName>' -TestCases $testCases.MatchOnOneId {
-				param($AdUsers,$CsvUser)
+				param($AdUsers,$CsvUser,$FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
 
@@ -452,14 +464,14 @@ InModuleScope $ThisModuleName {
 		context 'When multiple matches could be found' {
 
 			it 'should return the expected number of objects: <TestName>' -TestCases $testCases.MatchOnAllIds {
-				param($AdUsers,$CsvUser)
+				param($AdUsers,$CsvUser,$FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
 				@($result).Count | should be 1
 			}
 
 			it 'should find matches as expected and return the expected property values: <TestName>' -TestCases $testCases.MatchOnAllIds {
-				param($AdUsers,$CsvUser)
+				param($AdUsers,$CsvUser,$FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
 
@@ -473,7 +485,7 @@ InModuleScope $ThisModuleName {
 		context 'when a blank identifier is queried before finding a match' {
 
 			it 'should do nothing: <TestName>' -TestCases $testCases.OneBlankId {
-				param($AdUsers,$CsvUser)
+				param($AdUsers,$CsvUser,$FieldMatchMap)
 			
 				& $commandName @PSBoundParameters
 
@@ -488,7 +500,7 @@ InModuleScope $ThisModuleName {
 			}
 
 			it 'should return the expected object properties: <TestName>' -TestCases $testCases.OneBlankId {
-				param($AdUsers,$CsvUser)
+				param($AdUsers,$CsvUser,$FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
 				$result.MatchedAdUser.samAccountName | should be 'foo'
@@ -501,7 +513,7 @@ InModuleScope $ThisModuleName {
 		context 'when all identifers are blank' {
 
 			it 'should do nothing: <TestName>' -TestCases $testCases.AllBlankIds {
-				param($AdUsers,$CsvUser)
+				param($AdUsers,$CsvUser,$FieldMatchMap)
 			
 				& $commandName @PSBoundParameters
 
@@ -520,7 +532,7 @@ InModuleScope $ThisModuleName {
 		context 'when all identifiers are valid' {
 		
 			it 'should return the expected object properties: <TestName>' -TestCases $testCases.MatchOnAllIds {
-				param($AdUsers,$CsvUser)
+				param($AdUsers,$CsvUser,$FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
 				@($result.MatchedAdUser).foreach({
@@ -537,29 +549,30 @@ InModuleScope $ThisModuleName {
 	
 		$commandName = 'FindAttributeMismatch'
 		
-	
 		#region Mocks
 			mock 'Write-Verbose'
 
 			$script:csvUserMisMatch = [pscustomobject]@{
 				AD_LOGON = 'foo'
 				PERSON_NUM = 123
-				OtherAtrrib = 'x'
+				OtherAttrib = 'x'
 			}
 
 			$script:csvUserNoMisMatch = [pscustomobject]@{
 				AD_LOGON = 'foo'
 				PERSON_NUM = 1111
-				OtherAtrrib = 'y'
+				OtherAttrib = 'y'
 			}
 
 			$script:AdUserMisMatch = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
 			$script:AdUserMisMatch | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
-			$script:AdUserMisMatch | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value $null -PassThru
+			$script:AdUserMisMatch | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value $null
+			$script:AdUserMisMatch | Add-Member -MemberType NoteProperty -Name 'otherattribmap' -Force -Value $null -PassThru
 
 			$script:AdUserNoMisMatch = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
 			$script:AdUserNoMisMatch | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
-			$script:AdUserNoMisMatch | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value 1111 -PassThru
+			$script:AdUserNoMisMatch | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value 1111
+			$script:AdUserNoMisMatch | Add-Member -MemberType NoteProperty -Name 'otherattribmap' -Force -Value 'y' -PassThru
 
 			mock 'Get-Member' {
 				[pscustomobject]@{
@@ -568,6 +581,9 @@ InModuleScope $ThisModuleName {
 				[pscustomobject]@{
 					Name = 'EmployeeId'
 				}
+				[pscustomobject]@{
+					Name = 'otherattribmap'
+				}
 			}
 		#endregion
 		
@@ -575,11 +591,13 @@ InModuleScope $ThisModuleName {
 			@{
 				AdUser = $script:AdUserMisMatch
 				CsvUser = $script:csvUserMisMatch
+				FieldSyncMap = @{ 'OtherAttrib' = 'otherattribmap' }
 				TestName = 'Mismatch'
 			}
 			@{
 				AdUser = $script:AdUserNoMisMatch
 				CsvUser = $script:csvUserNoMisMatch
+				FieldSyncMap = @{ 'OtherAttrib' = 'otherattribmap' }
 				TestName = 'No Mismatch'
 			}
 		)
@@ -591,7 +609,7 @@ InModuleScope $ThisModuleName {
 		}
 
 		it 'should find the correct AD property names: <TestName>' -TestCases $testCases.All {
-			param($AdUser,$CsvUser)
+			param($AdUser,$CsvUser,$FieldSyncMap)
 		
 			& $commandName @PSBoundParameters
 
@@ -601,13 +619,13 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { 
-					$PSBoundParameters.Message -eq "ADUser props: [samAccountName,EmployeeId]" }
+					$PSBoundParameters.Message -eq "ADUser props: [samAccountName,EmployeeId,otherattribmap]" }
 			}
 			Assert-MockCalled @assMParams
 		}
 
 		it 'should find the correct CSV property names: <TestName>' -TestCases $testCases.All {
-			param($AdUser,$CsvUser)
+			param($AdUser,$CsvUser,$FieldSyncMap)
 		
 			& $commandName @PSBoundParameters
 
@@ -617,7 +635,7 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { 
-					$PSBoundParameters.Message -eq 'CSV properties are: [AD_LOGON,PERSON_NUM,OtherAtrrib]' }
+					$PSBoundParameters.Message -eq 'CSV properties are: [AD_LOGON,PERSON_NUM,OtherAttrib]' }
 			}
 
 			Assert-MockCalled @assMParams
@@ -626,14 +644,14 @@ InModuleScope $ThisModuleName {
 		context 'when a mismatch is found' {
 
 			it 'should return the expected objects: <TestName>' -TestCases $testCases.Mismatch {
-				param($AdUser,$CsvUser)
+				param($AdUser,$CsvUser,$FieldSyncMap)
 			
 				$result = & $commandName @PSBoundParameters
 				@($result).Count | should be 1
 				$result | should beoftype 'hashtable'
-				$result.CSVAttributeName | should be 'PERSON_NUM'
-				$result.CSVAttributeValue | should be 123
-				$result.ADAttributeName | should be 'EmployeeId'
+				$result.CSVAttributeName | should be 'OtherAttrib'
+				$result.CSVAttributeValue | should be 'x'
+				$result.ADAttributeName | should be 'otherattribmap'
 				$result.ADAttributeValue | should be ''
 			}
 		}
@@ -641,7 +659,7 @@ InModuleScope $ThisModuleName {
 		context 'when no mismatches are found' {
 
 			it 'should return nothing: <TestName>' -TestCases $testCases.NoMismatch {
-				param($AdUser,$CsvUser)
+				param($AdUser,$CsvUser,$FieldSyncMap)
 			
 				& $commandName @PSBoundParameters | should benullorempty
 			}
@@ -655,7 +673,7 @@ InModuleScope $ThisModuleName {
 			}
 
 			it 'should throw an exception: <TestName>' -TestCases $testCases.All {
-				param($AdUser,$CsvUser)
+				param($AdUser,$CsvUser,$FieldSyncMap)
 			
 				$params = @{} + $PSBoundParameters
 				{ & $commandName @params } | should throw 'error!'
@@ -743,106 +761,152 @@ InModuleScope $ThisModuleName {
 	describe 'SyncCompanyUser' {
 	
 		$commandName = 'SyncCompanyUser'
-		
+		$command = Get-Command -Name $commandName
 
 		$script:AdUserUpn = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
-		$script:AdUserUpn | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'foo'
-		$script:AdUserUpn | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value $null -PassThru
+		$script:AdUserUpn | Add-Member -MemberType NoteProperty -Name 'samAccountName' -Force -Value 'samaccountnameval'
+		$script:AdUserUpn | Add-Member -MemberType NoteProperty -Name 'EmployeeId' -Force -Value 'empidhere' -PassThru
 
 		$script:csvUser = [pscustomobject]@{
 			AD_LOGON = 'foo'
 			PERSON_NUM = 123
 			OtherAtrrib = 'x'
 		}
-
-		mock 'SetAduser'
 	
-		$parameterSets = @(
+		#region Mocks
+			mock 'SetAdUser'
+		#endregion
+	
+		$testCases = @(
 			@{
-				AdUser = $script:AdUserUpn
-				CsvUser = $script:csvUser
-				Attributes = @{ 
-					ADAttributeName = 'EmployeeId'
-					ADAttributeValue = $null
-					CSVAttributeName = 'username'
-					CSVAttributeValue = 'userhere'
-			 	}
-				Identifier = 'samAccountName'
-				Confirm = $false
-				TestName = 'Single attribute'
+				Label = 'SamAccountName Identifier, 1 Attributes hashtable'
+				Parameters = @{
+					AdUser = $script:AdUserUpn
+					CsvUser = $script:csvUser
+					Attributes = @{ 
+						ADAttributeName = 'EmployeeId'
+						ADAttributeValue = $null
+						CSVAttributeName = 'username'
+						CSVAttributeValue = 'newattribvalue1'
+					}
+					Identifier = 'samAccountName'
+					Confirm = $false
+				}
+				Expect = @(
+					@{
+						Type = 'Function parameters'
+						Name = 'SetAdUser'
+						Parameters = @(
+							@{
+								Identity = @{ samAccountName = 'samaccountnameval' }
+								Attribute = @{ EmployeeId = 'newattribvalue1' }
+							}
+						)
+					}
+				)
 			}
 			@{
-				AdUser = $script:AdUserUpn
-				CsvUser = $script:csvUser
-				Attributes = @(@{ 
-					ADAttributeName = 'EmployeeId'
-					ADAttributeValue = $null
-					CSVAttributeName = 'username'
-					CSVAttributeValue = 'userhere'
-			 	},
-				 @{ 
-					ADAttributeName = 'EmployeeId'
-					ADAttributeValue = $null
-					CSVAttributeName = 'username'
-					CSVAttributeValue = 'userhere'
-			 	})
-				Identifier = 'employeeId'
-				Confirm = $false
-				TestName = 'Multiple attributes'
+				Label = 'EmployeeId Identifier, 2 Attributes hashtable'
+				Parameters = @{
+					AdUser = $script:AdUserUpn
+					CsvUser = $script:csvUser
+					Attributes = @(
+						@{ 
+							ADAttributeName = 'EmployeeId'
+							ADAttributeValue = $null
+							CSVAttributeName = 'username'
+							CSVAttributeValue = 'newattribvalue1'
+						},
+						@{ 
+							ADAttributeName = 'attribneedchanged'
+							ADAttributeValue = 'thisneedschanged'
+							CSVAttributeName = 'username'
+							CSVAttributeValue = 'newattribvalue2'
+						}
+					)
+					Identifier = 'employeeId'
+					Confirm = $false
+				}
+				Expect = @(
+					@{
+						Type = 'Function parameters'
+						Name = 'SetAdUser'
+						Parameters = @(
+							@{
+								Identity = @{ employeeId = 'empidhere' }
+								Attribute = @{ EmployeeId = 'newattribvalue1' }
+							}
+							@{
+								Identity = @{ employeeId = 'empidhere' }
+								Attribute = @{ attribneedchanged = 'newattribvalue2' }
+							}
+						)
+					}
+				)
 			}
 		)
 	
-		$testCases = @{
-			All = $parameterSets
-		}
+		foreach ($testCase in $testCases) {
 	
-		it 'should change only those attributes in the Attributes parameter: <TestName>' -TestCases $testCases.All {
-			param($AdUser,$CsvUser,$Identifier,$Attributes)
-		
-			& $commandName @PSBoundParameters -Confirm:$false
+			context $testcase.Label {
+	
+				$expect = $testcase.Expect
+				$funcParams = $testCase.Parameters
+	
+				$result = & $commandName @funcParams
+	
+				it 'should return nothing' {
+					$result | should benullorempty
+				}
+	
+				it 'should change only those attributes in the Attributes parameter' {
 
-			$assMParams = @{
-				CommandName = 'SetAdUser'
-				Times = @($Attributes).Count
-				Exactly = $true
-				Scope = 'It'
-				ParameterFilter = {
-					foreach ($i in $Attributes) {
-						$PSBoundParameters.Attribute.($i.ADAttributeName) -eq ($i.CSVAttributeValue)
+					$expectedParams = $expect.where({ $_.Name -eq 'SetAdUser'})
+
+					$assMParams = @{
+						CommandName = 'SetAdUser'
+						Times = @($funcParams.Attributes).Count
+						Exactly = $true
+						ParameterFilter = {
+							foreach ($paramHt in $expectedParams.Parameters) { 
+								$PSBoundParameters.Attribute.Keys -in $paramHt.Attribute.Keys -and
+								$PSBoundParameters.Attribute.Values -in $paramHt.Attribute.Values
+							}
+						}
 					}
+					Assert-MockCalled @assMParams
+				}
+
+				it 'should change attributes on the expected user account' {
+
+					$expectedParams = $expect.where({ $_.Name -eq 'SetAdUser'})
+
+					$assMParams = @{
+						CommandName = 'SetAdUser'
+						Times = @($funcParams.Attributes).Count
+						Exactly = $true
+						ParameterFilter = {
+							foreach ($i in $expectedParams.Parameters) {
+								$PSBoundParameters.Idenity.Keys -in $i.Idenity.Keys -and
+								$PSBoundParameters.Identity.Values -in $i.Identity.Values
+							}
+						}
+					}
+					Assert-MockCalled @assMParams
+				}
+
+				context 'when a non-terminating error occurs in the function' {
+
+					mock 'Write-Verbose' {
+						Write-Error -Message 'error!'
+					}
+
+					it 'should throw an exception' {
 					
-				 }
-			}
-			Assert-MockCalled @assMParams
-		}
-
-		it 'should change attributes on the expected user account: <TestName>' -TestCases $testCases.All {
-			param($AdUser,$CsvUser,$Identifier,$Attributes)
-		
-			& $commandName @PSBoundParameters -Confirm:$false
-
-			$assMParams = @{
-				CommandName = 'SetAdUser'
-				Times = @($Attributes).Count
-				Exactly = $true
-				Scope = 'It'
-				ParameterFilter = { 
-					$PSBoundParameters.Identity.$Identifier -eq $AdUser.$Identifier }
-			}
-			Assert-MockCalled @assMParams
-		}
-
-		context 'when a non-terminating error occurs in the function' {
-
-			mock 'Write-Verbose' {
-				Write-Error -Message 'error!'
-			}
-
-			it 'should throw an exception: <TestName>' -TestCases $testCases.All {
-				param($AdUser,$CsvUser,$Identifier,$Attributes)
-			
-				$params = @{} + $PSBoundParameters
-				{ & $commandName @params -Confirm:$false } | should throw 'error!'
+						$params = @{} + $funcParams
+						{ & $commandName @params } | should throw 'error!'
+					}
+				}
 			}
 		}
 	}
@@ -934,12 +998,9 @@ InModuleScope $ThisModuleName {
 	describe 'Invoke-AdSync' {
 	
 		$commandName = 'Invoke-AdSync'
-		
-
+	
 		#region Mocks
-
-			mock 'Get-CompanyAdUser' {
-				$adsiUser = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
+			$script:testAdUser = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
 				$amParams = @{
 					MemberType = 'NoteProperty'
 					Force = $true
@@ -956,17 +1017,9 @@ InModuleScope $ThisModuleName {
 					'Title' = 'titleval'
 				}
 				$props.GetEnumerator() | ForEach-Object {
-					$adsiUser | Add-Member @amParams -Name $_.Key -Value $_.Value
+					$script:testAdUser | Add-Member @amParams -Name $_.Key -Value $_.Value
 				}
-				$adsiUser
-			}
-
-			mock 'Get-CompanyCsvUser' {
-				[pscustomobject]@{ 
-					AD_LOGON = "nameval"
-					PERSON_NUM = "1" 
-				}
-			}
+				$script:testAdUser
 
 			mock 'WriteLog'
 			
@@ -981,256 +1034,351 @@ InModuleScope $ThisModuleName {
 			mock 'TestCsvHeaderExists' {
 				$true
 			}
-		#endregion
-		
-	
-		$parameterSets = @(
-			@{
-				CsvFilePath = 'C:\log.csv'
-				TestName = 'Sync'
-			}
-			@{
-				CsvFilePath = 'C:\log.csv'
-				ReportOnly = $true
-				TestName = 'Report'
-			}
-			@{
-				CsvFilePath = 'C:\log.csv'
-				Exclude = @{ ExcludeCol = 'excludeme' }
-				TestName = 'Excluded valid col'
-			}
-			@{
-				CsvFilePath = 'C:\log.csv'
-				Exclude = @{ ColNotHere = 'excludeme' }
-				TestName = 'Exclude bogus col'
-			}
-		)
-	
-		$testCases = @{
-			All = $parameterSets
-			ReportOnly = $parameterSets.where({$_.ContainsKey('ReportOnly')})
-			Sync = $parameterSets.where({-not $_.ContainsKey('ReportOnly')})
-			NoExclusions = $parameterSets.where({-not $_.ContainsKey('Exclude')})
-			ExcludeCol = $parameterSets.where({$_.ContainsKey('Exclude') -and (-not $_.Exclude.Keys.Contains('ColNotHere'))})
-			ExcludeBogusCol = $parameterSets.where({$_.ContainsKey('Exclude') -and ($_.Exclude.Keys.Contains('ColNotHere'))})
-		}
-
-		context 'when a user match cannot be found' {
-
-			mock 'FindUserMatch'
-		
-			context 'when all CSV ID fields are null in the CSV' {
-
-				mock 'Get-CompanyCsvUser' {
-					[pscustomobject]@{ 
-						AD_LOGON = $null
-						PERSON_NUM = $null
-					}
-				}
-			
-				it 'should write a warning: <TestName>' -TestCases $testCases.All {
-					param($CsvFilePath,$ReportOnly,$Exclude)
-				
-					& $commandName @PSBoundParameters
-
-					$assMParams = @{
-						CommandName = 'Write-Warning'
-						Times = 1
-						Exactly = $true
-						Scope = 'It'
-						ParameterFilter = { 
-							$Message -eq 'No CSV user identifier could be found' 
-						}
-					}
-					Assert-MockCalled @assMParams
-				}
-
-				it 'should write the expected contents to the log file: <TestName>' -TestCases $testCases.All {
-					param($CsvFilePath,$ReportOnly,$Exclude)
-				
-					& $commandName @PSBoundParameters
-
-					$assMParams = @{
-						CommandName = 'WriteLog'
-						Times = 1
-						Exactly = $true
-						Scope = 'It'
-						ParameterFilter = { 
-							$PSBoundParameters.CSVIdentifierField -eq 'PERSON_NUM,AD_LOGON' -and
-							$PSBoundParameters.CSVIdentifierValue -eq 'N/A' -and
-							$PSBoundParameters.Attributes.CSVAttributeName -eq 'NoMatch' -and
-							$PSBoundParameters.Attributes.CSVAttributeValue -eq 'NoMatch' -and
-							$PSBoundParameters.Attributes.ADAttributeName -eq 'NoMatch' -and
-							$PSBoundParameters.Attributes.ADAttributeValue -eq 'NoMatch'
-						}
-					}
-					Assert-MockCalled @assMParams
-				}
-			}
-
-			context 'when at least one CSV ID field is populated in the CSV' {
-
-				mock 'Get-CompanyCsvUser' {
-					[pscustomobject]@{ 
-						AD_LOGON = $null
-						PERSON_NUM = 999
-					}
-				}
-
-				it 'should write the expected contents to the log file: <TestName>' -TestCases $testCases.All {
-					param($CsvFilePath,$ReportOnly,$Exclude)
-				
-					& $commandName @PSBoundParameters
-
-					$assMParams = @{
-						CommandName = 'WriteLog'
-						Times = 1
-						Exactly = $true
-						Scope = 'It'
-						ParameterFilter = { 
-							$PSBoundParameters.CSVIdentifierField -eq 'PERSON_NUM,AD_LOGON' -and
-							$PSBoundParameters.CSVIdentifierValue -eq '999,' -and
-							$PSBoundParameters.Attributes.CSVAttributeName -eq 'NoMatch' -and
-							$PSBoundParameters.Attributes.CSVAttributeValue -eq 'NoMatch' -and
-							$PSBoundParameters.Attributes.ADAttributeName -eq 'NoMatch' -and
-							$PSBoundParameters.Attributes.ADAttributeValue -eq 'NoMatch'
-						}
-					}
-					Assert-MockCalled @assMParams
-				}
-			
-			}
-		}
-
-		context 'when a user match can be found' {
-
-			$matchedAdUser = New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
-			$amParams = @{
-				MemberType = 'NoteProperty'
-				Force = $true
-			}
-			$props = @{
-				'Name' = 'nameval'
-				'Enabled' = $true
-				'SamAccountName' = 'samval'
-				'GivenName' = 'givennameval'
-				'Surname' = 'surnameval'
-				'DisplayName' = 'displaynameval'
-				'OtherProperty' = 'otherval'
-				'EmployeeId' = 1
-				'Title' = 'titleval'
-			}
-			$props.GetEnumerator() | ForEach-Object {
-				$matchedAdUser | Add-Member @amParams -Name $_.Key -Value $_.Value
-			}
-
-			mock 'FindUserMatch' {
-				[pscustomobject]@{
-					MatchedAdUser = $matchedAdUser
-					CsvIdMatchedOn = 'PERSON_NUM'
-					AdIdMatchedOn = 'EmployeeId'
-				}
-			}
-		
-			context 'when no attribute mismatches can be found' {
-				
-				mock 'FindAttributeMismatch'
-
-				it 'should write the expected contents to the log file: <TestName>' -TestCases $testCases.All {
-					param($CsvFilePath,$ReportOnly,$Exclude)
-				
-					& $commandName @PSBoundParameters
-
-					$assMParams = @{
-						CommandName = 'WriteLog'
-						Times = 1
-						Exactly = $true
-						Scope = 'It'
-						ParameterFilter = { 
-							$IdentifierValu3 -eq 'foo' -and
-							$CSVIdentifierField -eq 'EmployeeId'
-							$Attributes.CSVAttributeName -eq 'AlreadyInSync' -and
-							$Attributes.CSVAttributeValue -eq 'AlreadyInSync' -and
-							$Attributes.ADAttributeName -eq 'AlreadyInSync' -and
-							$Attributes.ADAttributeValue -eq 'AlreadyInSync'
-						}
-					}
-					Assert-MockCalled @assMParams
-				}
-			}
-
-			context 'when an attribute mismatch is found' {
-
-				mock 'FindAttributeMismatch' {
-					@{
-						CSVAttributeName = 'PERSON_NUM'
-						CSVAttributeValue = '1'
-						ADAttributeName = 'EmployeeId'
-						ADAttributeValue = $null
-					}
-				}
-			
-				it 'when ReportOnly is used, should not attempt to sync the user: <TestName>' -TestCases $testCases.ReportOnly {
-					param($CsvFilePath,$ReportOnly,$Exclude)
-				
-					& $commandName @PSBoundParameters
-
-					$assMParams = @{
-						CommandName = 'SyncCompanyUser'
-						Times = 0
-					}
-					Assert-MockCalled @assMParams
-				}
-
-				it 'when ReportOnly is not used, should attempt to sync the user: <TestName>' -TestCases $testCases.Sync {
-					param($CsvFilePath,$ReportOnly,$Exclude)
-				
-					& $commandName @PSBoundParameters
-
-					$assMParams = @{
-						CommandName = 'SyncCompanyUser'
-						Times = 1
-					}
-					Assert-MockCalled @assMParams
-				}
-			
-			}
-		}
-
-		context 'when a column is attempted to be excluded does not exist' {
-
-			mock 'TestCsvHeaderExists' {
-				$false
-			}
-
-			it 'should throw an exception: <TestName>' -TestCases $testCases.ExcludeBogusCol {
-				param($CsvFilePath,$ReportOnly,$Exclude)
-			
-				$params = @{} + $PSBoundParameters
-				{ & $commandName @params } | should throw 'One or more CSV headers excluded with -Exclude do not exist in the CSV file'
-			}
-		
-		}
-
-		context 'when an exception is thrown' {
 
 			mock 'Get-CompanyAdUser' {
-				throw 'error!'
+				$script:allAdsiUsers
 			}
 
-			it 'should return a non-terminating error: <TestName>' -TestCases $testCases.All {
-				param($CsvFilePath,$ReportOnly,$Exclude)
-			
-				try { $null = & $commandName @PSBoundParameters -ErrorAction SilentlyContinue -ErrorVariable err } catch { $null }
-				$err | should not benullorempty
+			mock 'Get-CompanyCsvUser' {
+				[pscustomobject]@{ 
+					AD_LOGON = "nameval"
+					PERSON_NUM = "1"
+					SyncAttrib1 = 'sync1'
+					SyncAttrib2 = 'sync2'
+				}
 			}
 
-		}
+			mock 'FindUserMatch'
 
-		it 'should return nothing: <TestName>' -TestCases $testCases.All {
-			param($CsvFilePath,$ReportOnly,$Exclude)
-		
-			& $commandName @PSBoundParameters | should benullorempty
+			mock 'GetCsvIdField' {
+				[pscustomobject]@{
+					Field = 'x'
+					Value = 'y'
+				}
+			}
+		#endregion
+
+		$parameterSets = @(
+			@{
+				Label = 'ReportOnly'
+				Parameters = @{
+					CsvFilePath = 'C:\log.csv'
+					FieldSyncMap = @{ 'csvfield1' = 'adfield1' }
+					FieldMatchMap = @{ PERSON_NUM = 'EmployeeId' }
+					ReportOnly = $true
+				}
+			}
+			@{
+				Label = 'Single sync /single match field'
+				Parameters = @{
+					CsvFilePath = 'C:\log.csv'
+					FieldSyncMap = @{ 'csvfield1' = 'adfield1' }
+					FieldMatchMap = @{ PERSON_NUM = 'EmployeeId' }
+				}
+			}
+			@{
+				Label = 'Multi sync/Multi match field'
+				Parameters = @{
+					CsvFilePath = 'C:\log.csv'
+					FieldSyncMap = @{ 
+						'csvfield1' = 'adfield1'
+						'csvfield2' = 'adfield2'
+					}
+					FieldMatchMap = @{ 
+						PERSON_NUM = 'EmployeeId'
+						AD_LOGON = 'samAcountName'
+					}
+				}
+			}
+			@{
+				Label = 'Exclude'
+				Parameters = @{
+					CsvFilePath = 'C:\log.csv'
+					FieldMatchMap = @{ 'csvmatchfield1' = 'admatchfield1' }
+					FieldSyncMap = @{ 'csvfield1' = 'adfield1' }
+					Exclude = @{ ExcludeCol = 'excludeme' }
+				}
+			}
+		)
+
+		$testCases = $parameterSets
+
+		foreach ($testCase in $testCases) {
+
+			$parameters = $testCase.Parameters
+
+			context $testCase.Label {
+
+				$result = & $commandName @parameters
+
+				if ($parameters.ContainsKey('Exclude')) {
+
+					context 'when excluding a CSV column' {
+
+						$result = & $commandName @parameters
+
+						context 'when a header does not exist' {
+						
+							mock 'TestCsvHeaderExists' {
+								$false
+							}
+
+							it 'should throw an exception' {
+								$params = @{} + $parameters
+								{ & $commandName @params } | should throw 'One or more CSV headers excluded with -Exclude do not exist in the CSV file'
+							}
+						
+						}
+
+						context 'when all headers exist' {
+						
+							mock 'TestCsvHeaderExists' {
+								$true
+							}
+
+							$result = & $commandName @parameters
+
+							it 'should pass Exclude to Get-CompanyCsvUser' {
+
+								$assMParams = @{
+									CommandName = 'Get-CompanyCsvUser'
+									Times = 1
+									Exactly = $true
+									ParameterFilter = { 
+										$PSBoundParameters.Exclude.Keys -eq 'ExcludeCol' -and
+										$PSBoundParameters.Exclude.Values -eq 'excludeme'
+									}
+								}
+								Assert-MockCalled @assMParams
+								
+							}
+						}
+					}
+				}
+
+				context 'when no AD users are found' {
+					
+					mock 'Get-CompanyAdUser'
+
+					it 'should throw an exception' {
+					
+						$params = @{} + $parameters
+						{ & $commandName @params } | should throw 'No AD users found'
+					}
+				}
+
+				context 'when no CSV users are found' {
+					
+					mock 'Get-CompanyCsvUser'
+
+					it 'should throw an exception' {
+					
+						$params = @{} + $parameters
+						{ & $commandName @params } | should throw 'No CSV users found'
+					}
+					
+				}
+
+				context 'when at least one AD user and one CSV user is found' {
+
+					$result = & $commandName @parameters
+					
+					it 'should return nothing' {
+						$result | should benullorempty
+					}
+					
+					context 'when a user match cannot be found' {
+
+						mock 'FindUserMatch'
+					
+						context 'when no CSV ID fields can be found' {
+
+							mock 'GetCsvIdField'
+
+							it 'should throw an exception' {
+							
+								$params = @{} + $parameters
+								{ & $commandName @params } | should throw 'No CSV ID fields were found'
+							}			
+						}
+
+						context 'when at least one CSV ID field can be found' {
+
+							context 'when a populated CSV ID field exists' {
+								
+								mock 'GetCsvIdField' {
+									[pscustomobject]@{
+										Field = $null
+										Value = 'val1'
+									}
+									[pscustomobject]@{
+										Field = $null
+										Value = 'val2'
+									}
+									[pscustomobject]@{
+										Field = 'populatedfield1'
+										Value = 'val1'
+									}
+								}
+
+								$result = & $commandName @parameters
+								
+								it 'should pass the ID as the CSV id field for WriteLog' {
+
+									$assMParams = @{
+										CommandName = 'WriteLog'
+										Times = 1
+										Exactly = $true
+										ParameterFilter = { 
+											$PSBoundParameters.CSVIdentifierField -eq 'populatedfield1' 
+										}
+									}
+									Assert-MockCalled @assMParams
+								}
+							
+							}
+
+							context 'when no CSV ID fields are populated' {
+							
+								mock 'GetCsvIdField' {
+									[pscustomobject]@{
+										Field = 'field1'
+										Value = $null
+									}
+									[pscustomobject]@{
+										Field = 'field2'
+										Value = $null
+									}
+								}
+
+								$result = & $commandName @parameters
+
+								it 'should display a warning' {
+									$assMParams = @{
+										CommandName = 'Write-Warning'
+										Times = 1
+										Exactly = $true
+										ParameterFilter = { 
+											$PSBoundParameters.Message -eq 'No CSV user identifier could be found' }
+									}
+									Assert-MockCalled @assMParams
+								}
+
+								it 'should pass N/A as the CSV id field for WriteLog' {
+
+									$assMParams = @{
+										CommandName = 'WriteLog'
+										Times = 1
+										Exactly = $true
+										ParameterFilter = { 
+											$PSBoundParameters.CsvIdentifierValue -eq 'N/A' -and
+											$PSBoundParameters.CSVIdentifierField -eq 'field1,field2'
+										}
+									}
+									Assert-MockCalled @assMParams
+								}
+							}
+						}
+					}
+
+					context 'when a user match can be found' {
+
+						mock 'FindUserMatch' {
+							[pscustomobject]@{
+								MatchedAdUser = $script:testAdUser
+								CsvIdMatchedOn = 'PERSON_NUM'
+								AdIdMatchedOn = 'EmployeeId'
+							}
+						}
+					
+						context 'when an attribute mismatch is found' {
+
+							mock 'FindAttributeMismatch' {
+								@{
+									CSVAttributeName = 'x'
+									CSVAttributeValue = 'y'
+									ADAttributeName = 'z'
+									ADAttributeValue = 'i'
+								}
+							}
+
+							if ($parameters.ContainsKey('ReportOnly')) {
+								context 'when only reporting' {
+
+									$result = & $commandName @parameters
+
+									it 'should not attempt to sync the user' {
+									
+										$assMParams = @{
+											CommandName = 'SyncCompanyUser'
+											Times = 0
+											Exactly = $true
+										}
+										Assert-MockCalled @assMParams
+									}
+								}
+							} else {
+								context 'when syncing' {
+
+									$result = & $commandName @parameters
+
+									it 'should sync the expected user' {
+
+										$assMParams = @{
+											CommandName = 'SyncCompanyUser'
+											Times = 1
+											Exactly = $true
+											ParameterFilter = { 
+												$PSBoundParameters.AdUser.Name -eq 'nameval' -and
+												$PSBoundParameters.AdUser.Enabled -eq $true -and
+												$PSBoundParameters.AdUser.SamAccountName -eq 'samval' -and
+												$PSBoundParameters.AdUser.GivenName -eq 'givennameval' -and
+												$PSBoundParameters.AdUser.Surname -eq 'surnameval' -and
+												$PSBoundParameters.AdUser.DisplayName -eq 'displaynameval' -and
+												$PSBoundParameters.AdUser.OtherProperty -eq 'otherval' -and
+												$PSBoundParameters.AdUser.EmployeeId -eq 1 -and
+												$PSBoundParameters.AdUser.Title -eq 'titleval' #-and
+												$PSBoundParameters.CsvUser.AD_LOGON -eq 'nameval' -and
+												$PSBoundParameters.CsvUser.PERSON_NUM -eq "1" -and
+												$PSBoundParameters.CsvUser.SyncAttrib1 -eq 'sync1' -and
+												$PSBoundParameters.CsvUser.SyncAttrib2 -eq 'sync2' -and
+												$PSBoundParameters.Attributes.CSVAttributeName -eq 'x' -and
+												$PSBoundParameters.Attributes.CSVAttributeValue -eq 'y' -and
+												$PSBoundParameters.Attributes.ADAttributeName -eq 'z' -and
+												$PSBoundParameters.Attributes.ADAttributeValue -eq 'i'
+											}
+										}
+										Assert-MockCalled @assMParams
+									}
+								}
+							}
+						}
+
+						context 'when all attributes are in sync' {
+
+							mock 'FindAttributeMismatch'
+
+							$result = & $commandName @parameters
+						
+							it 'should pass the expected attributes to WriteLog' {
+
+									$assMParams = @{
+										CommandName = 'WriteLog'
+										Times = 1
+										Exactly = $true
+										ParameterFilter = { 
+											$PSBoundParameters.Attributes.CSVAttributeName -eq 'AlreadyInSync' -and
+											$PSBoundParameters.Attributes.CSVAttributeValue -eq 'AlreadyInSync' -and
+											$PSBoundParameters.Attributes.ADAttributeName -eq 'AlreadyInSync' -and
+											$PSBoundParameters.Attributes.ADAttributeValue -eq 'AlreadyInSync'
+										}
+									}
+									Assert-MockCalled @assMParams
+								}
+						}
+					}
+				}
+			}
 		}
 	}
 

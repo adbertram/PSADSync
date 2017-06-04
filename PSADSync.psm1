@@ -1,9 +1,3 @@
-$config = Import-PowerShellDataFile -Path "$PSScriptRoot\Configuration.psd1"
-$Defaults = $config.Defaults
-$AdToCsvFieldMap = $config.FieldMap
-
-## Load the System.Web type to generate random password
-Add-Type -AssemblyName 'System.Web'
 Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
 
 function FindAdUser
@@ -98,17 +92,21 @@ function Get-CompanyAdUser
 	[OutputType([System.DirectoryServices.AccountManagement.UserPrincipal])]
 	[CmdletBinding()]
 	param
-	()
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldMatchMap
+	)
 	begin
 	{
 		$ErrorActionPreference = 'Stop'
-		Write-Verbose -Message "Finding all AD users in domain with properties: $($Defaults.FieldMatchIds.AD -join ',')"
+		Write-Verbose -Message "Finding all AD users in domain with properties: $($FieldMatchMap.Values -join ',')"
 	}
 	process
 	{
 		try
 		{
-			$whereFilter = { $adUser = $_; $Defaults.FieldMatchIds.AD | Where-Object { $adUser.$_ }}
+			$whereFilter = { $adUser = $_; $FieldMatchMap.Values | Where-Object { $adUser.$_ }}
 			@(GetAdUser).where({$whereFilter})
 		}
 		catch
@@ -201,18 +199,22 @@ function FindUserMatch
 	[CmdletBinding()]
 	param
 	(
-		[Parameter()]
-		[object[]]$AdUsers = $script:adUsers,
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldMatchMap,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[object]$CsvUser,
 
 		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[object]$CsvUser
+		[object[]]$AdUsers = $script:adUsers
 	)
 	$ErrorActionPreference = 'Stop'
 
-	foreach ($matchId in $Defaults.FieldMatchIds) {
-		$adMatchField = $matchId.AD
-		$csvMatchField = $matchId.CSV
+	foreach ($matchId in $FieldMatchMap.GetEnumerator()) { ## FieldMatchMap = @{ 'AD_LOGON' = 'samAccountName' }
+		$adMatchField = $matchId.Value
+		$csvMatchField = $matchId.Key
 		Write-Verbose "Match fields: CSV - [$($csvMatchField)], AD - [$($adMatchField)]"
 		if ($csvMatchVal = $CsvUser.$csvMatchField) {
 			Write-Verbose -Message "CsvFieldMatchValue is [$($csvMatchVal)]"
@@ -240,26 +242,29 @@ function FindAttributeMismatch
 	[CmdletBinding()]
 	param
 	(
-		[Parameter()]
+		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
 		[object]$AdUser,
 
-		[Parameter()]
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldSyncMap,
+
+		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
 		[pscustomobject]$CsvUser
 	)
 
 	$ErrorActionPreference = 'Stop'
 
-	Write-Verbose "AD-CSV field map values are [$($AdToCsvFieldMap.Values | Out-String)]"
+	Write-Verbose "AD-CSV field map values are [$($FieldSyncMap.Values | Out-String)]"
 	$csvPropertyNames = $CsvUser.PSObject.Properties.Name
 	$AdPropertyNames = ($AdUser | Get-Member -MemberType Property).Name
 	Write-Verbose "CSV properties are: [$($csvPropertyNames -join ',')]"
 	Write-Verbose "ADUser props: [$($AdPropertyNames -join ',')]"
-	foreach ($csvProp in ($csvPropertyNames | Where-Object { ($_ -in @($AdToCsvFieldMap.Values)) })) {
-		
+	foreach ($csvProp in ($csvPropertyNames | Where-Object { $_ -in @($FieldSyncMap.Keys) })) {
 		## Ensure we're going to be checking the value on the correct CSV property and AD attribute
-		$matchingAdAttribName = ($AdToCsvFieldMap.GetEnumerator() | Where-Object { $_.Value -eq $csvProp }).Name
+		$matchingAdAttribName = ($FieldSyncMap.GetEnumerator() | Where-Object { $_.Key -eq $csvProp }).Value
 		Write-Verbose -Message "Matching AD attrib name is: [$($matchingAdAttribName)]"
 		Write-Verbose -Message "Matching CSV field is: [$($csvProp)]"
 		if ($adAttribMatch = $AdPropertyNames | Where-Object { $_ -eq $matchingAdAttribName }) {
@@ -366,11 +371,15 @@ function GetCsvIdField
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[object]$CsvUser
+		[object]$CsvUser,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldMatchMap
 	)
 
 
-	$Defaults.FieldMatchIds.CSV | ForEach-Object { 
+	$FieldMatchMap.Keys | ForEach-Object { 
 		[pscustomobject]@{
 			Field = $_
 			Value = $CSVUser.$_
@@ -388,6 +397,14 @@ function Invoke-AdSync
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
 		[string]$CsvFilePath,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldSyncMap,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldMatchMap,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
@@ -416,18 +433,22 @@ function Invoke-AdSync
 				$getCsvParams.Exclude = $Exclude
 			}
 
-			$script:adUsers = Get-CompanyAdUser
-			$csvusers = Get-CompanyCsvUser @getCsvParams
+			if (-not ($script:adUsers = Get-CompanyAdUser -FieldMatchMap $FieldMatchMap)) {
+				throw 'No AD users found'
+			}
+			if (-not ($csvusers = Get-CompanyCsvUser @getCsvParams)) {
+				throw 'No CSV users found'
+			}
 			
 			@($csvUsers).foreach({
 				$csvUser = $_
-				if ($adUserMatch = FindUserMatch -CsvUser $csvUser) {
+				if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
 					Write-Verbose -Message 'Match'
 					$csvIdMatchedon = $aduserMatch.CsvIdMatchedOn
 					$adIdMatchedon = $aduserMatch.AdIdMatchedOn
 					$csvIdValue = $csvUser.$csvIdMatchedon
 					$csvIdField = $csvIdMatchedon
-					$attribMismatches = FindAttributeMismatch -AdUser $adUserMatch.MatchedAdUser -CsvUser $csvUser
+					$attribMismatches = FindAttributeMismatch -AdUser $adUserMatch.MatchedAdUser -CsvUser $csvUser -FieldSyncMap $FieldSyncMap
 					if ($attribMismatches) {
 						$logAttribs = $attribMismatches
 						if (-not $ReportOnly.IsPresent) {
@@ -443,7 +464,9 @@ function Invoke-AdSync
 						}
 					}
 				} else {
-					$csvIds = GetCsvIdField -CsvUser $csvUser
+					if (-not ($csvIds = @(GetCsvIdField -CsvUser $csvUser -FieldMatchMap $FieldMatchMap).where({ $_.Field }))) {
+						throw 'No CSV id fields were found.'
+					}
 					$csvIdField = $csvIds.Field -join ','
 					## No ID fields are populated
 					if (-not ($csvIds | Where-Object {$_.Value})) {
