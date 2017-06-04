@@ -587,99 +587,107 @@ InModuleScope $ThisModuleName {
 			}
 		#endregion
 		
-		$parameterSets = @(
+		$testCases = @(
 			@{
-				AdUser = $script:AdUserMisMatch
-				CsvUser = $script:csvUserMisMatch
-				FieldSyncMap = @{ 'OtherAttrib' = 'otherattribmap' }
-				TestName = 'Mismatch'
+				Label = 'Mismatch'
+				Parameters = @{
+					AdUser = $script:AdUserMisMatch
+					CsvUser = $script:csvUserMisMatch
+					FieldSyncMap = @{ 'OtherAttrib' = 'otherattribmap' }
+				}
 			}
 			@{
-				AdUser = $script:AdUserNoMisMatch
-				CsvUser = $script:csvUserNoMisMatch
-				FieldSyncMap = @{ 'OtherAttrib' = 'otherattribmap' }
-				TestName = 'No Mismatch'
+				Label = 'No mismatch'
+				Parameters = @{
+					AdUser = $script:AdUserNoMisMatch
+					CsvUser = $script:csvUserNoMisMatch
+					FieldSyncMap = @{ 'OtherAttrib' = 'otherattribmap' }
+				}
+			}
+		)
+
+		foreach ($testCase in $testCases) {
+
+			$parameters = $testCase.Parameters
+
+			context $testCase.Label {
+
+				if ($testCase.Label -eq 'No mismatch') {
+					context 'when no attribute mismatch is found' {
+
+						$result = & $commandName @parameters
+
+						it 'should return nothing' {
+							$result | should benullorempty
+						}
+
+					}
+				}
+
+				if ($testCase.Label -eq 'Mismatch') {
+					context 'when an attribute mismatch is found' {
+
+						$result = & $commandName @parameters
+						
+						it 'should return the expected objects' {
+							@($result).Count | should be 1
+							$result | should beoftype 'hashtable'
+							$result.ActiveDirectoryAttribute.otherattribmap | should benullorempty
+							$result.CSVField.OtherAttrib | should be 'x'
+							$result.ADShouldBe.otherattribmap | should be 'x'
+						}
+					}
+				}
+			}
+		}
+	}
+
+	describe 'TestIsValidAdAttribute' {
+		
+		$commandName = 'TestIsValidAdAttribute'
+	
+		$testCases = @(
+			@{
+				Label = 'Mandatory'
+				Parameters = @{
+					Name = 'attribname'
+				}
 			}
 		)
 	
-		$testCases = @{
-			All = $parameterSets
-			Mismatch = $parameterSets.where({$_.TestName -eq 'Mismatch'})
-			NoMismatch = $parameterSets.where({$_.TestName -eq 'No Mismatch'})
-		}
-
-		it 'should find the correct AD property names: <TestName>' -TestCases $testCases.All {
-			param($AdUser,$CsvUser,$FieldSyncMap)
-		
-			& $commandName @PSBoundParameters
-
-			$assMParams = @{
-				CommandName = 'Write-Verbose'
-				Times = 1
-				Exactly = $true
-				Scope = 'It'
-				ParameterFilter = { 
-					$PSBoundParameters.Message -eq "ADUser props: [samAccountName,EmployeeId,otherattribmap]" }
-			}
-			Assert-MockCalled @assMParams
-		}
-
-		it 'should find the correct CSV property names: <TestName>' -TestCases $testCases.All {
-			param($AdUser,$CsvUser,$FieldSyncMap)
-		
-			& $commandName @PSBoundParameters
-
-			$assMParams = @{
-				CommandName = 'Write-Verbose'
-				Times = 1
-				Exactly = $true
-				Scope = 'It'
-				ParameterFilter = { 
-					$PSBoundParameters.Message -eq 'CSV properties are: [AD_LOGON,PERSON_NUM,OtherAttrib]' }
-			}
-
-			Assert-MockCalled @assMParams
-		}
-
-		context 'when a mismatch is found' {
-
-			it 'should return the expected objects: <TestName>' -TestCases $testCases.Mismatch {
-				param($AdUser,$CsvUser,$FieldSyncMap)
-			
-				$result = & $commandName @PSBoundParameters
-				@($result).Count | should be 1
-				$result | should beoftype 'hashtable'
-				$result.CSVAttributeName | should be 'OtherAttrib'
-				$result.CSVAttributeValue | should be 'x'
-				$result.ADAttributeName | should be 'otherattribmap'
-				$result.ADAttributeValue | should be ''
-			}
-		}
-
-		context 'when no mismatches are found' {
-
-			it 'should return nothing: <TestName>' -TestCases $testCases.NoMismatch {
-				param($AdUser,$CsvUser,$FieldSyncMap)
-			
-				& $commandName @PSBoundParameters | should benullorempty
-			}
-
-		}
-		
-		context 'when a non-terminating error occurs in the function' {
-
-			mock 'Write-Verbose' {
-				Write-Error -Message 'error!'
-			}
-
-			it 'should throw an exception: <TestName>' -TestCases $testCases.All {
-				param($AdUser,$CsvUser,$FieldSyncMap)
-			
-				$params = @{} + $PSBoundParameters
-				{ & $commandName @params } | should throw 'error!'
-			}
-		}
+		foreach ($testCase in $testCases) {
 	
+			$parameters = $testCase.Parameters
+	
+			context $testCase.Label {
+	
+				context 'when the attribute exists' {
+
+					mock 'Get-AvailableAdUserAttributes' {
+						@('attribName')
+					}
+	
+					$result = & $commandName @parameters
+	
+					it 'should return $true' {
+						$result | should be $true
+					}
+				}
+	
+				context 'when the attribute does not exist' {
+
+					mock 'Get-AvailableAdUserAttributes' {
+						@('notinhere')
+					}
+	
+					$result = & $commandName @parameters
+	
+					it 'should return $false' {
+						$result | should be $false
+					}
+				}
+			}
+		}
 	}
 
 	describe 'SetAduser' {
@@ -703,11 +711,11 @@ InModuleScope $ThisModuleName {
 		$parameterSets = @(
 			@{
 				Identity = @{ samAccountName = 'samnamehere'}
-				Attribute = @{ employeeId = 'empidhere' }
+				ActiveDirectoryAttributes = @{ employeeId = 'empidhere' }
 			}
 			@{
 				Identity = @{ employeeId = 'empidhere'}
-				Attribute = @{ displayName = 'displaynamehere' }
+				ActiveDirectoryAttributes = @{ displayName = 'displaynamehere' }
 			}
 		)
 	
@@ -716,13 +724,13 @@ InModuleScope $ThisModuleName {
 		}
 	
 		it 'returns nothing' -TestCases $testCases.All {
-			param($Identity,$Attribute)
+			param($Identity,$ActiveDirectoryAttributes)
 
 			& $commandName @PSBoundParameters | should benullorempty
 		}
 
 		it 'should save the expected attribute' -TestCases $testCases.All {
-			param($Identity,$Attribute)
+			param($Identity,$ActiveDirectoryAttributes)
 		
 			& $commandName @PSBoundParameters
 
@@ -732,15 +740,15 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { 
-					(-not (Compare-Object $PSBoundParameters.Parameters.Attribute.Keys $Attribute.Keys)) -and
-					(-not (Compare-Object $PSBoundParameters.Parameters.Attribute.Values $Attribute.Values))
+					$PSBoundParameters.AttributeName -match 'displayName|employeeId' -and
+					$PSBoundParameters.AttributeValue -match 'displayNameHere|empIdHere'
 				}
 			}
 			Assert-MockCalled @assMParams
 		}
 
 		it 'should save on the expected identity' -TestCases $testCases.All {
-			param($Identity,$Attribute)
+			param($Identity,$ActiveDirectoryAttributes)
 
 			& $commandName @PSBoundParameters
 		
@@ -750,7 +758,7 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { 
-					$PSBoundParameters.Parameters.AdsPath -eq 'adspathhere'
+					$PSBoundParameters.AdsPath
 				}
 			}
 			Assert-MockCalled @assMParams
@@ -783,11 +791,8 @@ InModuleScope $ThisModuleName {
 				Parameters = @{
 					AdUser = $script:AdUserUpn
 					CsvUser = $script:csvUser
-					Attributes = @{ 
-						ADAttributeName = 'EmployeeId'
-						ADAttributeValue = $null
-						CSVAttributeName = 'username'
-						CSVAttributeValue = 'newattribvalue1'
+					ActiveDirectoryAttributes = @{ 
+						'atttribtosync1' = 'attribtosyncval1'
 					}
 					Identifier = 'samAccountName'
 					Confirm = $false
@@ -799,7 +804,7 @@ InModuleScope $ThisModuleName {
 						Parameters = @(
 							@{
 								Identity = @{ samAccountName = 'samaccountnameval' }
-								Attribute = @{ EmployeeId = 'newattribvalue1' }
+								ActiveDirectoryAttributes = @{ 'atttribtosync1' = 'attribtosyncval1' }
 							}
 						)
 					}
@@ -810,20 +815,10 @@ InModuleScope $ThisModuleName {
 				Parameters = @{
 					AdUser = $script:AdUserUpn
 					CsvUser = $script:csvUser
-					Attributes = @(
-						@{ 
-							ADAttributeName = 'EmployeeId'
-							ADAttributeValue = $null
-							CSVAttributeName = 'username'
-							CSVAttributeValue = 'newattribvalue1'
-						},
-						@{ 
-							ADAttributeName = 'attribneedchanged'
-							ADAttributeValue = 'thisneedschanged'
-							CSVAttributeName = 'username'
-							CSVAttributeValue = 'newattribvalue2'
-						}
-					)
+					ActiveDirectoryAttributes = @{ 
+						'atttribtosync1' = 'attribtosyncval1'
+						'atttribtosync2' = 'attribtosyncval2'
+					}
 					Identifier = 'employeeId'
 					Confirm = $false
 				}
@@ -834,11 +829,11 @@ InModuleScope $ThisModuleName {
 						Parameters = @(
 							@{
 								Identity = @{ employeeId = 'empidhere' }
-								Attribute = @{ EmployeeId = 'newattribvalue1' }
+								ActiveDirectoryAttributes = @{ 'atttribtosync1' = 'attribtosyncval1' }
 							}
 							@{
 								Identity = @{ employeeId = 'empidhere' }
-								Attribute = @{ attribneedchanged = 'newattribvalue2' }
+								ActiveDirectoryAttributes = @{ 'atttribtosync1' = 'attribtosyncval1' }
 							}
 						)
 					}
@@ -865,12 +860,12 @@ InModuleScope $ThisModuleName {
 
 					$assMParams = @{
 						CommandName = 'SetAdUser'
-						Times = @($funcParams.Attributes).Count
+						Times = @($funcParams.ActiveDirectoryAttributes).Count
 						Exactly = $true
 						ParameterFilter = {
 							foreach ($paramHt in $expectedParams.Parameters) { 
-								$PSBoundParameters.Attribute.Keys -in $paramHt.Attribute.Keys -and
-								$PSBoundParameters.Attribute.Values -in $paramHt.Attribute.Values
+								$PSBoundParameters.ActiveDirectoryAttributes.Keys -in $paramHt.ActiveDirectoryAttributes.Keys -and
+								$PSBoundParameters.ActiveDirectoryAttributes.Values -in $paramHt.ActiveDirectoryAttributes.Values
 							}
 						}
 					}
@@ -893,19 +888,6 @@ InModuleScope $ThisModuleName {
 						}
 					}
 					Assert-MockCalled @assMParams
-				}
-
-				context 'when a non-terminating error occurs in the function' {
-
-					mock 'Write-Verbose' {
-						Write-Error -Message 'error!'
-					}
-
-					it 'should throw an exception' {
-					
-						$params = @{} + $funcParams
-						{ & $commandName @params } | should throw 'error!'
-					}
 				}
 			}
 		}
@@ -1011,10 +993,10 @@ InModuleScope $ThisModuleName {
 					'SamAccountName' = 'samval'
 					'GivenName' = 'givennameval'
 					'Surname' = 'surnameval'
-					'DisplayName' = 'displaynameval'
+					'ADDisplayName' = 'displaynameval'
 					'OtherProperty' = 'otherval'
 					'EmployeeId' = 1
-					'Title' = 'titleval'
+					'ADTitle' = 'titleval'
 				}
 				$props.GetEnumerator() | ForEach-Object {
 					$script:testAdUser | Add-Member @amParams -Name $_.Key -Value $_.Value
@@ -1036,15 +1018,15 @@ InModuleScope $ThisModuleName {
 			}
 
 			mock 'Get-CompanyAdUser' {
-				$script:allAdsiUsers
+				$script:testAdUser
 			}
 
 			mock 'Get-CompanyCsvUser' {
 				[pscustomobject]@{ 
 					AD_LOGON = "nameval"
 					PERSON_NUM = "1"
-					SyncAttrib1 = 'sync1'
-					SyncAttrib2 = 'sync2'
+					CsvTitle = 'sync1'
+					CsvDisplayName = 'sync2'
 				}
 			}
 
@@ -1052,12 +1034,16 @@ InModuleScope $ThisModuleName {
 
 			mock 'GetCsvIdField' {
 				[pscustomobject]@{
-					Field = 'x'
-					Value = 'y'
+					Field = 'PERSON_NUM'
+					Value = '1'
 				}
 			}
 
 			mock 'Write-Host'
+
+			mock 'TestIsValidAdAttribute' {
+				$true
+			}
 		#endregion
 
 		$parameterSets = @(
@@ -1065,7 +1051,7 @@ InModuleScope $ThisModuleName {
 				Label = 'ReportOnly'
 				Parameters = @{
 					CsvFilePath = 'C:\log.csv'
-					FieldSyncMap = @{ 'csvfield1' = 'adfield1' }
+					FieldSyncMap = @{ 'CsvTitle' = 'ADTitle' }
 					FieldMatchMap = @{ PERSON_NUM = 'EmployeeId' }
 					ReportOnly = $true
 				}
@@ -1074,7 +1060,7 @@ InModuleScope $ThisModuleName {
 				Label = 'Single sync /single match field'
 				Parameters = @{
 					CsvFilePath = 'C:\log.csv'
-					FieldSyncMap = @{ 'csvfield1' = 'adfield1' }
+					FieldSyncMap = @{ 'CsvTitle' = 'ADTitle' }
 					FieldMatchMap = @{ PERSON_NUM = 'EmployeeId' }
 				}
 			}
@@ -1083,8 +1069,8 @@ InModuleScope $ThisModuleName {
 				Parameters = @{
 					CsvFilePath = 'C:\log.csv'
 					FieldSyncMap = @{ 
-						'csvfield1' = 'adfield1'
-						'csvfield2' = 'adfield2'
+						'CsvTitle' = 'ADTitle'
+						'CSVDisplayName' = 'ADDisplayName'
 					}
 					FieldMatchMap = @{ 
 						PERSON_NUM = 'EmployeeId'
@@ -1096,8 +1082,8 @@ InModuleScope $ThisModuleName {
 				Label = 'Exclude'
 				Parameters = @{
 					CsvFilePath = 'C:\log.csv'
-					FieldMatchMap = @{ 'csvmatchfield1' = 'admatchfield1' }
-					FieldSyncMap = @{ 'csvfield1' = 'adfield1' }
+					FieldMatchMap = @{ PERSON_NUM = 'EmployeeId' }
+					FieldSyncMap = @{ 'CsvTitle' = 'ADTitle' }
 					Exclude = @{ ExcludeCol = 'excludeme' }
 				}
 			}
@@ -1123,7 +1109,7 @@ InModuleScope $ThisModuleName {
 						
 							mock 'TestCsvHeaderExists' {
 								$false
-							}
+							} -ParameterFilter { 'excludecol' -in $Header }
 
 							it 'should throw an exception' {
 								$params = @{} + $parameters
@@ -1156,6 +1142,34 @@ InModuleScope $ThisModuleName {
 							}
 						}
 					}
+				}
+
+				context 'when at least one AD attribute in FieldSyncMap is not available' {
+
+					mock 'TestIsValidAdAttribute' {
+						$false
+					}
+				
+					it 'should throw an exception' {
+					
+						$params = @{} + $parameters
+						{ & $commandName @params } | should throw 'One or more AD attributes in FieldSyncMap do not exist'
+					}
+				
+				}
+
+				context 'when at least one CSV field in FieldMatchMap is not available' {
+
+					mock 'TestCsvHeaderExists' {
+						$false
+					} -ParameterFilter { 'excludecol' -notin $Header }
+				
+					it 'should throw an exception' {
+					
+						$params = @{} + $parameters
+						{ & $commandName @params } | should throw 'One or more CSV headers in FieldMatchMap do not exist in the CSV file'
+					}
+				
 				}
 
 				context 'when no AD users are found' {
@@ -1286,10 +1300,9 @@ InModuleScope $ThisModuleName {
 
 							mock 'FindAttributeMismatch' {
 								@{
-									CSVAttributeName = 'x'
-									CSVAttributeValue = 'y'
-									ADAttributeName = 'z'
-									ADAttributeValue = 'i'
+									CSVField = @{'x' = 'y'}
+									ActiveDirectoryAttribute = @{ 'z' = 'i' }
+									ADShouldBe = @{ 'z' = 'y' }
 								}
 							}
 
@@ -1320,23 +1333,11 @@ InModuleScope $ThisModuleName {
 											Times = 1
 											Exactly = $true
 											ParameterFilter = { 
-												$PSBoundParameters.AdUser.Name -eq 'nameval' -and
-												$PSBoundParameters.AdUser.Enabled -eq $true -and
-												$PSBoundParameters.AdUser.SamAccountName -eq 'samval' -and
-												$PSBoundParameters.AdUser.GivenName -eq 'givennameval' -and
-												$PSBoundParameters.AdUser.Surname -eq 'surnameval' -and
-												$PSBoundParameters.AdUser.DisplayName -eq 'displaynameval' -and
-												$PSBoundParameters.AdUser.OtherProperty -eq 'otherval' -and
+												$PSBoundParameters.AdUser.samAccountName -eq 'samval' -and
 												$PSBoundParameters.AdUser.EmployeeId -eq 1 -and
-												$PSBoundParameters.AdUser.Title -eq 'titleval' #-and
-												$PSBoundParameters.CsvUser.AD_LOGON -eq 'nameval' -and
-												$PSBoundParameters.CsvUser.PERSON_NUM -eq "1" -and
-												$PSBoundParameters.CsvUser.SyncAttrib1 -eq 'sync1' -and
-												$PSBoundParameters.CsvUser.SyncAttrib2 -eq 'sync2' -and
-												$PSBoundParameters.Attributes.CSVAttributeName -eq 'x' -and
-												$PSBoundParameters.Attributes.CSVAttributeValue -eq 'y' -and
-												$PSBoundParameters.Attributes.ADAttributeName -eq 'z' -and
-												$PSBoundParameters.Attributes.ADAttributeValue -eq 'i'
+												$PSBoundParameters.CsvUser.'AD_LOGON' -eq 'nameval' -and
+												$PSBoundParameters.CsvUser.'PERSON_NUM' -eq "1" -and
+												$PSBoundParameters.ActiveDirectoryAttributes.z -eq 'y'
 											}
 										}
 										Assert-MockCalled @assMParams

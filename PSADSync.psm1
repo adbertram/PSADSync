@@ -29,23 +29,29 @@ function GetAdUser
 		[string]$OutputAs = 'UserPrincipal'
 	)
 
-	$context = New-Object -TypeName System.DirectoryServices.AccountManagement.PrincipalContext -ArgumentList 'Domain',$Env:USERDNSDOMAIN
-	$DirectoryEntry = New-Object -TypeName DirectoryServices.DirectoryEntry
-	$DirectorySearcher = new-object -TypeName System.DirectoryServices.DirectorySearcher
+	$domainDn = $(([adsisearcher]"").Searchroot.path)
+
+	$DirectorySearcher = New-Object -TypeName System.DirectoryServices.DirectorySearcher
 	$DirectorySearcher.PageSize = 1000
-	$DirectorySearcher.SearchRoot = $DirectoryEntry
+	$DirectorySearcher.SearchRoot = $domainDN
+
 	if (-not $PSBoundParameters.ContainsKey('Identity')) {
 		$result = FindAdUser -DirectorySearcher $DirectorySearcher
 	} else {
-		$DirectorySearcher.Filter = "(&(objectCategory=user)({0}={1}))" -f ([array]$Identity.Keys)[0],([array]$Identity.Values)[0]
+		$idField = ([array]$Identity.Keys)[0]
+		$idValue = ([array]$Identity.Values)[0]
+		$DirectorySearcher.Filter = "(&(objectCategory=person)(objectClass=User)({0}={1}))" -f $idField,$idValue
 		$result = FindAdUser -DirectorySearcher $DirectorySearcher
 	}
 
 	if ($OutputAs -eq 'SearchResult') {
 		$result
 	} else {
+		$Context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext('Domain', $env:USERDNSDOMAIN)
 		@($result).foreach({
-			[System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($Context, ($_.path -replace 'LDAP://'))
+			foreach ($user in ([System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($Context, ($_.path -replace 'LDAP://')))) {
+				$user.GetUnderlyingObject().Properties
+			}
 		})
 	}
 }
@@ -58,12 +64,19 @@ function SaveAdUser
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Parameters
-	)
+		[System.DirectoryServices.DirectoryEntry]$AdsPath,
 
-	$adsPath = [adsi]$adsPath
-	$adspath.Put(([array]$Parameters.Attribute.Keys)[0], ([array]$Parameters.Attribute.Values)[0])
-	$adspath.SetInfo()
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$AttributeName,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$AttributeValue
+	)
+	
+	$AdsPath.Put($AttributeName, $AttributeValue)
+	$AdsPath.SetInfo()
 	
 }
 
@@ -79,12 +92,15 @@ function SetAdUser
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Attribute
-	)
+		[hashtable]$ActiveDirectoryAttributes
+	)	
+	$user = GetAdUser -Identity $Identity -OutputAs SearchResult
+	$Account = $user.Properties.samaccountname -as [string]
+	$adspath = $($user.Properties.adspath -as [string]) -as [ADSI]
 
-	$user = GetAdUser -Identity $Identity -OutputAs 'SearchResult'
-	$adspath = $user.Properties.adspath -as [string]
-	SaveAdUser -Parameters @{ AdsPath = $adspath; Attribute = $Attribute }
+	foreach ($attrib in $ActiveDirectoryAttributes.GetEnumerator()) {
+		SaveAdUser -AdsPath $adsPath -AttributeName $attrib.Key -AttributeValue $attrib.Value
+	} 
 }
 
 function Get-CompanyAdUser
@@ -128,6 +144,31 @@ function GetCsvColumnHeaders
 	)
 	
 	(Get-Content -Path $CsvFilePath | Select-Object -First 1).Split(',') -replace '"'
+}
+
+function Get-AvailableAdUserAttributes {
+	param()
+
+	$schema =[DirectoryServices.ActiveDirectory.ActiveDirectorySchema]::GetCurrentSchema()
+	$userClass = $schema.FindClass('user')
+	$userClass.GetAllProperties().Name | Sort-Object
+}
+
+function TestIsValidAdAttribute {
+	[OutputType('bool')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Name
+	)
+
+	if ($Name -in (Get-AvailableAdUserAttributes)) {
+		$true
+	} else {
+		$false
+	}
 }
 
 function TestCsvHeaderExists
@@ -257,36 +298,28 @@ function FindAttributeMismatch
 
 	$ErrorActionPreference = 'Stop'
 
-	Write-Verbose "AD-CSV field map values are [$($FieldSyncMap.Values | Out-String)]"
-	$csvPropertyNames = $CsvUser.PSObject.Properties.Name
-	$AdPropertyNames = ($AdUser | Get-Member -MemberType Property).Name
-	Write-Verbose "CSV properties are: [$($csvPropertyNames -join ',')]"
-	Write-Verbose "ADUser props: [$($AdPropertyNames -join ',')]"
-	foreach ($csvProp in ($csvPropertyNames | Where-Object { $_ -in @($FieldSyncMap.Keys) })) {
-		## Ensure we're going to be checking the value on the correct CSV property and AD attribute
-		$matchingAdAttribName = ($FieldSyncMap.GetEnumerator() | Where-Object { $_.Key -eq $csvProp }).Value
-		Write-Verbose -Message "Matching AD attrib name is: [$($matchingAdAttribName)]"
-		Write-Verbose -Message "Matching CSV field is: [$($csvProp)]"
-		if ($adAttribMatch = $AdPropertyNames | Where-Object { $_ -eq $matchingAdAttribName }) {
-			Write-Verbose -Message "ADAttribMatch: [$($adAttribMatch)]"
-			if (-not $AdUser.$adAttribMatch) {
-				Write-Verbose -Message "[$($adAttribMatch)] value is null. Converting to empty string,.."
-				$AdUser | Add-Member -MemberType NoteProperty -Name $adAttribMatch -Force -Value ''
-			}
-			if (-not $CsvUser.$csvProp) {
-				$CsvUser.$csvProp = ''
-			}
-			if ($AdUser.$adAttribMatch -ne $CsvUser.$csvProp) {
-				@{
-					CSVAttributeName = $csvProp
-					CSVAttributeValue = $CsvUser.$csvProp
-					ADAttributeName = $adAttribMatch
-					ADAttributeValue = $AdUser.$adAttribMatch
-				}
-				Write-Verbose -Message "AD attribute mismatch found on CSV property: [$($csvProp)]. Value is [$($AdUser.$adAttribMatch)] and should be [$($CsvUser.$csvProp)]"
-			}
+	$FieldSyncMap.GetEnumerator().foreach({
+		$csvFieldName = $_.Key
+		$adAttribName = $_.Value
+		
+		## Remove the null fields
+		if (-not $AdUser.$adAttribName) {
+			$AdUser | Add-Member -MemberType NoteProperty -Name $adAttribName -Force -Value ''
 		}
-	}
+		if (-not $CsvUser.$csvFieldName) {
+			$CsvUser.$csvFieldName = ''
+		}
+
+		## Compare the two property values and return the AD attribute name and value to be synced
+		if ($AdUser.$adAttribName -ne $CsvUser.$csvFieldName) {
+			@{
+				ActiveDirectoryAttribute = @{ $adAttribName = $AdUser.$adAttribName }
+				CSVField = @{ $csvFieldName = $CsvUser.$csvFieldName }
+				ADShouldBe = @{ $adAttribName = $CsvUser.$csvFieldName }
+			}
+			Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]. Value is [$($AdUser.$adAttribName)] and should be [$($CsvUser.$csvFieldName)]"
+		}
+	})
 }
 
 function SyncCompanyUser
@@ -305,7 +338,7 @@ function SyncCompanyUser
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable[]]$Attributes,
+		[hashtable]$ActiveDirectoryAttributes,
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
@@ -315,14 +348,11 @@ function SyncCompanyUser
 	$ErrorActionPreference = 'Stop'
 	try {
 		$setParams = @{
-			Identity = @{ $Identifier = $AdUser.$Identifier }
+			Identity = @{ $Identifier = [string]($AdUser.$Identifier) }
 		}
-		foreach ($attrib in $Attributes) {
-			$setParams.Attribute = @{ $attrib.ADAttributeName = $attrib.CSVAttributeValue }
-			if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($setParams.Attribute.Keys -join ',')]",'Set AD attributes')) {
-				Write-Verbose -Message "Setting the following AD attributes for user [$Identifier]: $($setParams.Attribute | Out-String)"
-				SetAdUser @setParams
-			}
+		$setParams.ActiveDirectoryAttributes = $ActiveDirectoryAttributes
+		if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($ActiveDirectoryAttributes.Keys -join ',')]",'Set AD attributes')) {
+			SetAdUser @setParams
 		}
 	} catch {
 		$PSCmdlet.ThrowTerminatingError($_)
@@ -446,6 +476,16 @@ function Invoke-AdSync
 				$getCsvParams.Exclude = $Exclude
 			}
 
+			if (-not (TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header ([array]$FieldMatchMap.Keys))) {
+				throw 'One or more CSV headers in FieldMatchMap do not exist in the CSV file.'
+			}
+
+			$FieldSyncMap.GetEnumerator().foreach({
+				if (-not (TestIsValidAdAttribute -Name $_.Value)) {
+					throw 'One or more AD attributes in FieldSyncMap do not exist. Use Get-AvailableAdUserAttributes for a list of available attributes.'
+				}
+			})
+
 			Write-Host 'Enumerating all Active Directory users. This may take a few minutes depending on the number of users...'
 			if (-not ($script:adUsers = Get-CompanyAdUser -FieldMatchMap $FieldMatchMap)) {
 				throw 'No AD users found'
@@ -460,7 +500,12 @@ function Invoke-AdSync
 			$script:totalSteps = @($csvusers).Count
 			$stepCounter = 0
 			@($csvUsers).foreach({
-				Write-ProgressHelper -Message "Attempting to find attribute mismatch for user in CSV row [$($stepCounter + 1)]" -StepNumber ($stepCounter++)
+				if ($ReportOnly.IsPresent) {
+					$prgMsg = "Attempting to find attribute mismatch for user in CSV row [$($stepCounter + 1)]"
+				} else {
+					$prgMsg = "Attempting to find and sync AD any attribute mismatches for user in CSV row [$($stepCounter + 1)]"
+				}
+				Write-ProgressHelper -Message $prgMsg -StepNumber ($stepCounter++)
 				$csvUser = $_
 				if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
 					Write-Verbose -Message 'Match'
@@ -470,9 +515,14 @@ function Invoke-AdSync
 					$csvIdField = $csvIdMatchedon
 					$attribMismatches = FindAttributeMismatch -AdUser $adUserMatch.MatchedAdUser -CsvUser $csvUser -FieldSyncMap $FieldSyncMap
 					if ($attribMismatches) {
-						$logAttribs = $attribMismatches
+						$logAttribs = @{
+							CSVAttributeName = ([array]($attribMismatches.CSVField.Keys))[0]
+							CSVAttributeValue = ([array]($attribMismatches.CSVField.Values))[0]
+							ADAttributeName = ([array]($attribMismatches.ActiveDirectoryAttribute.Keys))[0]
+							ADAttributeValue = ([array]($attribMismatches.ActiveDirectoryAttribute.Values))[0]
+						}
 						if (-not $ReportOnly.IsPresent) {
-							SyncCompanyUser -AdUser $adUserMatch.MatchedADUser -CsvUser $csvUser -Attributes $attribMismatches -Identifier $adIdMatchedOn
+							SyncCompanyUser -AdUser $adUserMatch.MatchedADUser -CsvUser $csvUser -ActiveDirectoryAttributes $attribMismatches.ADShouldBe -Identifier $adIdMatchedOn
 						}
 					} else {
 						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
