@@ -446,14 +446,16 @@ function Invoke-AdSync
 				$getCsvParams.Exclude = $Exclude
 			}
 
-			Write-Host 'Enumerating all Active Diretory users. This may take a few minutes depending on the number of users...'
+			Write-Host 'Enumerating all Active Directory users. This may take a few minutes depending on the number of users...'
 			if (-not ($script:adUsers = Get-CompanyAdUser -FieldMatchMap $FieldMatchMap)) {
 				throw 'No AD users found'
 			}
+			Write-Host 'Active Directory user enumeration complete.'
 			Write-Host 'Enumerating all CSV users...'
 			if (-not ($csvusers = Get-CompanyCsvUser @getCsvParams)) {
 				throw 'No CSV users found'
 			}
+			Write-Host 'CSV user enumeration complete.'
 
 			$script:totalSteps = @($csvusers).Count
 			$stepCounter = 0
