@@ -811,7 +811,7 @@ InModuleScope $ThisModuleName {
 				)
 			}
 			@{
-				Label = 'EmployeeId Identifier, 2 Attributes hashtable'
+				Label = 'EmployeeId Identifier, 2 Attributes hashtables'
 				Parameters = @{
 					AdUser = $script:AdUserUpn
 					CsvUser = $script:csvUser
@@ -829,11 +829,7 @@ InModuleScope $ThisModuleName {
 						Parameters = @(
 							@{
 								Identity = @{ employeeId = 'empidhere' }
-								ActiveDirectoryAttributes = @{ 'atttribtosync1' = 'attribtosyncval1' }
-							}
-							@{
-								Identity = @{ employeeId = 'empidhere' }
-								ActiveDirectoryAttributes = @{ 'atttribtosync1' = 'attribtosyncval1' }
+								ActiveDirectoryAttributes = @(@{ 'atttribtosync1' = 'attribtosyncval1' },@{ 'atttribtosync2' = 'attribtosyncval2' })
 							}
 						)
 					}
@@ -863,10 +859,12 @@ InModuleScope $ThisModuleName {
 						Times = @($funcParams.ActiveDirectoryAttributes).Count
 						Exactly = $true
 						ParameterFilter = {
-							foreach ($paramHt in $expectedParams.Parameters) { 
-								$PSBoundParameters.ActiveDirectoryAttributes.Keys -in $paramHt.ActiveDirectoryAttributes.Keys -and
-								$PSBoundParameters.ActiveDirectoryAttributes.Values -in $paramHt.ActiveDirectoryAttributes.Values
-							}
+							$expectedkeys = $expectedParams.Parameters.ActiveDirectoryAttributes | ForEach-Object { $_.Keys }
+							$expectedVals = $expectedParams.Parameters.ActiveDirectoryAttributes | ForEach-Object { $_.Values }
+							
+							$actualKeys = $PSBoundParameters.ActiveDirectoryAttributes  | ForEach-Object { $_.Keys }
+							$actualValues = $PSBoundParameters.ActiveDirectoryAttributes  | ForEach-Object { $_.Values }
+							-not (diff $expectedkeys $actualKeys) -and -not (diff $expectedVals $actualValues)
 						}
 					}
 					Assert-MockCalled @assMParams

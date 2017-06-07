@@ -338,7 +338,7 @@ function SyncCompanyUser
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$ActiveDirectoryAttributes,
+		[hashtable[]]$ActiveDirectoryAttributes,
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
@@ -350,10 +350,13 @@ function SyncCompanyUser
 		$setParams = @{
 			Identity = @{ $Identifier = [string]($AdUser.$Identifier) }
 		}
-		$setParams.ActiveDirectoryAttributes = $ActiveDirectoryAttributes
-		if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($ActiveDirectoryAttributes.Keys -join ',')]",'Set AD attributes')) {
-			SetAdUser @setParams
+		foreach ($ht in $ActiveDirectoryAttributes) {
+			$setParams.ActiveDirectoryAttributes = $ht
+			if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($ht.Keys -join ',')]",'Set AD attributes')) {
+				SetAdUser @setParams
+			}
 		}
+		
 	} catch {
 		$PSCmdlet.ThrowTerminatingError($_)
 	}
