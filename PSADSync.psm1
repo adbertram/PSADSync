@@ -516,7 +516,12 @@ function Invoke-AdSync
 					$adIdMatchedon = $aduserMatch.AdIdMatchedOn
 					$csvIdValue = $csvUser.$csvIdMatchedon
 					$csvIdField = $csvIdMatchedon
-					$attribMismatches = FindAttributeMismatch -AdUser $adUserMatch.MatchedAdUser -CsvUser $csvUser -FieldSyncMap $FieldSyncMap
+					$findParams = @{
+						AdUser = $adUserMatch.MatchedAdUser
+						CsvUser = $csvUser
+						FieldSyncMap = $FieldSyncMap
+					}
+					$attribMismatches = FindAttributeMismatch @findParams
 					if ($attribMismatches) {
 						$logAttribs = @{
 							CSVAttributeName = ([array]($attribMismatches.CSVField.Keys))[0]
@@ -525,7 +530,13 @@ function Invoke-AdSync
 							ADAttributeValue = ([array]($attribMismatches.ActiveDirectoryAttribute.Values))[0]
 						}
 						if (-not $ReportOnly.IsPresent) {
-							SyncCompanyUser -AdUser $adUserMatch.MatchedADUser -CsvUser $csvUser -ActiveDirectoryAttributes $attribMismatches.ADShouldBe -Identifier $adIdMatchedOn
+							$syncParams = @{
+								AdUser = $adUserMatch.MatchedADUser
+								CsvUser = $csvUser
+								ActiveDirectoryAttributes = $attribMismatches.ADShouldBe
+								Identifier = $adIdMatchedOn
+							}
+							SyncCompanyUser @syncParams
 						}
 					} else {
 						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
