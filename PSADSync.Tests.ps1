@@ -84,7 +84,7 @@ InModuleScope $ThisModuleName {
 		[pscustomobject]$output 
 	}
 
-	describe 'Get-CompanyCsvUser' {
+	describe 'Get-CompanyCsvUser' -Tag Unit {
 	
 		$commandName = 'Get-CompanyCsvUser'
 	
@@ -225,7 +225,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'GetCsvColumnHeaders' {
+	describe 'GetCsvColumnHeaders' -Tag Unit {
 		
 		#region Mocks
 			mock 'Get-Content' {
@@ -245,7 +245,7 @@ InModuleScope $ThisModuleName {
 		
 	}
 
-	describe 'TestCsvHeaderExists' {
+	describe 'TestCsvHeaderExists' -Tag Unit {
 		
 		$commandName = 'TestCsvHeaderExists'
 		$script:command = Get-Command -Name $commandName
@@ -357,7 +357,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'Get-CompanyAdUser' {
+	describe 'Get-CompanyAdUser' -Tag Unit {
 	
 		$commandName = 'Get-CompanyAdUser'
 
@@ -392,7 +392,7 @@ InModuleScope $ThisModuleName {
 
 	}
 
-	describe 'FindUserMatch' {
+	describe 'FindUserMatch' -Tag Unit {
 	
 		$commandName = 'FindUserMatch'
 		
@@ -621,7 +621,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'FindAttributeMismatch' {
+	describe 'FindAttributeMismatch' -Tag Unit {
 	
 		$commandName = 'FindAttributeMismatch'
 		
@@ -718,7 +718,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'TestIsValidAdAttribute' {
+	describe 'TestIsValidAdAttribute' -Tag Unit {
 		
 		$commandName = 'TestIsValidAdAttribute'
 	
@@ -766,7 +766,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'SetAduser' {
+	describe 'SetAduser' -Tag Unit {
 	
 		$commandName = 'SetAduser'
 		
@@ -847,7 +847,7 @@ InModuleScope $ThisModuleName {
 	
 	}
 
-	describe 'SaveAdUser' {
+	describe 'SaveAdUser' -Tag Unit {
 		
 		$commandName = 'SaveAdUser'
 		$script:command = Get-Command -Name $commandName
@@ -934,7 +934,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'SyncCompanyUser' {
+	describe 'SyncCompanyUser' -Tag Unit {
 	
 		$commandName = 'SyncCompanyUser'
 		$command = Get-Command -Name $commandName
@@ -1059,7 +1059,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 		
-	describe 'WriteLog' {
+	describe 'WriteLog' -Tag Unit {
 	
 		$commandName = 'WriteLog'
 		
@@ -1143,7 +1143,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'Invoke-AdSync' {
+	describe 'Invoke-AdSync' -Tag Unit {
 	
 		$commandName = 'Invoke-AdSync'
 	
