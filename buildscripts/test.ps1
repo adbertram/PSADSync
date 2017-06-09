@@ -12,7 +12,7 @@ try {
 		EnableExit = $true
 		Tag = 'Unit'
 	}
-	Invoke-Pester 
+	Invoke-Pester @invPesterParams
 
 	$Address = "https://ci.appveyor.com/api/testresults/nunit/$($env:APPVEYOR_JOB_ID)"
 	(New-Object 'System.Net.WebClient').UploadFile( $Address, $testResultsFilePath )
