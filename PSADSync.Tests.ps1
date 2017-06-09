@@ -1659,7 +1659,7 @@ InModuleScope $ThisModuleName {
 			$parameters = $testCase.Parameters
 			$expected = $testCase.Expected
 	
-			Invoke-AdSync @parameters
+			Invoke-AdSync @parameters -Confirm:$false
 
 			$getParams = @{
 				Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"

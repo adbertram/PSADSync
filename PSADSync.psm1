@@ -40,18 +40,19 @@ function GetAdUser
 		[string]$OutputAs = 'UserPrincipal'
 	)
 
+	$domainDn = $(([adsisearcher]"").Searchroot.path)
+
+	$DirectorySearcher = New-Object -TypeName System.DirectoryServices.DirectorySearcher
+	$DirectorySearcher.PageSize = 1000
+	$DirectorySearcher.SearchRoot = $domainDN
+
 	if ($PSBoundParameters.ContainsKey('Identity')) {
-		$result = [adsi]('WinNT://{0}/{1}, user' -f (GetCurrentDomainName),([string]$Identity.Values))
-	} else {
-
-		$domainDn = $(([adsisearcher]"").Searchroot.path)
-
-		$DirectorySearcher = New-Object -TypeName System.DirectoryServices.DirectorySearcher
-		$DirectorySearcher.PageSize = 1000
-		$DirectorySearcher.SearchRoot = $domainDN
-
-		$result = FindAdUser -DirectorySearcher $DirectorySearcher
+		$idField = ([array]$Identity.Keys)[0]
+		$idValue = ([array]$Identity.Values)[0]
+		$DirectorySearcher.Filter = "(&(objectCategory=person)(objectClass=User)({0}={1}))" -f $idField,$idValue
 	}
+	
+	$result = FindAdUser -DirectorySearcher $DirectorySearcher
 	if ($OutputAs -eq 'DirectoryEntry') {
 		$result
 	} else {
@@ -146,9 +147,16 @@ function SetAdUser
 		[hashtable]$ActiveDirectoryAttributes
 	)	
 	$user = GetAdUser -Identity $Identity -OutputAs DirectoryEntry
+	Write-Verbose -Message "Found AD user to set: [$($user | Out-String)]"
 
 	foreach ($attrib in $ActiveDirectoryAttributes.GetEnumerator()) {
-		SaveAdUser -User $user -AttributeName (ConvertToSchemaAttribute -Attribute $attrib.Key) -AttributeValue $attrib.Value
+		$saveAdParams = @{
+			User = $user 
+			AttributeName = (ConvertToSchemaAttribute -Attribute $attrib.Key)
+			AttributeValue = $attrib.Value
+		}
+		Write-Verbose -Message "Running SaveAdUser with params: [$($saveAdParams | Out-String)]"
+		SaveAdUser @saveAdParams
 	} 
 }
 
@@ -438,6 +446,7 @@ function SyncCompanyUser
 		foreach ($ht in $ActiveDirectoryAttributes) {
 			$setParams.ActiveDirectoryAttributes = $ht
 			if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($ht.Keys -join ',')]",'Set AD attributes')) {
+				Write-Verbose -Message "Running SetAdUser with params: [$($setParams | Out-String)]"
 				SetAdUser @setParams
 			}
 		}
@@ -621,6 +630,7 @@ function Invoke-AdSync
 								ActiveDirectoryAttributes = $attribMismatches.ADShouldBe
 								Identifier = $adIdMatchedOn
 							}
+							Write-Verbose -Message "Running SyncCompanyUser with params: [$($syncParams | Out-String)]"
 							SyncCompanyUser @syncParams
 						}
 					} else {
