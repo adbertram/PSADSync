@@ -698,15 +698,16 @@ InModuleScope $ThisModuleName {
 		mock 'SaveAdUser'
 
 		mock 'GetAdUser' {
-			$obj = New-MockObject -Type 'System.DirectoryServices.SearchResult'
-			$obj | Add-Member -MemberType NoteProperty -Name 'Properties' -PassThru -Force -Value ([pscustomobject]@{
-				adsPath = 'adspathhere'
-			})
-		} -ParameterFilter { $OutputAs -eq 'SearchResult' }
+			New-MockObject -Type 'System.DirectoryServices.DirectoryEntry'
+		} -ParameterFilter { $OutputAs -eq 'DirectoryEntry' }
 
 		mock 'GetAdUser' {
 			New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
-		} -ParameterFilter { $OutputAs -ne 'SearchResult' }
+		} -ParameterFilter { $OutputAs -ne 'DirectoryEntry' }
+
+		mock 'ConvertToSchemaAttribute' {
+			'AccountExpirationDate'
+		} -ParameterFilter { $Attribute -eq 'accountExpires' }
 	
 		$parameterSets = @(
 			@{
@@ -716,6 +717,10 @@ InModuleScope $ThisModuleName {
 			@{
 				Identity = @{ employeeId = 'empidhere'}
 				ActiveDirectoryAttributes = @{ displayName = 'displaynamehere' }
+			}
+			@{
+				Identity = @{ employeeId = 'empidhere'}
+				ActiveDirectoryAttributes = @{ accountExpires = '1/1/01' }
 			}
 		)
 	
@@ -740,8 +745,8 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { 
-					$PSBoundParameters.AttributeName -match 'displayName|employeeId' -and
-					$PSBoundParameters.AttributeValue -match 'displayNameHere|empIdHere'
+					$PSBoundParameters.AttributeName -match 'displayName|employeeId|AccountExpirationDate' -and
+					$PSBoundParameters.AttributeValue -match 'displayNameHere|empIdHere|1/1/01'
 				}
 			}
 			Assert-MockCalled @assMParams
@@ -758,12 +763,99 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { 
-					$PSBoundParameters.AdsPath
+					$PSBoundParameters.User
 				}
 			}
 			Assert-MockCalled @assMParams
 		}
 	
+	}
+
+	describe 'SaveAdUser' {
+		
+		$commandName = 'SaveAdUser'
+		$script:command = Get-Command -Name $commandName
+	
+		#region Mocks
+			mock 'PutAdsiUser' {
+				New-MockObject -Type 'System.DirectoryServices.DirectoryEntry'
+			}
+		#endregion
+	
+		$testCases = @(
+			@{
+				Label = 'Common string attribute'
+				Parameters = @{
+					User = (New-MockObject -Type 'System.DirectoryServices.DirectoryEntry')
+					AttributeName = 'adattrib'
+					AttributeValue = 'adval'
+				}
+				Expected = @{
+					Execution = @{
+						'PutAdsiUser' = @{
+							AttributeName = 'adattrib'
+							AttributeValue = 'adval'
+							AttributeValueType = 'System.String'
+						}
+					}
+					Output = @{
+						ObjectCount = 1
+					}
+				}
+			}
+			@{
+				Label = 'Date conversion attribute'
+				Parameters = @{
+					User = (New-MockObject -Type 'System.DirectoryServices.DirectoryEntry')
+					AttributeName = 'adattrib'
+					AttributeValue = '1/1/01'
+				}
+				Expected = @{
+					Execution = @{
+						'PutAdsiUser' = @{
+							AttributeName = 'adattrib'
+							AttributeValue = ([datetime]'1/1/01')
+							AttributeValueType = 'System.DateTime'
+						}
+					}
+					Output = @{
+						ObjectCount = 1
+					}
+				}
+			}
+		)
+	
+		foreach ($testCase in $testCases) {
+	
+			$parameters = $testCase.Parameters
+			$expected = $testCase.Expected
+	
+			context $testCase.Label {
+				
+				$result = & $commandName @parameters
+
+				it 'should pass the expected parameters to PutAdsiUser' {
+
+					$thisFunc = $expected.Execution.PutAdsiUser
+				
+					$assMParams = @{
+						CommandName = 'PutAdsiUser'
+						Times = 1
+						Exactly = $true
+						ExclusiveFilter = {
+							$thisFunc.AttributeName -in $PSBoundParameters.Attribute.Keys -and
+							$thisFunc.AttributeValue -in $PSBoundParameters.Attribute.Values
+							$PSBoundParameters.Attribute.Values.GetType().FullName -eq $thisFunc.AttributeValueType
+						}
+					}
+					Assert-MockCalled @assMParams
+				}
+	
+				it "should return [$($expected.Output.ObjectCount)] object(s)" {
+					@($result).Count | should be $expected.Output.ObjectCount
+				}
+			}
+		}
 	}
 
 	describe 'SyncCompanyUser' {

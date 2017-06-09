@@ -14,6 +14,17 @@ function FindAdUser
 	$DirectorySearcher.FindAll()
 }
 
+function GetCurrentDomainName
+{
+	[OutputType('string')]
+	[CmdletBinding()]
+	param
+	()
+
+	[System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().Name
+	
+}
+
 function GetAdUser
 {
 	[CmdletBinding()]
@@ -25,35 +36,53 @@ function GetAdUser
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[ValidateSet('SearchResult','UserPrincipal')]
+		[ValidateSet('DirectoryEntry','UserPrincipal')]
 		[string]$OutputAs = 'UserPrincipal'
 	)
 
-	$domainDn = $(([adsisearcher]"").Searchroot.path)
-
-	$DirectorySearcher = New-Object -TypeName System.DirectoryServices.DirectorySearcher
-	$DirectorySearcher.PageSize = 1000
-	$DirectorySearcher.SearchRoot = $domainDN
-
-	if (-not $PSBoundParameters.ContainsKey('Identity')) {
-		$result = FindAdUser -DirectorySearcher $DirectorySearcher
+	if ($PSBoundParameters.ContainsKey('Identity')) {
+		$result = [adsi]('WinNT://{0}/{1}, user' -f (GetCurrentDomainName),([string]$Identity.Values))
 	} else {
+
+		$domainDn = $(([adsisearcher]"").Searchroot.path)
+
+		$DirectorySearcher = New-Object -TypeName System.DirectoryServices.DirectorySearcher
+		$DirectorySearcher.PageSize = 1000
+		$DirectorySearcher.SearchRoot = $domainDN
+
 		$idField = ([array]$Identity.Keys)[0]
 		$idValue = ([array]$Identity.Values)[0]
 		$DirectorySearcher.Filter = "(&(objectCategory=person)(objectClass=User)({0}={1}))" -f $idField,$idValue
 		$result = FindAdUser -DirectorySearcher $DirectorySearcher
 	}
-
-	if ($OutputAs -eq 'SearchResult') {
+	if ($OutputAs -eq 'DirectoryEntry') {
 		$result
 	} else {
-		$Context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext('Domain', $env:USERDNSDOMAIN)
+		$Context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext('Domain', (GetCurrentDomainName))
 		@($result).foreach({
 			foreach ($user in ([System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($Context, ($_.path -replace 'LDAP://')))) {
 				$user.GetUnderlyingObject().Properties
 			}
 		})
 	}
+}
+
+function PutAdsiUser {
+	[OutputType('System.DirectoryServices.DirectoryEntry')]
+	[CmdletBinding()]
+	param(
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[System.DirectoryServices.DirectoryEntry]$User,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$Attribute
+	)
+
+	$User.Put($AttributeName, $AttributeValue)
+	$User
+
 }
 
 function SaveAdUser
@@ -64,7 +93,7 @@ function SaveAdUser
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[System.DirectoryServices.DirectoryEntry]$AdsPath,
+		[System.DirectoryServices.DirectoryEntry]$User,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
@@ -72,11 +101,36 @@ function SaveAdUser
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$AttributeValue
+		[object]$AttributeValue
 	)
+	if ([string]$AttributeValue -as [DateTime]) {
+		$AttributeValue = [datetime]$AttributeValue
+	}
+	$User = PutAdsiUser -User $User -Attribute @{ $AttributeName = $AttributeValue }
+	$User.SetInfo()
 	
-	$AdsPath.Put($AttributeName, $AttributeValue)
-	$AdsPath.SetInfo()
+}
+
+function ConvertToSchemaAttribute
+{
+	[OutputType('string')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Attribute
+	)
+
+	switch ($Attribute)
+	{
+		'accountExpires' {
+			'AccountExpirationDate'
+		}
+		default {
+			$_
+		}
+	}	
 	
 }
 
@@ -94,12 +148,10 @@ function SetAdUser
 		[ValidateNotNullOrEmpty()]
 		[hashtable]$ActiveDirectoryAttributes
 	)	
-	$user = GetAdUser -Identity $Identity -OutputAs SearchResult
-	$Account = $user.Properties.samaccountname -as [string]
-	$adspath = $($user.Properties.adspath -as [string]) -as [ADSI]
+	$user = GetAdUser -Identity $Identity -OutputAs DirectoryEntry
 
 	foreach ($attrib in $ActiveDirectoryAttributes.GetEnumerator()) {
-		SaveAdUser -AdsPath $adsPath -AttributeName $attrib.Key -AttributeValue $attrib.Value
+		SaveAdUser -User $user -AttributeName (ConvertToSchemaAttribute -Attribute $attrib.Key) -AttributeValue $attrib.Value
 	} 
 }
 
