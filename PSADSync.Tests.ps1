@@ -774,12 +774,12 @@ InModuleScope $ThisModuleName {
 		mock 'SaveAdUser'
 
 		mock 'GetAdUser' {
-			New-MockObject -Type 'System.DirectoryServices.DirectoryEntry'
-		} -ParameterFilter { $OutputAs -eq 'DirectoryEntry' }
+			New-MockObject -Type 'System.DirectoryServices.SearchResult'
+		} -ParameterFilter { $OutputAs -eq 'SearchResult' }
 
 		mock 'GetAdUser' {
 			New-MockObject -Type 'System.DirectoryServices.AccountManagement.UserPrincipal'
-		} -ParameterFilter { $OutputAs -ne 'DirectoryEntry' }
+		} -ParameterFilter { $OutputAs -ne 'SearchResult' }
 
 		mock 'ConvertToSchemaAttribute' {
 			'AccountExpirationDate'
@@ -839,7 +839,7 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { 
-					$PSBoundParameters.User
+					$PSBoundParameters.AdsUser
 				}
 			}
 			Assert-MockCalled @assMParams
@@ -853,49 +853,47 @@ InModuleScope $ThisModuleName {
 		$script:command = Get-Command -Name $commandName
 	
 		#region Mocks
-			mock 'PutAdsiUser' {
-				New-MockObject -Type 'System.DirectoryServices.DirectoryEntry'
-			}
+			mock 'PutAdUser'
 		#endregion
 	
 		$testCases = @(
 			@{
 				Label = 'Common string attribute'
 				Parameters = @{
-					User = (New-MockObject -Type 'System.DirectoryServices.DirectoryEntry')
+					AdsUser = (New-MockObject -Type 'System.DirectoryServices.DirectoryEntry')
 					AttributeName = 'adattrib'
 					AttributeValue = 'adval'
 				}
 				Expected = @{
 					Execution = @{
-						'PutAdsiUser' = @{
+						'PutAdUser' = @{
 							AttributeName = 'adattrib'
 							AttributeValue = 'adval'
 							AttributeValueType = 'System.String'
 						}
 					}
 					Output = @{
-						ObjectCount = 1
+						ObjectCount = 0
 					}
 				}
 			}
 			@{
 				Label = 'Date conversion attribute'
 				Parameters = @{
-					User = (New-MockObject -Type 'System.DirectoryServices.DirectoryEntry')
+					AdsUser = (New-MockObject -Type 'System.DirectoryServices.DirectoryEntry')
 					AttributeName = 'adattrib'
 					AttributeValue = '1/1/01'
 				}
 				Expected = @{
 					Execution = @{
-						'PutAdsiUser' = @{
+						'PutAdUser' = @{
 							AttributeName = 'adattrib'
 							AttributeValue = ([datetime]'1/1/01')
 							AttributeValueType = 'System.DateTime'
 						}
 					}
 					Output = @{
-						ObjectCount = 1
+						ObjectCount = 0
 					}
 				}
 			}
@@ -910,18 +908,18 @@ InModuleScope $ThisModuleName {
 				
 				$result = & $commandName @parameters
 
-				it 'should pass the expected parameters to PutAdsiUser' {
+				it 'should pass the expected parameters to PutAdUser' {
 
-					$thisFunc = $expected.Execution.PutAdsiUser
+					$thisFunc = $expected.Execution.PutAdUser
 				
 					$assMParams = @{
-						CommandName = 'PutAdsiUser'
+						CommandName = 'PutAdUser'
 						Times = 1
 						Exactly = $true
 						ExclusiveFilter = {
 							$thisFunc.AttributeName -in $PSBoundParameters.Attribute.Keys -and
 							$thisFunc.AttributeValue -in $PSBoundParameters.Attribute.Values
-							$PSBoundParameters.Attribute.Values.GetType().FullName -eq $thisFunc.AttributeValueType
+							$PSBoundParameters.AttributeValue.GetType().FullName -eq $thisFunc.AttributeValueType
 						}
 					}
 					Assert-MockCalled @assMParams
@@ -1618,7 +1616,7 @@ InModuleScope $ThisModuleName {
 					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
 					FieldSyncMap = @{ 
 						'FIRST_NAME' = 'givenName'
-						'LAST_NAME' = 'surName'
+						'LAST_NAME' = 'sn'
 					}
 					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
 				}
@@ -1638,7 +1636,7 @@ InModuleScope $ThisModuleName {
 					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
 					FieldSyncMap = @{
 						{ if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = 'givenName'
-						'LAST_NAME' = 'surName'
+						'LAST_NAME' = 'sn'
 					}
 					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
 				}
@@ -1658,17 +1656,22 @@ InModuleScope $ThisModuleName {
 	
 			$parameters = $testCase.Parameters
 			$expected = $testCase.Expected
-	
-			Invoke-AdSync @parameters -Confirm:$false
 
-			$getParams = @{
-				Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
-				Properties = '*'
+			context $testCase.Label {	
+				Invoke-AdSync @parameters -Confirm:$false
+
+				$getParams = @{
+					Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
+					Properties = '*'
+				}
+				$testAdUser = Get-Aduser @getParams
+
+				it 'should change the expected AD user attributes' {
+					@($expected.ActiveDirectoryUser.Attributes).foreach({
+						$testAdUser.Keys | should be $testAdUser.Valuest
+					})	
+				}
 			}
-			$testAdUser = Get-Aduser @getParams
-			@($expected.ActiveDirectoryUser.Attributes).foreach({
-				$testAdUser.Keys | should be $testAdUser.Valuest
-			})
 		}
 	}
 

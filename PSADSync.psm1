@@ -36,7 +36,7 @@ function GetAdUser
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[ValidateSet('DirectoryEntry','UserPrincipal')]
+		[ValidateSet('SearchResult','UserPrincipal')]
 		[string]$OutputAs = 'UserPrincipal'
 	)
 
@@ -51,9 +51,9 @@ function GetAdUser
 		$idValue = ([array]$Identity.Values)[0]
 		$DirectorySearcher.Filter = "(&(objectCategory=person)(objectClass=User)({0}={1}))" -f $idField,$idValue
 	}
-	
+
 	$result = FindAdUser -DirectorySearcher $DirectorySearcher
-	if ($OutputAs -eq 'DirectoryEntry') {
+	if ($OutputAs -eq 'SearchResult') {
 		$result
 	} else {
 		$Context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext('Domain', (GetCurrentDomainName))
@@ -65,22 +65,24 @@ function GetAdUser
 	}
 }
 
-function PutAdsiUser {
-	[OutputType('System.DirectoryServices.DirectoryEntry')]
+function PutAdUser {
+	[OutputType([void])]
 	[CmdletBinding()]
 	param(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[System.DirectoryServices.DirectoryEntry]$User,
+		[System.DirectoryServices.DirectoryEntry]$AdsUser,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Attribute
+		[string]$AttributeName,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[object]$AttributeValue
 	)
-
-	$User.Put($AttributeName, $AttributeValue)
-	$User
-
+	$AdsUser.Put($AttributeName,$AttributeValue)
+	$AdsUser.SetInfo()
 }
 
 function SaveAdUser
@@ -91,7 +93,7 @@ function SaveAdUser
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[System.DirectoryServices.DirectoryEntry]$User,
+		[System.DirectoryServices.DirectoryEntry]$AdsUser,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
@@ -104,8 +106,8 @@ function SaveAdUser
 	if ([string]$AttributeValue -as [DateTime]) {
 		$AttributeValue = [datetime]$AttributeValue
 	}
-	$User = PutAdsiUser -User $User -Attribute @{ $AttributeName = $AttributeValue }
-	$User.SetInfo()
+
+	PutAdUser -AdsUser $AdsUser -AttributeName $AttributeName -AttributeValue $AttributeValue
 	
 }
 
@@ -146,12 +148,13 @@ function SetAdUser
 		[ValidateNotNullOrEmpty()]
 		[hashtable]$ActiveDirectoryAttributes
 	)	
-	$user = GetAdUser -Identity $Identity -OutputAs DirectoryEntry
-	Write-Verbose -Message "Found AD user to set: [$($user | Out-String)]"
+	$srcResultUser = GetAdUser -Identity $Identity -OutputAs SearchResult
+	$adspath = $srcResultUser.Properties.adspath -as [string]
+	$AdsUser = $adspath -as [adsi]
 
 	foreach ($attrib in $ActiveDirectoryAttributes.GetEnumerator()) {
 		$saveAdParams = @{
-			User = $user 
+			AdsUser = $AdsUser
 			AttributeName = (ConvertToSchemaAttribute -Attribute $attrib.Key)
 			AttributeValue = $attrib.Value
 		}
@@ -577,7 +580,7 @@ function Invoke-AdSync
 				throw 'One or more CSV headers in FieldMatchMap do not exist in the CSV file.'
 			}
 
-			$FieldSyncMap.GetEnumerator().where({$_.Key -is 'string'}).foreach({
+			$FieldSyncMap.GetEnumerator().where({$_.Value -is 'string'}).foreach({
 				if (-not (TestIsValidAdAttribute -Name $_.Value)) {
 					throw 'One or more AD attributes in FieldSyncMap do not exist. Use Get-AvailableAdUserAttributes for a list of available attributes.'
 				}
