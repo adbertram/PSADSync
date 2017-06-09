@@ -1588,10 +1588,6 @@ InModuleScope $ThisModuleName {
 	describe 'Invoke-AdSync - Functional' -Tag Functional {
 		
 		$commandName = 'Invoke-AdSync'
-
-		## Create the test AD User
-		Get-AdUser -Filter "samAccountName -eq 'testUser'" | Remove-AdUser -Confirm:$false
-		New-ADUser -GivenName 'ChangeMe' -Surname 'ChangeMe' -EmployeeID '1' -Name testuser
 	
 		$testCases = @(
 			@{
@@ -1653,6 +1649,10 @@ InModuleScope $ThisModuleName {
 		)
 	
 		foreach ($testCase in $testCases) {
+
+			## Create the test AD User
+			Get-AdUser -Filter "samAccountName -eq 'testUser'" | Remove-AdUser -Confirm:$false
+			New-ADUser -GivenName 'ChangeMe' -Surname 'ChangeMe' -EmployeeID '1' -Name testuser
 	
 			$parameters = $testCase.Parameters
 			$expected = $testCase.Expected

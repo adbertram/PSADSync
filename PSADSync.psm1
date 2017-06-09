@@ -211,7 +211,22 @@ function Get-AvailableAdUserAttributes {
 
 	$schema =[DirectoryServices.ActiveDirectory.ActiveDirectorySchema]::GetCurrentSchema()
 	$userClass = $schema.FindClass('user')
-	$userClass.GetAllProperties().Name | Sort-Object
+	
+	foreach ($name in $userClass.GetAllProperties().Name | Sort-Object) {
+		
+		$output = [ordered]@{
+			ValidName = $name
+			CommonName = $null
+		}
+		switch ($name)
+		{
+			'sn' {
+				$output.CommonName = 'SurName'
+			}
+		}
+		
+		[pscustomobject]$output
+	}
 }
 
 function TestIsValidAdAttribute {
