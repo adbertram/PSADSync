@@ -239,7 +239,7 @@ function TestIsValidAdAttribute {
 		[string]$Name
 	)
 
-	if ($Name -in (Get-AvailableAdUserAttributes)) {
+	if ($Name -in (Get-AvailableAdUserAttributes).ValidName) {
 		$true
 	} else {
 		$false
