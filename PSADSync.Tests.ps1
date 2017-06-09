@@ -1587,6 +1587,91 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
+	describe 'Invoke-AdSync - Functional' -Tag Functional {
+		
+		$commandName = 'Invoke-AdSync'
+
+		## Create the test AD User
+		Get-AdUser -Filter "samAccountName -eq 'testUser'" | Remove-AdUser -Confirm:$false
+		New-ADUser -GivenName 'ChangeMe' -Surname 'ChangeMe' -EmployeeID '1' -Name testuser
+	
+		$testCases = @(
+			@{
+				Label = 'Syncing a single string attribute'
+				Parameters = @{
+					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
+					FieldSyncMap = @{ 'FIRST_NAME' = 'givenName'}
+					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
+				}
+				Expected = @{
+					ActiveDirectoryUser = @{
+						Identifier = @{ 'employeeId' = 1 }
+						Attributes = @{
+							givenName = 'changedfirstname'
+						}
+					}	
+				}
+			}
+			@{
+				Label = 'Syncing a multiple string attributes'
+				Parameters = @{
+					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
+					FieldSyncMap = @{ 
+						'FIRST_NAME' = 'givenName'
+						'LAST_NAME' = 'surName'
+					}
+					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
+				}
+				Expected = @{
+					ActiveDirectoryUser = @{
+						Identifier = @{ 'employeeId' = 1 }
+						Attributes = @{
+							givenName = 'changedfirstname'
+							surName = 'changedlastname'
+						}
+					}	
+				}
+			}
+			@{
+				Label = 'Syncing a multiple string attributes and a scriptblock condition'
+				Parameters = @{
+					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
+					FieldSyncMap = @{
+						{ if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = 'givenName'
+						'LAST_NAME' = 'surName'
+					}
+					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
+				}
+				Expected = @{
+					ActiveDirectoryUser = @{
+						Identifier = @{ 'employeeId' = 1 }
+						Attributes = @{
+							givenName = 'changednickname'
+							surName = 'changedlastname'
+						}
+					}	
+				}
+			}
+		)
+	
+		foreach ($testCase in $testCases) {
+	
+			$parameters = $testCase.Parameters
+			$expected = $testCase.Expected
+	
+			Invoke-AdSync @parameters
+
+			$getParams = @{
+				Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
+				Properties = '*'
+			}
+			$testAdUser = Get-Aduser @getParams
+			@($expected.ActiveDirectoryUser.Attributes).foreach({
+				$testAdUser.Keys | should be $testAdUser.Valuest
+			})
+		}
+	}
+
 	Remove-Variable -Name allAdsiUsers -Scope Script
 	Remove-Variable -Name allCsvUsers -Scope Script
 }

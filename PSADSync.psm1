@@ -50,9 +50,6 @@ function GetAdUser
 		$DirectorySearcher.PageSize = 1000
 		$DirectorySearcher.SearchRoot = $domainDN
 
-		$idField = ([array]$Identity.Keys)[0]
-		$idValue = ([array]$Identity.Values)[0]
-		$DirectorySearcher.Filter = "(&(objectCategory=person)(objectClass=User)({0}={1}))" -f $idField,$idValue
 		$result = FindAdUser -DirectorySearcher $DirectorySearcher
 	}
 	if ($OutputAs -eq 'DirectoryEntry') {
