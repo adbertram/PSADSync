@@ -535,7 +535,7 @@ function Invoke-AdSync
 				throw 'One or more CSV headers in FieldMatchMap do not exist in the CSV file.'
 			}
 
-			$FieldSyncMap.GetEnumerator().foreach({
+			$FieldSyncMap.GetEnumerator().where({$_.Key -is 'string'}).foreach({
 				if (-not (TestIsValidAdAttribute -Name $_.Value)) {
 					throw 'One or more AD attributes in FieldSyncMap do not exist. Use Get-AvailableAdUserAttributes for a list of available attributes.'
 				}

@@ -1145,6 +1145,13 @@ InModuleScope $ThisModuleName {
 					FieldMatchMap = @{ PERSON_NUM = 'EmployeeId' }
 					ReportOnly = $true
 				}
+				Expect = @{
+					Execution = @{
+						TestIsValidAdAttribute = @{
+							RunTimes = 1
+						}
+					}
+				}
 			}
 			@{
 				Label = 'Single sync /single match field'
@@ -1152,6 +1159,13 @@ InModuleScope $ThisModuleName {
 					CsvFilePath = 'C:\log.csv'
 					FieldSyncMap = @{ 'CsvTitle' = 'ADTitle' }
 					FieldMatchMap = @{ PERSON_NUM = 'EmployeeId' }
+				}
+				Expect = @{
+					Execution = @{
+						TestIsValidAdAttribute = @{
+							RunTimes = 1
+						}
+					}
 				}
 			}
 			@{
@@ -1161,10 +1175,18 @@ InModuleScope $ThisModuleName {
 					FieldSyncMap = @{ 
 						'CsvTitle' = 'ADTitle'
 						'CSVDisplayName' = 'ADDisplayName'
+						({ if (-not $_.CsvNullField) { 'CsvNonNullField' }}) = 'ADDisplayName3'
 					}
 					FieldMatchMap = @{ 
 						PERSON_NUM = 'EmployeeId'
 						AD_LOGON = 'samAcountName'
+					}
+				}
+				Expect = @{
+					Execution = @{
+						TestIsValidAdAttribute = @{
+							RunTimes = 2
+						}
 					}
 				}
 			}
@@ -1176,6 +1198,13 @@ InModuleScope $ThisModuleName {
 					FieldSyncMap = @{ 'CsvTitle' = 'ADTitle' }
 					Exclude = @{ ExcludeCol = 'excludeme' }
 				}
+				Expect = @{
+					Execution = @{
+						TestIsValidAdAttribute = @{
+							RunTimes = 1
+						}
+					}
+				}
 			}
 		)
 
@@ -1184,10 +1213,9 @@ InModuleScope $ThisModuleName {
 		foreach ($testCase in $testCases) {
 
 			$parameters = $testCase.Parameters
+			$expect = $testCase.Expect
 
 			context $testCase.Label {
-
-				$result = & $commandName @parameters
 
 				if ($parameters.ContainsKey('Exclude')) {
 
@@ -1232,6 +1260,25 @@ InModuleScope $ThisModuleName {
 							}
 						}
 					}
+				}
+
+				context 'Shared tests' {
+				
+					$result = & $commandName @parameters
+
+					it 'should only test string AD attributes in FieldSyncMap' {
+
+						$thisFunc = $expect.Execution.TestIsValidAdAttribute
+						
+						$assMParams = @{
+							CommandName = 'TestIsValidAdAttribute'
+							Times = $thisFunc.RunTimes
+							Exactly = $true
+							ExclusiveFilter = { $PSBoundParameters.Name -is 'string' }
+						}
+						Assert-MockCalled @assMParams
+					}
+				
 				}
 
 				context 'when at least one AD attribute in FieldSyncMap is not available' {
