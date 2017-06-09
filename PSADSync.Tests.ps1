@@ -1588,6 +1588,8 @@ InModuleScope $ThisModuleName {
 	describe 'Invoke-AdSync - Functional' -Tag Functional {
 		
 		$commandName = 'Invoke-AdSync'
+
+		mock 'Write-Host'
 	
 		$testCases = @(
 			@{
@@ -1670,6 +1672,10 @@ InModuleScope $ThisModuleName {
 					@($expected.ActiveDirectoryUser.Attributes).foreach({
 						$testAdUser.Keys | should be $testAdUser.Valuest
 					})	
+				}
+
+				it 'should write the expected values to the log file' -Skip {
+					
 				}
 			}
 		}
