@@ -11,6 +11,7 @@ try {
 		'PSAdSync\\appveyor\.yml'
 		'PSAdSync\\\.git'
 		'PSAdSync\\README\.md'
+		'PSAdSync\\TestUsers\.csv'
 	)
 	$exclude = $excludeFromPublish -join '|'
 	Get-ChildItem -Path $env:APPVEYOR_BUILD_FOLDER -Recurse | where { $_.FullName -match $exclude } | Move-Item -Destination $env:temp
