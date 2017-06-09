@@ -247,38 +247,114 @@ InModuleScope $ThisModuleName {
 
 	describe 'TestCsvHeaderExists' {
 		
+		$commandName = 'TestCsvHeaderExists'
+		$script:command = Get-Command -Name $commandName
+	
 		#region Mocks
 			mock 'GetCsvColumnHeaders' {
-				'Header1','Header2','Header3'
+				'nothinghere','nope'
+			} -ParameterFilter { $CsvFilePath -eq 'C:\foofail.csv' }
+
+			mock 'GetCsvColumnHeaders' {
+				'Header','a','b','c','d','e'
+			} -ParameterFilter { $CsvFilePath -eq 'C:\foopass.csv' }
+
+			mock 'ParseScriptBlockHeaders' {
+				'Header','a','b','c','d','e'
 			}
-		#endregion
 
-
-		context 'when a header is not in the CSV' {
-		
-			it 'should return $false' {
-			
-				TestCsvHeaderExists -CsvFilePath 'foo.csv' -Header 'nothere' | should be $false
-			}	
-		
-		}
-
-		context 'when all headers are in the CSV' {
-
-			it 'should return $true' {
-				TestCsvHeaderExists -CsvFilePath 'foo.csv' -Header 'Header1','Header2','Header3' | should be $true
+		$testCases = @(
+			@{
+				Label = 'Single header / no scriptblocks'
+				Parameters = @{
+					CsvFilePath = 'C:\foofail.csv'
+					Header = 'fail'
+				}
+				Expected = @{
+					Execution = @{
+						ParseScriptBlockHeaders = @{
+							RunTimes = 0
+						}
+					}
+					Output = @{
+						ReturnValue = $false
+						ObjectCount = 1
+					}
+				}
 			}
+			@{
+				Label = 'Single header / 1 scriptblock'
+				Parameters = @{
+					CsvFilePath = 'C:\foofail.csv'
+					Header = { if (-not $_.Header) { '2' } else { '3' } }
+				}
+				Expected = @{
+					Execution = @{
+						ParseScriptBlockHeaders = @{
+							RunTimes = 1
+						}
+					}
+					Output = @{
+						ReturnValue = $false
+						ObjectCount = 1
+					}
+				}
+			}
+			@{
+				Label = 'Multiple headers / string/scriptblock'
+				Parameters = @{
+					CsvFilePath = 'C:\foopass.csv'
+					Header = 
+						'a',
+						{ if (-not $_.Header) { 'b' } else { 'c' } },
+						{ if (-not $_.Header) { 'd' } else { 'e' } }
+				}
+				Expected = @{
+					Execution = @{
+						ParseScriptBlockHeaders = @{
+							RunTimes = 2
+						}
+					}
+					Output = @{
+						ReturnValue = $true
+						ObjectCount = 1
+					}
+				}
+			}
+		)
 	
-		}
+		foreach ($testCase in $testCases) {
+	
+			$parameters = $testCase.Parameters
+			$expected = $testCase.Expected
+	
+			context $testCase.Label {
+	
+				$result = & $commandName @parameters
 
-		context 'when one header is in the CSV' {
+				it "should call ParseScriptBlockHeaders [$($expected.Execution.ParseScriptBlockHeaders.RunTimes)] times" {
+					
+					$assMParams = @{
+						CommandName = 'ParseScriptBlockHeaders'
+						Times = $expected.Execution.ParseScriptBlockHeaders.RunTimes
+						Exactly = $true
+					}
+					Assert-MockCalled @assMParams
+				}
 
-			it 'should return $true' {		
-				TestCsvHeaderExists -CsvFilePath 'foo.csv' -Header 'Header1' | should be $true
+				it "should return [$($expected.Output.ReturnValue)]" {
+					$result | should be $expected.Output.ReturnValue
+				}
+
+				it "should return [$($expected.Output.ObjectCount)] object(s)" {
+					@($result).Count | should be $expected.Output.ObjectCount
+				}
+
+				it 'should return the same object type in OutputType()' {
+					$result | should beoftype $script:command.OutputType.Name
+				}
 			}
-
 		}
-		
 	}
 
 	describe 'Get-CompanyAdUser' {

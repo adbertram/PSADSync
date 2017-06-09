@@ -235,16 +235,46 @@ function TestCsvHeaderExists
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string[]]$Header
+		[object[]]$Header
 	)
 
 	$csvHeaders = GetCsvColumnHeaders -CsvFilePath $CsvFilePath
-	$matchedHeaders = $csvHeaders | Where-Object { $_ -in $Header }
-	if (@($matchedHeaders).Count -ne @($Header).Count) {
+
+	## Parse out the CSV headers used if the field is a scriptblock
+	$commonHeaders = @($Header).foreach({
+		if ($_ -is 'scriptblock') {
+			ParseScriptBlockHeaders -FieldScriptBlock $_
+		} else {
+			$_
+		}
+	})
+	$commonHeaders = $commonHeaders | Select-Object -Unique
+
+	$matchedHeaders = $csvHeaders | Where-Object { $_ -in $commonHeaders }
+	if (@($matchedHeaders).Count -ne @($commonHeaders).Count) {
 		$false
 	} else {
 		$true
 	}
+}
+
+function ParseScriptBlockHeaders
+{
+	[OutputType('$')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[scriptblock[]]$FieldScriptBlock
+	)
+	
+	$headers = @($FieldScriptBlock).foreach({
+		$ast = [System.Management.Automation.Language.Parser]::ParseInput($_.ToString(),[ref]$null,[ref]$null)
+		$ast.FindAll({$args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst]},$true).Value
+	})
+	$headers | Select-Object -Unique
+	
 }
 
 function Get-CompanyCsvUser
@@ -351,7 +381,13 @@ function FindAttributeMismatch
 	$ErrorActionPreference = 'Stop'
 
 	$FieldSyncMap.GetEnumerator().foreach({
-		$csvFieldName = $_.Key
+		if ($_.Key -is 'scriptblock') {
+			## Replace $_ with $CsvUser
+			$csvFieldScript = $_.Key.ToString() -replace '$_','$CsvUser'
+			$csvFieldName = & ([scriptblock]::Create($csvFieldScript))
+		} else {
+			$csvFieldName = $_.Key
+		}
 		$adAttribName = $_.Value
 		
 		## Remove the null fields
