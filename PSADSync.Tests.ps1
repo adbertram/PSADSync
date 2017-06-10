@@ -6,7 +6,7 @@ Get-Module -Name $ThisModuleName -All | Remove-Module -Force
 Import-Module -Name $ThisModule -Force -ErrorAction Stop
 #endregion
 
-describe 'Module-level tests' {
+describe 'Module-level tests' -Tag Unit {
 	
 	it 'should validate the module manifest' {
 	
