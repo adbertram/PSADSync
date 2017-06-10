@@ -463,7 +463,7 @@ function SyncCompanyUser
 		}
 		foreach ($ht in $ActiveDirectoryAttributes) {
 			$setParams.ActiveDirectoryAttributes = $ht
-			if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($ht.Keys -join ',')]",'Set AD attributes')) {
+			if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($ht.Keys -join ',')] to [$($ht.Values -join ',')]",'Set AD attributes')) {
 				Write-Verbose -Message "Running SetAdUser with params: [$($setParams | Out-String)]"
 				SetAdUser @setParams
 			}
