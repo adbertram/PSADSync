@@ -25,6 +25,27 @@ function GetCurrentDomainName
 	
 }
 
+function NewDirectorySearcherUserFilter
+{
+	[OutputType('string')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$Elements
+	)
+	
+	$baseString = '(&(objectCategory=person)(objectClass=User)'
+
+	$keyValPairs = $Elements.GetEnumerator().foreach({
+		'({0}={1})' -f $_.Key,$_.Value
+	})
+
+	'{0}(&{1}))' -f $baseString,($keyValPairs -join '')
+
+}
+
 function GetAdUser
 {
 	[CmdletBinding()]
@@ -49,7 +70,9 @@ function GetAdUser
 	if ($PSBoundParameters.ContainsKey('Identity')) {
 		$idField = ([array]$Identity.Keys)[0]
 		$idValue = ([array]$Identity.Values)[0]
-		$DirectorySearcher.Filter = "(&(objectCategory=person)(objectClass=User)({0}={1}))" -f $idField,$idValue
+
+		$filter = NewDirectorySearcherUserFilter -Elements $Identity
+		$DirectorySearcher.Filter = $filter
 	}
 
 	$result = FindAdUser -DirectorySearcher $DirectorySearcher
@@ -134,6 +157,67 @@ function ConvertToSchemaAttribute
 	
 }
 
+function ConvertToIdentity
+{
+	[OutputType('hashtable')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$String
+	)
+
+	switch -regex ($String)
+	{
+		'^(?<givenName>\w+)\s+(?<sn>\w+)$' { ## John Doe
+			@{ givenName = $Matches.givenName; sn = $Matches.sn }
+		}
+		'^(?<sn>\w+),\s?(?<givenName>\w+)$' { ## Doe,John
+			@{ givenName = $Matches.givenName; sn = $Matches.sn }
+		}
+		'^(?<samAccountName>\w+)$' { ## jdoe
+			@{ samAccountName = $Matches.samAccountName }
+		}
+		'^(?<distinguishedName>(\w+[=]{1}\w+)([,{1}]\w+[=]{1}\w+)*)$' {
+			@{ distinguishedName = $Matches.distinguishedName }
+		}
+		default {
+			throw "Unrecognized input: [$_]: Unable to convert to identity hashtable."
+		}
+	}
+	
+}
+
+function ConvertToSchemaValue
+{
+	[OutputType('string')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$AttributeName,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$AttributeValue
+	)
+
+	switch ($AttributeName)
+	{
+		'manager' {
+			$identity = ConvertToIdentity -String $AttributeValue
+			$user = GetAdUser -Identity $identity
+			$user.DistinguishedName
+		}
+		default {
+			$AttributeValue
+		}
+	}
+
+}
+
 function SetAdUser
 {
 	[OutputType([void])]
@@ -156,7 +240,7 @@ function SetAdUser
 		$saveAdParams = @{
 			AdsUser = $AdsUser
 			AttributeName = (ConvertToSchemaAttribute -Attribute $attrib.Key)
-			AttributeValue = $attrib.Value
+			AttributeValue = (ConvertToSchemaValue -AttributeName $attrib.Key -AttributeValue $attrib.Value)
 		}
 		Write-Verbose -Message "Running SaveAdUser with params: [$($saveAdParams | Out-String)]"
 		SaveAdUser @saveAdParams
