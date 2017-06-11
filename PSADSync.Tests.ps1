@@ -537,7 +537,18 @@ InModuleScope $ThisModuleName {
 			}
 		}
 
-		context 'When multiple matches could be found' {
+		context 'when multiple matches on a single attribute are found' {
+			
+
+			it 'should throw an exception: <TestName>' -Skip -TestCases $testCases.MatchOnAllIds {
+				param($AdUsers,$CsvUser,$FieldMatchMap)
+
+				{ & $commandName @parameters } | should throw 
+			}
+		
+		}
+
+		context 'When multiple matches on different attributes are be found' {
 
 			it 'should return the expected number of objects: <TestName>' -TestCases $testCases.MatchOnAllIds {
 				param($AdUsers,$CsvUser,$FieldMatchMap)
@@ -1012,11 +1023,24 @@ InModuleScope $ThisModuleName {
 		$testCases = @{
 			All = $parameterSets
 		}
+
+		context 'when a user account cannot be found' {
+
+			mock 'GetAdUser' -ParameterFilter { $Identity }
+			
+			it 'should throw an exception' -TestCases $testCases.All {
+				param($Identity,$ActiveDirectoryAttributes)
+				
+				$parameters = @{} + $PSBoundParameters
+				{ & $commandName @parameters -Confirm:$false } | should throw 'Could not find user using identity'
+			}
+		
+		}
 	
 		it 'returns nothing' -TestCases $testCases.All {
 			param($Identity,$ActiveDirectoryAttributes)
 
-			& $commandName @PSBoundParameters | should benullorempty
+			& $commandName @PSBoundParameters -Confirm:$false | should benullorempty
 		}
 
 		it 'should save the expected attribute' -TestCases $testCases.All -Skip {
@@ -1024,7 +1048,7 @@ InModuleScope $ThisModuleName {
 
 			## Need to account for the addition of ConvertToSchemaValue
 		
-			& $commandName @PSBoundParameters
+			& $commandName @PSBoundParameters -Confirm:$false
 
 			$assMParams = @{
 				CommandName = 'SaveAdUser'
@@ -1042,7 +1066,7 @@ InModuleScope $ThisModuleName {
 		it 'should save on the expected identity' -TestCases $testCases.All {
 			param($Identity,$ActiveDirectoryAttributes)
 
-			& $commandName @PSBoundParameters
+			& $commandName @PSBoundParameters -Confirm:$false
 		
 			$assMParams = @{
 				CommandName = 'SaveAdUser'
@@ -1172,7 +1196,6 @@ InModuleScope $ThisModuleName {
 						'atttribtosync1' = 'attribtosyncval1'
 					}
 					Identifier = 'samAccountName'
-					Confirm = $false
 				}
 				Expect = @(
 					@{
@@ -1197,7 +1220,6 @@ InModuleScope $ThisModuleName {
 						'atttribtosync2' = 'attribtosyncval2'
 					}
 					Identifier = 'employeeId'
-					Confirm = $false
 				}
 				Expect = @(
 					@{
@@ -1800,6 +1822,12 @@ InModuleScope $ThisModuleName {
 		
 		$commandName = 'Invoke-AdSync'
 
+		$testUserName = 'psadsynctestuser'
+		$testUserEmpId = 999999
+		$testUserManagerName = 'psadsynctumanager'
+		$testUserManagerEmpId = 111111
+
+
 		mock 'Write-Host'
 	
 		$testCases = @(
@@ -1812,7 +1840,7 @@ InModuleScope $ThisModuleName {
 				}
 				Expected = @{
 					ActiveDirectoryUser = @{
-						Identifier = @{ 'employeeId' = 1 }
+						Identifier = @{ 'employeeId' = $testUserEmpId }
 						Attributes = @{
 							givenName = 'changedfirstname'
 						}
@@ -1828,11 +1856,11 @@ InModuleScope $ThisModuleName {
 				}
 				Expected = @{
 					ActiveDirectoryUser = @{
-						Identifier = @{ 'employeeId' = 1 }
+						Identifier = @{ 'employeeId' = $testUserEmpId }
 						Attributes = @{
-							manager = 'Johnson, Brandon'
+							manager = "CN=$testUserManagerName,DC=mylab,DC=local"
 						}
-					}	
+					}
 				}
 			}
 			@{
@@ -1847,7 +1875,7 @@ InModuleScope $ThisModuleName {
 				}
 				Expected = @{
 					ActiveDirectoryUser = @{
-						Identifier = @{ 'employeeId' = 1 }
+						Identifier = @{ 'employeeId' = $testUserEmpId }
 						Attributes = @{
 							givenName = 'changedfirstname'
 							surName = 'changedlastname'
@@ -1867,7 +1895,7 @@ InModuleScope $ThisModuleName {
 				}
 				Expected = @{
 					ActiveDirectoryUser = @{
-						Identifier = @{ 'employeeId' = 1 }
+						Identifier = @{ 'employeeId' = $testUserEmpId }
 						Attributes = @{
 							givenName = 'changednickname'
 							surName = 'changedlastname'
@@ -1876,56 +1904,47 @@ InModuleScope $ThisModuleName {
 				}
 			}
 		)
-
-		AfterAll {
-			Get-AdUser -Filter "samAccountName -eq 'psadsynctestUser'" | Remove-AdUser -Confirm:$false
-		}
 	
 		foreach ($testCase in $testCases) {	
 	
 			$parameters = $testCase.Parameters
 			$expected = $testCase.Expected
 
+			## Clean up the environment ahead of time
+			Get-AdUser -Filter "samAccountName -eq '$testUserName'" | Remove-AdUser -Confirm:$false
+			Get-AdUser -Filter "samAccountName -eq '$testUserManagerName'" | Remove-AdUser -Confirm:$false
+			Get-AdUser -Filter "employeeId -eq '$testUserEmpId'" | Remove-AdUser -Confirm:$false
+			Get-AdUser -Filter "employeeId -eq '$testUserManagerEmpId'" | Remove-AdUser -Confirm:$false
+			New-ADUser -GivenName 'ChangeMe' -Surname 'ChangeMe' -EmployeeID $testUserEmpId -Name $testUserName
+
 			context $testCase.Label {
 
-				context 'when the user match can be found' {
+				if ('manager' -in $parameters.FieldSyncMap.Keys) {
+				
+					context 'when a manager field is being synced' {
 
-					Get-AdUser -Filter "samAccountName -eq 'psadsynctestUser'" | Remove-AdUser -Confirm:$false
-					New-ADUser -GivenName 'ChangeMe' -Surname 'ChangeMe' -EmployeeID '1' -Name psadsynctestUser
+						context 'when the manager account exists' {
+						
+							New-ADUser -GivenName 'TestUser' -Surname 'Manager' -EmployeeID $testUserManagerEmpId -Name $testUserManagerName
 
-					Invoke-AdSync @parameters -Confirm:$false
-
-					$getParams = @{
-						Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
-						Properties = '*'
-					}
-					$testAdUser = Get-Aduser @getParams
-
-					if ('manager' -in $parameters.FieldSyncMap.Keys) {
-					
-						context 'when a manager field is being synced' {
-
-							
+							Invoke-AdSync @parameters -Confirm:$false
 						}
 					}
-
-					it 'should change the expected AD user attributes' {
-						@($expected.ActiveDirectoryUser.Attributes).foreach({
-							$testAdUser.Keys | should be $testAdUser.Values
-						})	
-					}
+				} else {
+					Invoke-AdSync @parameters -Confirm:$false
 				}
 
-				context 'when the user cannot be matched' {
-					#Get-AdUser -Filter "samAccountName -eq 'psadsynctestUser'" | Remove-AdUser -Confirm:$false
-
-					#Invoke-AdSync @parameters -Confirm:$false
-
-
-
+				$getParams = @{
+					Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
+					Properties = '*'
 				}
+				$testAdUser = Get-Aduser @getParams
 
-				
+				it 'should change the expected AD user attributes' {
+					@($expected.ActiveDirectoryUser.Attributes).foreach({
+						$testAdUser.Keys | should be $testAdUser.Values
+					})	
+				}
 
 				it 'should write the expected values to the log file' -Skip {
 					

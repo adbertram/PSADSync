@@ -208,7 +208,9 @@ function ConvertToSchemaValue
 	{
 		'manager' {
 			$identity = ConvertToIdentity -String $AttributeValue
-			$user = GetAdUser -Identity $identity
+			if (-not ($user = GetAdUser -Identity $identity)) {
+				throw 'Unable to find manager user account for user'
+			}
 			$user.DistinguishedName
 		}
 		default {
@@ -221,7 +223,7 @@ function ConvertToSchemaValue
 function SetAdUser
 {
 	[OutputType([void])]
-	[CmdletBinding()]
+	[CmdletBinding(SupportsShouldProcess,ConfirmImpact = 'High')]
 	param
 	(
 		[Parameter(Mandatory)]
@@ -232,7 +234,10 @@ function SetAdUser
 		[ValidateNotNullOrEmpty()]
 		[hashtable]$ActiveDirectoryAttributes
 	)	
-	$srcResultUser = GetAdUser -Identity $Identity -OutputAs SearchResult
+	if (-not ($srcResultUser = GetAdUser -Identity $Identity -OutputAs SearchResult)) {
+		throw "Could not find user using identity [$($Identity | Out-String)]"
+	}
+
 	$adspath = $srcResultUser.Properties.adspath -as [string]
 	$AdsUser = $adspath -as [adsi]
 
@@ -242,8 +247,11 @@ function SetAdUser
 			AttributeName = (ConvertToSchemaAttribute -Attribute $attrib.Key)
 			AttributeValue = (ConvertToSchemaValue -AttributeName $attrib.Key -AttributeValue $attrib.Value)
 		}
-		Write-Verbose -Message "Running SaveAdUser with params: [$($saveAdParams | Out-String)]"
-		SaveAdUser @saveAdParams
+		
+		if ($PSCmdlet.ShouldProcess("User: [$($srcResultUser.Properties.samaccountname)] AD attrib: [$($saveAdParams.AttributeName)] to [$($saveAdParams.AttributeValue)]",'Set AD attributes')) {
+			Write-Verbose -Message "Running SaveAdUser with params: [$($saveAdParams | Out-String)]"
+			SaveAdUser @saveAdParams
+		}
 	} 
 }
 
@@ -520,7 +528,7 @@ function FindAttributeMismatch
 function SyncCompanyUser
 {
 	[OutputType()]
-	[CmdletBinding(SupportsShouldProcess,ConfirmImpact = 'High')]
+	[CmdletBinding()]
 	param
 	(
 		[Parameter(Mandatory)]
@@ -547,10 +555,8 @@ function SyncCompanyUser
 		}
 		foreach ($ht in $ActiveDirectoryAttributes) {
 			$setParams.ActiveDirectoryAttributes = $ht
-			if ($PSCmdlet.ShouldProcess("User: [$($AdUser.$Identifier)] AD attribs: [$($ht.Keys -join ',')] to [$($ht.Values -join ',')]",'Set AD attributes')) {
-				Write-Verbose -Message "Running SetAdUser with params: [$($setParams | Out-String)]"
-				SetAdUser @setParams
-			}
+			Write-Verbose -Message "Running SetAdUser with params: [$($setParams | Out-String)]"
+			SetAdUser @setParams
 		}
 		
 	} catch {
