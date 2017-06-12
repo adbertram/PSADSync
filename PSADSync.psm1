@@ -391,23 +391,21 @@ function FindAttributeMismatch
 		if (-not $AdUser.$adAttribName) {
 			$AdUser | Add-Member -MemberType NoteProperty -Name $adAttribName -Force -Value ''
 		}
-		if (-not $CsvUser.$csvFieldName) {
-			$CsvUser.$csvFieldName = ''
-		}
+		if ($CsvUser.$csvFieldName) {
+			if (-not ($csvValue = ConvertToSchemaValue -AttributeName $adAttribName -AttributeValue $CsvUser.$csvFieldName)) {
+				$false
+			} else {
+				Write-Verbose -Message "Comparing AD attribute [$($Aduser.$adAttribName)] with converted CSV value [$($csvValue)]..."
 
-		if (-not ($csvValue = ConvertToSchemaValue -AttributeName $adAttribName -AttributeValue $CsvUser.$csvFieldName)) {
-			$false
-		} else {
-			Write-Verbose -Message "Comparing AD attribute [$($Aduser.$adAttribName)] with converted CSV value [$($csvValue)]..."
-
-			## Compare the two property values and return the AD attribute name and value to be synced
-			if ($AdUser.$adAttribName -ne $csvValue) {
-				@{
-					ActiveDirectoryAttribute = @{ $adAttribName = $AdUser.$adAttribName }
-					CSVField = @{ $csvFieldName = $CsvUser.$csvFieldName }
-					ADShouldBe = @{ $adAttribName = $CsvUser.$csvFieldName }
+				## Compare the two property values and return the AD attribute name and value to be synced
+				if ($AdUser.$adAttribName -ne $csvValue) {
+					@{
+						ActiveDirectoryAttribute = @{ $adAttribName = $AdUser.$adAttribName }
+						CSVField = @{ $csvFieldName = $CsvUser.$csvFieldName }
+						ADShouldBe = @{ $adAttribName = $CsvUser.$csvFieldName }
+					}
+					Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]."
 				}
-				Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]."
 			}
 		}
 	})
