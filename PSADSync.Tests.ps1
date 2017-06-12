@@ -413,6 +413,158 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
+	describe 'New-CompanyAdUser' -Tag Unit {
+		
+		$commandName = 'New-CompanyAdUser'
+		$script:command = Get-Command -Name $commandName
+	
+		#region Mocks
+			mock 'New-AdUser'
+
+			mock 'Set-AdUser'
+
+			mock 'NewRandomPassword' {
+				ConvertTo-SecureString -Strin 'pwhere' -AsPlainText -Force
+			}
+		#endregion
+	
+		$testCases = @(
+			@{
+				Label = 'Set-AdUser not needed'
+				Parameters = @{
+					Identity = 'foo'
+					Attributes = @{ City = 'cityhere'; Office = 'officehere'}
+					Confirm = $false
+				}
+				Expected = @{
+					Execution = @{
+						'New-AdUser' = @{
+							Parameters = @{
+								Name = 'foo'
+								City = 'cityhere'
+								Office = 'officehere'
+							}
+							RunTimes = 1
+						}
+					}
+					Output = @{
+						ObjectCount = 0
+					}
+				}
+			}
+			@{
+				Label = 'Set-AdUser needed'
+				Parameters = @{
+					Identity = 'foo'
+					Attributes = @{ City = 'cityhere'; Office = 'officehere'; 'otherattrib' = 'otherattribhere' }
+					Confirm = $false
+				}
+				Expected = @{
+					Execution = @{
+						'New-AdUser' = @{
+							Parameters = @{
+								Name = 'foo'
+								City = 'cityhere'
+								Office = 'officehere'
+							}
+							RunTimes = 1
+						}
+						'Set-AdUser' = @{
+							Parameters = @{
+								Identity = 'foo'
+								Add = @{ OtherAttrib = 'otherattribhere' }
+							}
+							RunTimes = 1
+						}
+					}
+					Output = @{
+						ObjectCount = 0
+					}
+				}
+			}
+		)
+	
+		foreach ($testCase in $testCases) {
+	
+			$parameters = $testCase.Parameters
+			$expected = $testCase.Expected
+	
+			context $testCase.Label {
+
+				if ('Set-AdUser' -in $expected.Execution.Keys) {
+					context 'when all attributes cannot be defined with New-AdUser alone' {
+					
+						$result = & $commandName @parameters
+
+						it 'should pass the expected parameters to Set-AdUser' {
+
+							$thisFunc = $expected.Execution.'Set-AdUser'
+						
+							$assMParams = @{
+								CommandName = 'Set-AdUser'
+								Times = $thisfunc.RunTimes
+								Exactly = $true
+								ExclusiveFilter = {
+									[string]($PSBoundParameters.Identity) -eq [string]($thisFunc.Parameters.Identity) -and
+									$PSBoundParameters.Add.OtherAttrib -eq $thisFunc.Parameters.Add.OtherAttrib
+								}
+							}
+							Assert-MockCalled @assMParams
+						}
+
+						it 'should pass the expected parameters to New-AdUser' {
+
+							$thisFunc = $expected.Execution.'New-AdUser'
+						
+							$assMParams = @{
+								CommandName = 'New-AdUser'
+								Times = $thisfunc.RunTImes
+								Exactly = $true
+								ExclusiveFilter = { 
+									$PSBoundParameters.Name -eq $thisFunc.Parameters.Name -and
+									$PSBoundParameters.City -eq $thisFunc.Parameters.City -and
+									$PSBoundParameters.Office -eq $thisFunc.Parameters.Office
+								}
+							}
+							Assert-MockCalled @assMParams
+						}
+					}
+				} else {
+					context 'when all attributes can be defined with New-AdUser alone' {
+					
+						$result = & $commandName @parameters
+
+						it 'should pass the expected parameters to New-AdUser' {
+
+							$thisFunc = $expected.Execution.'New-AdUser'
+						
+							$assMParams = @{
+								CommandName = 'New-AdUser'
+								Times = $thisfunc.RunTImes
+								Exactly = $true
+								ExclusiveFilter = {
+									$PSBoundParameters.Name -eq $thisFunc.Parameters.Name -and
+									$PSBoundParameters.City -eq $thisFunc.Parameters.City -and
+									$PSBoundParameters.Office -eq $thisFunc.Parameters.Office
+								}
+							}
+							Assert-MockCalled @assMParams
+						}
+
+						it 'should not call Set-AdUser' {
+							$assMParams = @{
+								CommandName = 'Set-AdUser'
+								Times = 0
+								Exactly = $true
+							}
+							Assert-MockCalled @assMParams
+						}
+					}
+				}
+			}
+		}
+	}
+
 	describe 'FindUserMatch' -Tag Unit {
 	
 		$commandName = 'FindUserMatch'

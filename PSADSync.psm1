@@ -309,6 +309,63 @@ function Get-CompanyCsvUser
 	}
 }
 
+function New-CompanyAdUser
+{
+    [OutputType([void])]
+    [CmdletBinding(SupportsShouldProcess,ConfirmImpact = 'High')]
+    param
+    (
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Identity,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$Attributes
+    )
+
+	## Create the New-AdUser parameters
+	$newAdUserParamNames = @(
+		'City'
+        'Company'
+        'DisplayName'
+        'EmailAddress'
+        'EmployeeID'
+        'EmployeeNumber'
+        'GivenName'
+        'HomePage'
+        'Office'
+        'POBox'
+        'PostalCode'
+        'State'
+        'StreetAddress'
+        'UserPrincipalName'
+	)
+    $newAdUserParams = @{ Name = $Identity }
+	$Attributes.GetEnumerator().where({ $_.Key -in $newAdUserParamNames }).foreach({ $newAdUserParams[$_.Key] = $_.Value })
+	$newAdUserParams.AccountPassword = (NewRandomPassword)
+
+	## If any, create the Set-AdUser parameters
+	$setAdUserParams = @{ 
+		Identity = $Identity
+	}
+	$setAdUserAddHt = @{}
+	$Attributes.GetEnumerator().where({ $_.Key -notin $newAdUserParamNames }).foreach({ $setAdUserAddHt[$_.Key] = $_.Value})
+
+	if ($setAdUserAddHt.Keys -gt 0) {
+		$confirmMsg = ($newAdUserParams + $setAdUserParams) | Out-String
+	} else {
+		$confirmMsg = $newAdUserParams | Out-String
+	}
+    if ($PSCmdlet.ShouldProcess("User: [$($Identity)] AD attribs: [$($confirmMsg)]",'New AD User')) {
+		New-ADUser @newAdUserParams
+		if ($setAdUserAddHt.Keys -gt 0) {
+			$setAdUserParams.Add = $setAdUserAddHt
+			Set-Aduser @setAdUserParams
+		}
+	}
+}
+
 function FindUserMatch
 {
 	[OutputType([pscustomobject])]
@@ -409,6 +466,33 @@ function FindAttributeMismatch
 			}
 		}
 	})
+}
+
+function NewRandomPassword
+{
+	[CmdletBinding()]
+	[OutputType([System.Security.SecureString])]
+	param
+	(
+		[Parameter()]
+		[ValidateRange(8, 64)]
+		[int]$Length = (Get-Random -Minimum 20 -Maximum 32),
+
+		[Parameter()]
+		[ValidateRange(0, 8)]
+		[int]$Complexity = 3
+	)
+	$ErrorActionPreference = 'Stop'
+
+	Add-Type -AssemblyName 'System.Web'
+
+	# Generate a password with the specified length and complexity.
+	Write-Verbose ('Generating password {0} characters in length and with a complexity of {1}.' -f $Length, $Complexity);
+	$password = [System.Web.Security.Membership]::GeneratePassword($Length, $Complexity);
+
+	# Convert the password to a secure string so we don't put plain text passwords on the pipeline.
+	ConvertTo-SecureString -String $password -AsPlainText -Force;
+	
 }
 
 function SyncCompanyUser
