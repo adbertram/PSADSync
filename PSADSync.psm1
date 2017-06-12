@@ -51,14 +51,15 @@ function ConvertToAdUser
 			'(distinguishedName={0})' -f $Matches.distinguishedName
 		}
 		default {
-			throw "Unrecognized input: [$_]: Unable to convert [$($String)] to LDAP filter."
+			Write-Warning -Message "Unrecognized input: [$_]: Unable to convert [$($String)] to LDAP filter."
 		}
 	}
+	if ($ldapString) {
+		$ldapFilter = '{0}{1})' -f $baseLdapString,$ldapString
 
-	$ldapFilter = '{0}{1}' -f $baseLdapString,$ldapString
-
-	Write-Verbose -Message "LDAP filter is [$($ldapFilter)]"
-	Get-AdUser -LdapFilter $ldapFilter
+		Write-Verbose -Message "LDAP filter is [$($ldapFilter)]"
+		Get-AdUser -LdapFilter $ldapFilter
+	}
 	
 }
 
@@ -81,9 +82,10 @@ function ConvertToSchemaValue
 	{
 		'manager' {
 			if (-not ($adUser = ConvertToAdUser -String $AttributeValue)) {
-				throw "Unable to find manager user account for user"
+				$false
+			} else {
+				$adUser.DistinguishedName
 			}
-			$adUser.DistinguishedName
 		}
 		default {
 			$AttributeValue
@@ -393,18 +395,20 @@ function FindAttributeMismatch
 			$CsvUser.$csvFieldName = ''
 		}
 
-		$csvValue = ConvertToSchemaValue -AttributeName $adAttribName -AttributeValue $CsvUser.$csvFieldName
+		if (-not ($csvValue = ConvertToSchemaValue -AttributeName $adAttribName -AttributeValue $CsvUser.$csvFieldName)) {
+			$false
+		} else {
+			Write-Verbose -Message "Comparing AD attribute [$($Aduser.$adAttribName)] with converted CSV value [$($csvValue)]..."
 
-		Write-Verbose -Message "Comparing AD attribute [$($Aduser.$adAttribName)] with converted CSV value [$($csvValue)]..."
-
-		## Compare the two property values and return the AD attribute name and value to be synced
-		if ($AdUser.$adAttribName -ne $csvValue) {
-			@{
-				ActiveDirectoryAttribute = @{ $adAttribName = $AdUser.$adAttribName }
-				CSVField = @{ $csvFieldName = $CsvUser.$csvFieldName }
-				ADShouldBe = @{ $adAttribName = $CsvUser.$csvFieldName }
+			## Compare the two property values and return the AD attribute name and value to be synced
+			if ($AdUser.$adAttribName -ne $csvValue) {
+				@{
+					ActiveDirectoryAttribute = @{ $adAttribName = $AdUser.$adAttribName }
+					CSVField = @{ $csvFieldName = $CsvUser.$csvFieldName }
+					ADShouldBe = @{ $adAttribName = $CsvUser.$csvFieldName }
+				}
+				Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]."
 			}
-			Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]."
 		}
 	})
 }
@@ -614,6 +618,14 @@ function Invoke-AdSync
 							Write-Verbose -Message "Running SyncCompanyUser with params: [$($syncParams | Out-String)]"
 							SyncCompanyUser @syncParams
 						}
+					} elseif ($attribMismatches -eq $false) {
+						$logAttribs = @{
+							CSVAttributeName = 'SyncError'
+							CSVAttributeValue = 'SyncError'
+							ADAttributeName = 'SyncError'
+							ADAttributeValue = 'SyncError'
+						}
+
 					} else {
 						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
 						$logAttribs = @{

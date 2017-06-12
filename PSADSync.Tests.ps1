@@ -772,7 +772,7 @@ InModuleScope $ThisModuleName {
 					String = 'John Doe'
 				}
 				Expected = @{
-					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe))'
+					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe)))'
 				}
 			}
 			@{
@@ -781,7 +781,7 @@ InModuleScope $ThisModuleName {
 					String = 'John      Doe'
 				}
 				Expected = @{
-					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe))'
+					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe)))'
 				}
 			}
 			@{
@@ -790,7 +790,7 @@ InModuleScope $ThisModuleName {
 					String = 'John Doe'
 				}
 				Expected = @{
-					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe))'
+					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe)))'
 				}
 			}
 			@{
@@ -799,7 +799,7 @@ InModuleScope $ThisModuleName {
 					String = 'Doe, John'
 				}
 				Expected = @{
-					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe))'
+					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe)))'
 				}
 			}
 			@{
@@ -808,7 +808,7 @@ InModuleScope $ThisModuleName {
 					String = 'Doe,John'
 				}
 				Expected = @{
-					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe))'
+					LdapFilter = '(&(objectCategory=person)(objectClass=user)(&(givenName=John)(sn=Doe)))'
 				}
 			}
 			@{
