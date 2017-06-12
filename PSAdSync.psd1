@@ -11,6 +11,7 @@
     CmdletsToExport = '*'
     VariablesToExport = '*'
     AliasesToExport = '*'
+    RequiredModules = 'ActiveDirectory'
     PrivateData = @{
         PSData = @{
 

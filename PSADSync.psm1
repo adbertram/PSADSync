@@ -1,139 +1,5 @@
 Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
 
-function FindAdUser
-{
-	[OutputType([System.DirectoryServices.SearchResult])]
-	[CmdletBinding()]
-	param
-	(
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[System.DirectoryServices.DirectorySearcher]$DirectorySearcher
-	)
-
-	$DirectorySearcher.FindAll()
-}
-
-function GetCurrentDomainName
-{
-	[OutputType('string')]
-	[CmdletBinding()]
-	param
-	()
-
-	[System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().Name
-	
-}
-
-function NewDirectorySearcherUserFilter
-{
-	[OutputType('string')]
-	[CmdletBinding()]
-	param
-	(
-		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
-		[hashtable]$Elements
-	)
-	
-	$baseString = '(&(objectCategory=person)(objectClass=User)'
-
-	$keyValPairs = $Elements.GetEnumerator().foreach({
-		'({0}={1})' -f $_.Key,$_.Value
-	})
-
-	'{0}(&{1}))' -f $baseString,($keyValPairs -join '')
-
-}
-
-function GetAdUser
-{
-	[CmdletBinding()]
-	param
-	(
-		[OutputType('System.DirectoryServices.AccountManagement.UserPrincipal','System.DirectoryServices.SearchResult')]
-		[ValidateNotNullOrEmpty()]
-		[hashtable]$Identity,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[ValidateSet('SearchResult','UserPrincipal')]
-		[string]$OutputAs = 'UserPrincipal'
-	)
-
-	$domainDn = $(([adsisearcher]"").Searchroot.path)
-
-	$DirectorySearcher = New-Object -TypeName System.DirectoryServices.DirectorySearcher
-	$DirectorySearcher.PageSize = 1000
-	$DirectorySearcher.SearchRoot = $domainDN
-
-	if ($PSBoundParameters.ContainsKey('Identity')) {
-		$idField = ([array]$Identity.Keys)[0]
-		$idValue = ([array]$Identity.Values)[0]
-
-		$filter = NewDirectorySearcherUserFilter -Elements $Identity
-		$DirectorySearcher.Filter = $filter
-	}
-
-	$result = FindAdUser -DirectorySearcher $DirectorySearcher
-	if ($OutputAs -eq 'SearchResult') {
-		$result
-	} else {
-		$Context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext('Domain', (GetCurrentDomainName))
-		@($result).foreach({
-			foreach ($user in ([System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($Context, ($_.path -replace 'LDAP://')))) {
-				$user.GetUnderlyingObject().Properties
-			}
-		})
-	}
-}
-
-function PutAdUser {
-	[OutputType([void])]
-	[CmdletBinding()]
-	param(
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[System.DirectoryServices.DirectoryEntry]$AdsUser,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[string]$AttributeName,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[object]$AttributeValue
-	)
-	$AdsUser.Put($AttributeName,$AttributeValue)
-	$AdsUser.SetInfo()
-}
-
-function SaveAdUser
-{
-	[OutputType([void])]
-	[CmdletBinding()]
-	param
-	(
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[System.DirectoryServices.DirectoryEntry]$AdsUser,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[string]$AttributeName,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
-		[object]$AttributeValue
-	)
-	if ([string]$AttributeValue -as [DateTime]) {
-		$AttributeValue = [datetime]$AttributeValue
-	}
-
-	PutAdUser -AdsUser $AdsUser -AttributeName $AttributeName -AttributeValue $AttributeValue
-	
-}
-
 function ConvertToSchemaAttribute
 {
 	[OutputType('string')]
@@ -157,35 +23,42 @@ function ConvertToSchemaAttribute
 	
 }
 
-function ConvertToIdentity
+function ConvertToAdUser
 {
-	[OutputType('hashtable')]
+	[OutputType('string')]
 	[CmdletBinding()]
 	param
 	(
-		[Parameter(Mandatory)]
+		[Parameter(Mandatory,ParameterSetName = 'String')]
 		[ValidateNotNullOrEmpty()]
 		[string]$String
 	)
 
-	switch -regex ($String)
+	$baseLdapString = '(&(objectCategory=person)(objectClass=user)'
+	
+	$ldapString = switch -regex ($String)
 	{
 		'^(?<givenName>\w+)\s+(?<sn>\w+)$' { ## John Doe
-			@{ givenName = $Matches.givenName; sn = $Matches.sn }
+			'(&(givenName={0})(sn={1}))'  -f $Matches.givenName,$Matches.sn
 		}
 		'^(?<sn>\w+),\s?(?<givenName>\w+)$' { ## Doe,John
-			@{ givenName = $Matches.givenName; sn = $Matches.sn }
+			'(&(givenName={0})(sn={1}))'  -f $Matches.givenName,$Matches.sn
 		}
 		'^(?<samAccountName>\w+)$' { ## jdoe
-			@{ samAccountName = $Matches.samAccountName }
+			'(samAccountName={0})' -f $Matches.samAccountName
 		}
 		'^(?<distinguishedName>(\w+[=]{1}\w+)([,{1}]\w+[=]{1}\w+)*)$' {
-			@{ distinguishedName = $Matches.distinguishedName }
+			'(distinguishedName={0})' -f $Matches.distinguishedName
 		}
 		default {
-			throw "Unrecognized input: [$_]: Unable to convert to identity hashtable."
+			throw "Unrecognized input: [$_]: Unable to convert [$($String)] to LDAP filter."
 		}
 	}
+
+	$ldapFilter = '{0}{1}' -f $baseLdapString,$ldapString
+
+	Write-Verbose -Message "LDAP filter is [$($ldapFilter)]"
+	Get-AdUser -LdapFilter $ldapFilter
 	
 }
 
@@ -207,11 +80,10 @@ function ConvertToSchemaValue
 	switch ($AttributeName)
 	{
 		'manager' {
-			$identity = ConvertToIdentity -String $AttributeValue
-			if (-not ($user = GetAdUser -Identity $identity)) {
-				throw 'Unable to find manager user account for user'
+			if (-not ($adUser = ConvertToAdUser -String $AttributeValue)) {
+				throw "Unable to find manager user account for user"
 			}
-			$user.DistinguishedName
+			$adUser.DistinguishedName
 		}
 		default {
 			$AttributeValue
@@ -228,54 +100,58 @@ function SetAdUser
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Identity,
+		[string]$Identity,
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
 		[hashtable]$ActiveDirectoryAttributes
 	)	
-	if (-not ($srcResultUser = GetAdUser -Identity $Identity -OutputAs SearchResult)) {
-		throw "Could not find user using identity [$($Identity | Out-String)]"
+
+	$replaceHt = @{}
+	foreach ($attrib in $ActiveDirectoryAttributes.GetEnumerator()) {
+		$attribName = ConvertToSchemaAttribute -Attribute $attrib.Key
+		$replaceHt.$attribName = (ConvertToSchemaValue -AttributeName $attrib.Key -AttributeValue $attrib.Value)
 	}
 
-	$adspath = $srcResultUser.Properties.adspath -as [string]
-	$AdsUser = $adspath -as [adsi]
-
-	foreach ($attrib in $ActiveDirectoryAttributes.GetEnumerator()) {
-		$saveAdParams = @{
-			AdsUser = $AdsUser
-			AttributeName = (ConvertToSchemaAttribute -Attribute $attrib.Key)
-			AttributeValue = (ConvertToSchemaValue -AttributeName $attrib.Key -AttributeValue $attrib.Value)
-		}
+	$setParams = @{
+		Identity = $Identity
+		Replace = $replaceHt
+	}
 		
-		if ($PSCmdlet.ShouldProcess("User: [$($srcResultUser.Properties.samaccountname)] AD attrib: [$($saveAdParams.AttributeName)] to [$($saveAdParams.AttributeValue)]",'Set AD attributes')) {
-			Write-Verbose -Message "Running SaveAdUser with params: [$($saveAdParams | Out-String)]"
-			SaveAdUser @saveAdParams
-		}
+	if ($PSCmdlet.ShouldProcess("User: [$($Identity)] AD attribs: [$($replaceHt.Keys -join ',')] to [$($replaceHt.Values -join ',')]",'Set AD attributes')) {
+		Write-Verbose -Message "Replacing AD attribs: [$($setParams.Replace | Out-String)]"
+		Set-AdUser @setParams
 	} 
 }
 
 function Get-CompanyAdUser
 {
-	[OutputType([System.DirectoryServices.AccountManagement.UserPrincipal])]
 	[CmdletBinding()]
 	param
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$FieldMatchMap
+		[hashtable]$FieldMatchMap,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldSyncMap
 	)
 	begin
 	{
 		$ErrorActionPreference = 'Stop'
-		Write-Verbose -Message "Finding all AD users in domain with properties: $($FieldMatchMap.Values -join ',')"
 	}
 	process
 	{
 		try
 		{
-			$whereFilter = { $adUser = $_; $FieldMatchMap.Values | Where-Object { $adUser.$_ }}
-			@(GetAdUser).where({$whereFilter})
+			$userProperties = ([array]($FieldMatchMap.Values) + [array]($FieldSyncMap.Values)) | Select-Object -Unique
+			Write-Verbose -Message "Finding all AD users in domain with properties: $($userProperties -join ',')"
+			@(Get-AdUser -Filter '*' -Properties $userProperties).where({
+				$adUser = $_
+				## Ensure at least one ID field is populated
+				@($FieldMatchMap.Values).where({ $adUser.($_) })
+			})
 		}
 		catch
 		{
@@ -495,15 +371,19 @@ function FindAttributeMismatch
 
 	$ErrorActionPreference = 'Stop'
 
+	Write-Verbose -Message "Starting AD attribute mismatch check..."
 	$FieldSyncMap.GetEnumerator().foreach({
 		if ($_.Key -is 'scriptblock') {
+			Write-Verbose -Message 'The CSV attribute is a scriptblock. Evaluating scriptblock to determine field name...'
 			## Replace $_ with $CsvUser
 			$csvFieldScript = $_.Key.ToString() -replace '$_','$CsvUser'
 			$csvFieldName = & ([scriptblock]::Create($csvFieldScript))
 		} else {
 			$csvFieldName = $_.Key
 		}
-		$adAttribName = $_.Value
+		Write-Verbose -Message "Checking CSV field [$($csvFieldName)] for mismatches..."
+		$adAttribName = ConvertToSchemaAttribute -Attribute $_.Value
+		Write-Verbose -Message "Checking AD attribute [$($adAttribName)] for mismatches..."
 		
 		## Remove the null fields
 		if (-not $AdUser.$adAttribName) {
@@ -513,14 +393,18 @@ function FindAttributeMismatch
 			$CsvUser.$csvFieldName = ''
 		}
 
+		$csvValue = ConvertToSchemaValue -AttributeName $adAttribName -AttributeValue $CsvUser.$csvFieldName
+
+		Write-Verbose -Message "Comparing AD attribute [$($Aduser.$adAttribName)] with converted CSV value [$($csvValue)]..."
+
 		## Compare the two property values and return the AD attribute name and value to be synced
-		if ($AdUser.$adAttribName -ne $CsvUser.$csvFieldName) {
+		if ($AdUser.$adAttribName -ne $csvValue) {
 			@{
 				ActiveDirectoryAttribute = @{ $adAttribName = $AdUser.$adAttribName }
 				CSVField = @{ $csvFieldName = $CsvUser.$csvFieldName }
 				ADShouldBe = @{ $adAttribName = $CsvUser.$csvFieldName }
 			}
-			Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]. Value is [$($AdUser.$adAttribName)] and should be [$($CsvUser.$csvFieldName)]"
+			Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]."
 		}
 	})
 }
@@ -533,7 +417,7 @@ function SyncCompanyUser
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[object]$AdUser,
+		[string]$Identity,
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
@@ -541,22 +425,13 @@ function SyncCompanyUser
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable[]]$ActiveDirectoryAttributes,
-
-		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
-		[string]$Identifier
+		[hashtable[]]$ActiveDirectoryAttributes
 	)
 
 	$ErrorActionPreference = 'Stop'
 	try {
-		$setParams = @{
-			Identity = @{ $Identifier = [string]($AdUser.$Identifier) }
-		}
 		foreach ($ht in $ActiveDirectoryAttributes) {
-			$setParams.ActiveDirectoryAttributes = $ht
-			Write-Verbose -Message "Running SetAdUser with params: [$($setParams | Out-String)]"
-			SetAdUser @setParams
+			SetAdUser -Identity $Identity -ActiveDirectoryAttributes $ht
 		}
 		
 	} catch {
@@ -692,7 +567,7 @@ function Invoke-AdSync
 			})
 
 			Write-Host 'Enumerating all Active Directory users. This may take a few minutes depending on the number of users...'
-			if (-not ($script:adUsers = Get-CompanyAdUser -FieldMatchMap $FieldMatchMap)) {
+			if (-not ($script:adUsers = Get-CompanyAdUser -FieldMatchMap $FieldMatchMap -FieldSyncMap $FieldSyncMap)) {
 				throw 'No AD users found'
 			}
 			Write-Host 'Active Directory user enumeration complete.'
@@ -715,7 +590,6 @@ function Invoke-AdSync
 				if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
 					Write-Verbose -Message 'Match'
 					$csvIdMatchedon = $aduserMatch.CsvIdMatchedOn
-					$adIdMatchedon = $aduserMatch.AdIdMatchedOn
 					$csvIdValue = $csvUser.$csvIdMatchedon
 					$csvIdField = $csvIdMatchedon
 					$findParams = @{
@@ -733,10 +607,9 @@ function Invoke-AdSync
 						}
 						if (-not $ReportOnly.IsPresent) {
 							$syncParams = @{
-								AdUser = $adUserMatch.MatchedADUser
 								CsvUser = $csvUser
 								ActiveDirectoryAttributes = $attribMismatches.ADShouldBe
-								Identifier = $adIdMatchedOn
+								Identity = $adUserMatch.MatchedAduser.samAccountName
 							}
 							Write-Verbose -Message "Running SyncCompanyUser with params: [$($syncParams | Out-String)]"
 							SyncCompanyUser @syncParams
