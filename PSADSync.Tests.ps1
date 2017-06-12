@@ -565,6 +565,83 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
+	describe 'ConvertToAdAttribute' {
+		
+		$commandName = 'ConvertToAdAttribute'
+		$script:command = Get-Command -Name $commandName
+	
+		$testCases = @(
+			@{
+				Label = 'Multiple fields'
+				Parameters = @{
+					CsvUser = ([pscustomobject]@{ 
+						'csvcity' = 'x'
+						'csvtitle' = 'y'
+					})
+					FieldMap = @{
+						'csvcity' = 'adcity'
+						'csvtitle' = 'adtitle'
+					}
+				}
+				Expected = @{
+					Output = @{
+						Returns = @{ 
+							'adcity' = 'x'
+							'adtitle' = 'y'
+						}
+						ObjectCount = 1
+					}
+				}
+			}
+			@{
+				Label = 'Multiple fields / one match'
+				Parameters = @{
+					CsvUser = ([pscustomobject]@{ 
+						'csvcity' = 'x'
+						'csvtitle' = 'y'
+					})
+					FieldMap = @{
+						'csvcity' = 'adcity'
+						'csvtitletypo' = 'adtitle'
+					}
+				}
+				Expected = @{
+					Output = @{
+						Returns = @{ 
+							'adcity' = 'x'
+						}
+						ObjectCount = 1
+					}
+
+				}
+			}
+		)
+	
+		foreach ($testCase in $testCases) {
+	
+			$parameters = $testCase.Parameters
+			$expected = $testCase.Expected
+	
+			context $testCase.Label {
+
+				$result = & $commandName @parameters
+	
+				it "should return [$($expected.Output.ObjectCount)] object(s)" {
+					@($result).Count | should be $expected.Output.ObjectCount
+				}
+
+				it 'should return the same object type in OutputType()' {
+					$result | should beoftype $script:command.OutputType.Name
+				}
+
+				it 'should return the expected hashtable' {
+					-not (diff ([array]$result.Keys) $expected.Output.Returns.Keys) -and
+					-not (diff ([array]$result.Values) $expected.Output.Returns.Values)
+				}
+			}
+		}
+	}
+
 	describe 'FindUserMatch' -Tag Unit {
 	
 		$commandName = 'FindUserMatch'

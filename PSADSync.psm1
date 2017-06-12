@@ -495,6 +495,32 @@ function NewRandomPassword
 	
 }
 
+function ConvertToAdAttribute
+{
+	[OutputType([hashtable])]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[pscustomobject]$CsvUser,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldMap
+	)
+
+	$adAttributes = @{}
+	@($CsvUser.PsObject.Properties).foreach({
+		$csvField = $_
+		$adAttrib = $FieldMap.($csvField.Name)
+		$adAttributes.$adAttrib = $csvField.Value
+	})
+
+	$adAttributes
+
+}
+
 function SyncCompanyUser
 {
 	[OutputType()]
@@ -721,6 +747,7 @@ function Invoke-AdSync
 					if (-not ($csvIds = @(GetCsvIdField -CsvUser $csvUser -FieldMatchMap $FieldMatchMap).where({ $_.Field }))) {
 						throw 'No CSV id fields were found.'
 					}
+
 					$csvIdField = $csvIds.Field -join ','
 					## No ID fields are populated
 					if (-not ($csvIds | Where-Object {$_.Value})) {
