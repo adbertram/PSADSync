@@ -1230,21 +1230,21 @@ InModuleScope $ThisModuleName {
 		
 		mock 'Set-AdUser'
 
-		mock 'ConvertToSchemaAttribute' {
-			'AccountExpirationDate'
-		} -ParameterFilter { $Attribute -eq 'accountExpires' }
-
-		mock 'ConvertToSchemaValue' {
-			'empidhere'
-		} -ParameterFilter { 'empidhere' }
-
-		mock 'ConvertToSchemaValue' {
-			'displaynamehere'
-		} -ParameterFilter { 'displaynamehere' }
-
-		mock 'ConvertToSchemaValue' {
+		mock 'ConvertToSchemaAttributeType' {
 			'1/1/01'
-		} -ParameterFilter { '1/1/01' }
+		} -ParameterFilter { $AttributeName -eq 'accountExpires' }
+
+		mock 'ConvertToSchemaAttributeType' {
+			'empidhere'
+		} -ParameterFilter { $AttributeName -eq 'empidhere' }
+
+		mock 'ConvertToSchemaAttributeType' {
+			'displaynamehere'
+		} -ParameterFilter { $AttributeName -eq 'displaynamehere' }
+
+		mock 'ConvertToSchemaAttributeType' {
+			'1/1/01'
+		} -ParameterFilter { $AttributeName -eq '1/1/01' }
 	
 		$parameterSets = @(
 			@{
@@ -1284,7 +1284,7 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { 
-					$PSBoundParameters.Replace.Keys -match 'displayName|employeeId|AccountExpirationDate' -and
+					$PSBoundParameters.Replace.Keys -match 'displayName|employeeId|accountexpires' -and
 					$PSBoundParameters.Replace.Values -match 'displayNameHere|empIdHere|1/1/01'
 				}
 			}
@@ -2024,6 +2024,7 @@ InModuleScope $ThisModuleName {
 					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
 					FieldSyncMap = @{
 						{ if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = 'givenName'
+						'CONTRACT_END_DATE' = 'accountexpires'
 						'LAST_NAME' = 'sn'
 					}
 					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
@@ -2032,8 +2033,9 @@ InModuleScope $ThisModuleName {
 					ActiveDirectoryUser = @{
 						Identifier = @{ 'employeeId' = $testUserEmpId }
 						Attributes = @{
-							givenName = 'changednickname'
+							givenName = 'changednickname123'
 							surName = 'changedlastname'
+							AccountExpirationDate = '12/30/2018 19:00:00'
 						}
 					}	
 				}
@@ -2079,16 +2081,16 @@ InModuleScope $ThisModuleName {
 							}
 						}
 
-						context 'when the manager account does not exist' {
+						# context 'when the manager account does not exist' {
 
-							Get-AdUser -Filter "samAccountName -eq '$testUserManagerName'" | Remove-AdUser -Confirm:$false
+						# 	Get-AdUser -Filter "samAccountName -eq '$testUserManagerName'" | Remove-AdUser -Confirm:$false
 						
-							it 'should throw an exception' {
+						# 	it 'should throw an exception' {
 							
-								{ & $commandName @parameters } | should throw 'Unable to find manager user account'
-							}
+						# 		{ & $commandName @parameters } | should throw 'Unable to find manager user account'
+						# 	}
 						
-						}
+						# }
 					}
 				} else {
 					Invoke-AdSync @parameters -Confirm:$false
@@ -2100,8 +2102,9 @@ InModuleScope $ThisModuleName {
 					$testAdUser = Get-Aduser @getParams
 
 					it 'should change the expected AD user attributes' {
-						@($expected.ActiveDirectoryUser.Attributes).foreach({
-							$testAdUser.Keys | should be $testAdUser.Values
+						$expected.ActiveDirectoryUser.Attributes.GetEnumerator().foreach({
+							Write-Host "$($testAdUser.($_.Key)) should be [$($_.Value)]"
+							$testAdUser.($_.Key) | should be $_.Value
 						})	
 					}
 

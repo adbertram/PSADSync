@@ -1,23 +1,33 @@
 Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
 
-function ConvertToSchemaAttribute
+function ConvertToSchemaAttributeType
 {
-	[OutputType('string')]
 	[CmdletBinding()]
 	param
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[string]$Attribute
+		[string]$AttributeName,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$AttributeValue
 	)
 
-	switch ($Attribute)
+	switch ($AttributeName)
 	{
 		'accountExpires' {
-			'AccountExpirationDate'
+			([datetime]$AttributeValue).AddDays(1)
+		}
+		'manager' {
+			if (-not ($adUser = ConvertToAdUser -String $AttributeValue)) {
+				$false
+			} else {
+				$adUser.DistinguishedName
+			}
 		}
 		default {
-			$_
+			$AttributeValue
 		}
 	}	
 	
@@ -63,37 +73,6 @@ function ConvertToAdUser
 	
 }
 
-function ConvertToSchemaValue
-{
-	[OutputType('string')]
-	[CmdletBinding()]
-	param
-	(
-		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
-		[string]$AttributeName,
-
-		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
-		[string]$AttributeValue
-	)
-
-	switch ($AttributeName)
-	{
-		'manager' {
-			if (-not ($adUser = ConvertToAdUser -String $AttributeValue)) {
-				$false
-			} else {
-				$adUser.DistinguishedName
-			}
-		}
-		default {
-			$AttributeValue
-		}
-	}
-
-}
-
 function SetAdUser
 {
 	[OutputType([void])]
@@ -111,8 +90,8 @@ function SetAdUser
 
 	$replaceHt = @{}
 	foreach ($attrib in $ActiveDirectoryAttributes.GetEnumerator()) {
-		$attribName = ConvertToSchemaAttribute -Attribute $attrib.Key
-		$replaceHt.$attribName = (ConvertToSchemaValue -AttributeName $attrib.Key -AttributeValue $attrib.Value)
+		$attribName = $attrib.Key
+		$replaceHt.$attribName = (ConvertToSchemaAttributeType -AttributeName $attrib.Key -AttributeValue $attrib.Value)
 	}
 
 	$setParams = @{
@@ -435,13 +414,13 @@ function FindAttributeMismatch
 		if ($_.Key -is 'scriptblock') {
 			Write-Verbose -Message 'The CSV attribute is a scriptblock. Evaluating scriptblock to determine field name...'
 			## Replace $_ with $CsvUser
-			$csvFieldScript = $_.Key.ToString() -replace '$_','$CsvUser'
+			$csvFieldScript = $_.Key.ToString() -replace '\$_','$CsvUser'
 			$csvFieldName = & ([scriptblock]::Create($csvFieldScript))
 		} else {
 			$csvFieldName = $_.Key
 		}
 		Write-Verbose -Message "Checking CSV field [$($csvFieldName)] for mismatches..."
-		$adAttribName = ConvertToSchemaAttribute -Attribute $_.Value
+		$adAttribName = $_.Value
 		Write-Verbose -Message "Checking AD attribute [$($adAttribName)] for mismatches..."
 		
 		## Remove the null fields
@@ -449,7 +428,7 @@ function FindAttributeMismatch
 			$AdUser | Add-Member -MemberType NoteProperty -Name $adAttribName -Force -Value ''
 		}
 		if ($CsvUser.$csvFieldName) {
-			if (-not ($csvValue = ConvertToSchemaValue -AttributeName $adAttribName -AttributeValue $CsvUser.$csvFieldName)) {
+			if (-not ($csvValue = ConvertToSchemaAttributeType -AttributeName $adAttribName -AttributeValue $CsvUser.$csvFieldName)) {
 				$false
 			} else {
 				Write-Verbose -Message "Comparing AD attribute [$($Aduser.$adAttribName)] with converted CSV value [$($csvValue)]..."
