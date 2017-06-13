@@ -33,8 +33,6 @@ function ConvertToSchemaAttributeType
 	
 }
 
-Invoke-AdSync -FieldValue
-
 function ConvertToAdUser
 {
 	[OutputType('string')]
