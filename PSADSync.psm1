@@ -18,7 +18,7 @@ function ConvertToSchemaAttributeType
 	switch ($AttributeName)
 	{
 		'accountExpires' {
-			([datetime]$AttributeValue).AddDays(1)
+			([datetime]$AttributeValue).AddDays(2)
 		}
 		'manager' {
 			if (-not ($adUser = ConvertToAdUser -String $AttributeValue)) {
