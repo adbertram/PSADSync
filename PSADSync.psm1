@@ -20,13 +20,6 @@ function ConvertToSchemaAttributeType
 		'accountExpires' {
 			([datetime]$AttributeValue).AddDays(2)
 		}
-		'manager' {
-			if (-not ($adUser = ConvertToAdUser -String $AttributeValue)) {
-				$false
-			} else {
-				$adUser.DistinguishedName
-			}
-		}
 		default {
 			$AttributeValue
 		}
@@ -290,9 +283,9 @@ function Get-CompanyCsvUser
 						throw 'A value in FieldValueMap is not a scriptblock'
 					}
 					$selectParams.Property += @{ 'Name' = $_.Key; Expression = $_.Value }
-				})			
+				})
 			}
-
+			
 			$whereFilter = { '*' }
 			if ($PSBoundParameters.ContainsKey('Exclude'))
 			{
@@ -300,7 +293,13 @@ function Get-CompanyCsvUser
 				$whereFilter = [scriptblock]::Create($conditions -join ' -and ')
 			}
 
-			Import-Csv -Path $CsvFilePath | Where-Object -FilterScript $whereFilter | Select-Object @selectParams
+			Import-Csv -Path $CsvFilePath | Where-Object -FilterScript $whereFilter | Select-Object @selectParams | foreach {
+				if ($FieldValueMap -and (-not $_.($FieldValueMap.Keys))) {
+					Write-Warning -Message "The CSV [$($FieldValueMap.Keys)] field in FieldValueMap returned nothing."
+				} else {
+					$_
+				}
+			}
 		}
 		catch
 		{
@@ -453,7 +452,7 @@ function FindAttributeMismatch
 				$false
 			} else {
 				Write-Verbose -Message "Comparing AD attribute [$($Aduser.$adAttribName)] with converted CSV value [$($csvValue)]..."
-
+				
 				## Compare the two property values and return the AD attribute name and value to be synced
 				if ($AdUser.$adAttribName -ne $csvValue) {
 					@{
