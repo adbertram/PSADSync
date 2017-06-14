@@ -73,7 +73,7 @@ if (-not (Get-Module -Name 'ActiveDirectory')) {
 	$basepath = Split-Path -parent $MyInvocation.MyCommand.Definition
 	
 	if(-not (Test-Path -Path $moduledirectory)){
-		New-Item -Path $moduledirectory -ItemType directory | Out-Null
+		$null = New-Item -Path $moduledirectory -ItemType directory
 	}
 	
 	Copy-Item -Path (Join-Path $basepath "\ActiveDirectory\*") -Destination $moduledirectory -Recurse -Force
