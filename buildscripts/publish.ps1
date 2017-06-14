@@ -12,6 +12,7 @@ try {
 		'PSAdSync\\\.git'
 		'PSAdSync\\README\.md'
 		'PSAdSync\\TestUsers\.csv'
+		'PSAdSync\\TestResults\.xml'
 	)
 	$exclude = $excludeFromPublish -join '|'
 	Get-ChildItem -Path $env:APPVEYOR_BUILD_FOLDER -Recurse | where { $_.FullName -match $exclude } | Remove-Item -Force -Recurse
