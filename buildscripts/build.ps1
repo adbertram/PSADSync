@@ -18,5 +18,6 @@ try {
 	$manifestContent | Set-Content -Path $manifestFilePath
 
 } catch {
+	Write-Error -Message $_.Exception.Message
 	$host.SetShouldExit($LastExitCode)
 }

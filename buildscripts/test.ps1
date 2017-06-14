@@ -1,5 +1,7 @@
 $ErrorActionPreference = 'Stop'
+
 try {
+
 	Import-Module -Name Pester
 	$ProjectRoot = $ENV:APPVEYOR_BUILD_FOLDER
 
@@ -7,7 +9,7 @@ try {
 
 	$invPesterParams = @{
 		Path = "$ProjectRoot\PSADSync.Tests.ps1"
-		OutputFormat = NUnitXml
+		OutputFormat = 'NUnitXml'
 		OutputFile = $testResultsFilePath
 		EnableExit = $true
 		Tag = 'Unit'
@@ -16,6 +18,7 @@ try {
 
 	$Address = "https://ci.appveyor.com/api/testresults/nunit/$($env:APPVEYOR_JOB_ID)"
 	(New-Object 'System.Net.WebClient').UploadFile( $Address, $testResultsFilePath )
+	
 } catch {
 	Write-Error -Message $_.Exception.Message
 	$host.SetShouldExit($LastExitCode)
