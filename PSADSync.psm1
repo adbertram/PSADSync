@@ -17,7 +17,7 @@ function ConvertToSchemaAttributeType
 	switch ($AttributeName)
 	{
 		'accountExpires' {
-			[datetime]$AttributeValue
+			([datetime]$AttributeValue).AddDays(1)
 		}
 		'manager' {
 			if (-not ($adUser = ConvertToAdUser -String $AttributeValue)) {
@@ -262,6 +262,10 @@ function Get-CompanyCsvUser
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldValueMap,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
 		[hashtable]$Exclude
 	)
 	begin
@@ -273,13 +277,29 @@ function Get-CompanyCsvUser
 	{
 		try
 		{
+			$selectParams = @{
+				Property = '*'
+			}
+			if ($PSBoundParameters.ContainsKey('FieldValueMap'))
+			{
+				$selectParams.ExcludeProperty = $FieldValueMap.Keys
+				$selectParams.Property = @('*')
+				$FieldValueMap.GetEnumerator().foreach({
+					if ($_.Value -isnot 'scriptblock') {
+						throw 'A value in FieldValueMap is not a scriptblock'
+					}
+					$selectParams.Property += @{ 'Name' = $_.Key; Expression = $_.Value }
+				})			
+			}
+
 			$whereFilter = { '*' }
 			if ($PSBoundParameters.ContainsKey('Exclude'))
 			{
 				$conditions = $Exclude.GetEnumerator() | ForEach-Object { "(`$_.'$($_.Key)' -ne '$($_.Value)')" }
 				$whereFilter = [scriptblock]::Create($conditions -join ' -and ')
 			}
-			Import-Csv -Path $CsvFilePath | Where-Object -FilterScript $whereFilter
+
+			Import-Csv -Path $CsvFilePath | Where-Object -FilterScript $whereFilter | Select-Object @selectParams
 		}
 		catch
 		{
@@ -622,6 +642,10 @@ function Invoke-AdSync
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldValueMap,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
 		[switch]$ReportOnly,
 
 		[Parameter()]
@@ -639,6 +663,11 @@ function Invoke-AdSync
 			$getCsvParams = @{
 				CsvFilePath = $CsvFilePath
 			}
+			if ($PSBoundParameters.ContainsKey('FieldValueMap'))
+			{
+				$getCsvParams.FieldValueMap = $FieldValueMap	
+			}
+
 			if ($PSBoundParameters.ContainsKey('Exclude'))
 			{
 				if (-not (TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header ([array]$Exclude.Keys))) {

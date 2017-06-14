@@ -17,5 +17,6 @@ try {
 	$Address = "https://ci.appveyor.com/api/testresults/nunit/$($env:APPVEYOR_JOB_ID)"
 	(New-Object 'System.Net.WebClient').UploadFile( $Address, $testResultsFilePath )
 } catch {
+	Write-Error -Message $_.Exception.Message
 	$host.SetShouldExit($LastExitCode)
 }

@@ -790,7 +790,7 @@ InModuleScope $ThisModuleName {
 		context 'when multiple matches on a single attribute are found' {
 			
 
-			it 'should throw an exception: <TestName>' -Skip -TestCases $testCases.MatchOnAllIds {
+			it 'should throw an exception: <TestName>' -TestCases $testCases.MatchOnAllIds {
 				param($AdUsers,$CsvUser,$FieldMatchMap)
 
 				{ & $commandName @parameters } | should throw 
@@ -2040,6 +2040,31 @@ InModuleScope $ThisModuleName {
 					}	
 				}
 			}
+			@{
+				Label = 'Syncing a multiple string attributes and a scriptblock condition with FieldValueMap'
+				Parameters = @{
+					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
+					FieldSyncMap = @{
+						{ if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = 'givenName'
+						'CONTRACT_END_DATE' = 'accountexpires'
+						'LAST_NAME' = 'sn'
+						'SUPERVISOR' = 'manager'
+					}
+					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
+					FieldValueMap = @{ 'SUPERVISOR' = { $null = $_.SuperVisor -match '(?<LastName>\w+)\s(?<FirstName>\w+)\s\((?<NickName>\w+)'; "$($matches['LastName']) $($matches['FirstName'])"  }}
+				}
+				Expected = @{
+					ActiveDirectoryUser = @{
+						Identifier = @{ 'employeeId' = $testUserEmpId }
+						Attributes = @{
+							givenName = 'changednickname123'
+							surName = 'changedlastname'
+							AccountExpirationDate = '12/30/2018 19:00:00'
+							manager = "CN=$testUserManagerName,DC=mylab,DC=local"
+						}
+					}
+				}
+			}
 		)
 	
 		foreach ($testCase in $testCases) {	
@@ -2062,22 +2087,52 @@ InModuleScope $ThisModuleName {
 						
 							New-ADUser -GivenName 'TestUser' -Surname 'Manager' -EmployeeID $testUserManagerEmpId -Name $testUserManagerName
 
-							Invoke-AdSync @parameters -Confirm:$false
+							if (-not $parameters.ContainsKey('FieldValueMap')) {
+								context 'when the manager account cannot be found' {
 
-							$getParams = @{
-								Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
-								Properties = '*'
+									mock 'Write-Warning'
+								
+									Invoke-AdSync @parameters -Confirm:$false
+
+									$getParams = @{
+										Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
+										Properties = '*'
+									}
+									$testAdUser = Get-Aduser @getParams
+
+									it 'should pass the expected parameters to Write-Warning' {
+									
+										$assMParams = @{
+											CommandName = 'Write-Warning'
+											Times = 1
+											Exactly = $true
+											ExclusiveFilter = {
+												$PSBoundParameters.Message -match 'Unable to convert'
+											}
+										}
+										Assert-MockCalled @assMParams
+									}
+								}
+							} else {
+
+								Invoke-AdSync @parameters -Confirm:$false
+
+								$getParams = @{
+									Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
+									Properties = '*'
+								}
+								$testAdUser = Get-Aduser @getParams
+								
 							}
-							$testAdUser = Get-Aduser @getParams
+
+							it 'should write the expected values to the log file' -Skip {
+					
+							}
 
 							it 'should change the expected AD user attributes' {
 								@($expected.ActiveDirectoryUser.Attributes).foreach({
 									$testAdUser.Keys | should be $testAdUser.Values
 								})	
-							}
-
-							it 'should write the expected values to the log file' -Skip {
-					
 							}
 						}
 
