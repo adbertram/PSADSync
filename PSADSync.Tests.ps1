@@ -13,7 +13,7 @@ describe 'Module-level tests' -Tag Unit {
 		{ Test-ModuleManifest -Path $ThisModule -ErrorAction Stop } | should not throw
 	}
 
-	it 'should pass all error-level script analyzer rules' {
+	it 'should pass all analyzer rules' {
 
 		$excludedRules = @(
 			'PSUseShouldProcessForStateChangingFunctions',
@@ -21,9 +21,10 @@ describe 'Module-level tests' -Tag Unit {
 			'PSAvoidInvokingEmptyMembers',
 			'PSUsePSCredentialType',
 			'PSAvoidUsingPlainTextForPassword'
+			'PSAvoidUsingConvertToSecureStringWithPlainText'
 		)
 
-		Invoke-ScriptAnalyzer -Path $PSScriptRoot -ExcludeRule $excludedRules -Severity Error | should benullorempty
+		Invoke-ScriptAnalyzer -Path $PSScriptRoot -ExcludeRule $excludedRules -Severity Error | Select-Object -ExpandProperty RuleName | should benullorempty
 	}
 }
 
@@ -494,7 +495,7 @@ InModuleScope $ThisModuleName {
 				if ('Set-AdUser' -in $expected.Execution.Keys) {
 					context 'when all attributes cannot be defined with New-AdUser alone' {
 					
-						$result = & $commandName @parameters
+						$null = & $commandName @parameters
 
 						it 'should pass the expected parameters to Set-AdUser' {
 
@@ -532,7 +533,7 @@ InModuleScope $ThisModuleName {
 				} else {
 					context 'when all attributes can be defined with New-AdUser alone' {
 					
-						$result = & $commandName @parameters
+						$null = & $commandName @parameters
 
 						it 'should pass the expected parameters to New-AdUser' {
 
@@ -635,8 +636,8 @@ InModuleScope $ThisModuleName {
 				}
 
 				it 'should return the expected hashtable' {
-					-not (diff ([array]$result.Keys) $expected.Output.Returns.Keys) -and
-					-not (diff ([array]$result.Values) $expected.Output.Returns.Values)
+					-not (Compare-Object ([array]$result.Keys) $expected.Output.Returns.Keys) -and
+					-not (Compare-Object ([array]$result.Values) $expected.Output.Returns.Values)
 				}
 			}
 		}
@@ -1058,7 +1059,7 @@ InModuleScope $ThisModuleName {
 	
 			context $testCase.Label {
 
-				$result = & $commandName @parameters
+				$null = & $commandName @parameters
 
 				it 'should query for the expected user' {
 					$assMParams = @{
@@ -1195,7 +1196,7 @@ InModuleScope $ThisModuleName {
 	
 				context 'when the attribute exists' {
 
-					mock 'Get-AvailableAdUserAttributes' {
+					mock 'Get-AvailableAdUserAttribute' {
 						[pscustomobject]@{
 							'ValidName' = 'attribName'
 						}
@@ -1210,7 +1211,7 @@ InModuleScope $ThisModuleName {
 	
 				context 'when the attribute does not exist' {
 
-					mock 'Get-AvailableAdUserAttributes' {
+					mock 'Get-AvailableAdUserAttribute' {
 						@('notinhere')
 					}
 	
@@ -1313,7 +1314,6 @@ InModuleScope $ThisModuleName {
 	describe 'SyncCompanyUser' -Tag Unit {
 	
 		$commandName = 'SyncCompanyUser'
-		$command = Get-Command -Name $commandName
 
 		$script:csvUser = [pscustomobject]@{
 			AD_LOGON = 'foo'
@@ -1400,7 +1400,7 @@ InModuleScope $ThisModuleName {
 							
 							$actualKeys = $PSBoundParameters.ActiveDirectoryAttributes  | ForEach-Object { $_.Keys }
 							$actualValues = $PSBoundParameters.ActiveDirectoryAttributes  | ForEach-Object { $_.Values }
-							-not (diff $expectedkeys $actualKeys) -and -not (diff $expectedVals $actualValues)
+							-not (Compare-Object $expectedkeys $actualKeys) -and -not (Compare-Object $expectedVals $actualValues)
 						}
 					}
 					Assert-MockCalled @assMParams
@@ -1572,7 +1572,7 @@ InModuleScope $ThisModuleName {
 				}
 			}
 
-			mock 'Write-Host'
+			mock 'Write-Output'
 
 			mock 'TestIsValidAdAttribute' {
 				$true
@@ -1664,7 +1664,7 @@ InModuleScope $ThisModuleName {
 
 					context 'when excluding a CSV column' {
 
-						$result = & $commandName @parameters
+						$null = & $commandName @parameters
 
 						context 'when a header does not exist' {
 						
@@ -1685,7 +1685,7 @@ InModuleScope $ThisModuleName {
 								$true
 							}
 
-							$result = & $commandName @parameters
+							$null = & $commandName @parameters
 
 							it 'should pass Exclude to Get-CompanyCsvUser' {
 
@@ -1707,7 +1707,7 @@ InModuleScope $ThisModuleName {
 
 				context 'Shared tests' {
 				
-					$result = & $commandName @parameters
+					$null = & $commandName @parameters
 
 					it 'should only test string AD attributes in FieldSyncMap' {
 
@@ -1817,7 +1817,7 @@ InModuleScope $ThisModuleName {
 									}
 								}
 
-								$result = & $commandName @parameters
+								$null = & $commandName @parameters
 								
 								it 'should pass the ID as the CSV id field for WriteLog' {
 
@@ -1847,7 +1847,7 @@ InModuleScope $ThisModuleName {
 									}
 								}
 
-								$result = & $commandName @parameters
+								$null = & $commandName @parameters
 
 								it 'should pass N/A as the CSV id field for WriteLog' {
 
@@ -1889,7 +1889,7 @@ InModuleScope $ThisModuleName {
 							if ($parameters.ContainsKey('ReportOnly')) {
 								context 'when only reporting' {
 
-									$result = & $commandName @parameters
+									$null = & $commandName @parameters
 
 									it 'should not attempt to sync the user' {
 									
@@ -1904,7 +1904,7 @@ InModuleScope $ThisModuleName {
 							} else {
 								context 'when syncing' {
 
-									$result = & $commandName @parameters
+									$null = & $commandName @parameters
 
 									it 'should sync the expected user' {
 
@@ -1929,7 +1929,7 @@ InModuleScope $ThisModuleName {
 
 							mock 'FindAttributeMismatch'
 
-							$result = & $commandName @parameters
+							$null = & $commandName @parameters
 						
 							it 'should pass the expected attributes to WriteLog' {
 
@@ -1963,7 +1963,7 @@ InModuleScope $ThisModuleName {
 		$testUserManagerEmpId = 111111
 
 
-		mock 'Write-Host'
+		mock 'Write-Output'
 	
 		$testCases = @(
 			@{
@@ -2092,13 +2092,7 @@ InModuleScope $ThisModuleName {
 
 									mock 'Write-Warning'
 								
-									Invoke-AdSync @parameters -Confirm:$false
-
-									$getParams = @{
-										Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
-										Properties = '*'
-									}
-									$testAdUser = Get-Aduser @getParams
+									& $commandName @parameters -Confirm:$false
 
 									it 'should pass the expected parameters to Write-Warning' {
 									
@@ -2115,7 +2109,7 @@ InModuleScope $ThisModuleName {
 								}
 							} else {
 
-								Invoke-AdSync @parameters -Confirm:$false
+								& $commandName @parameters -Confirm:$false
 
 								$getParams = @{
 									Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
@@ -2148,7 +2142,7 @@ InModuleScope $ThisModuleName {
 						# }
 					}
 				} else {
-					Invoke-AdSync @parameters -Confirm:$false
+					& $commandName @parameters -Confirm:$false
 
 					$getParams = @{
 						Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"

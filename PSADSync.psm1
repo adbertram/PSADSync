@@ -2,6 +2,7 @@ Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
 
 function ConvertToSchemaAttributeType
 {
+	[OutputType([bool],[string])]
 	[CmdletBinding()]
 	param
 	(
@@ -155,7 +156,7 @@ function GetCsvColumnHeaders
 	(Get-Content -Path $CsvFilePath | Select-Object -First 1).Split(',') -replace '"'
 }
 
-function Get-AvailableAdUserAttributes {
+function Get-AvailableAdUserAttribute {
 	param()
 
 	$schema =[DirectoryServices.ActiveDirectory.ActiveDirectorySchema]::GetCurrentSchema()
@@ -179,7 +180,7 @@ function Get-AvailableAdUserAttributes {
 }
 
 function TestIsValidAdAttribute {
-	[OutputType('bool')]
+	[OutputType([bool])]
 	[CmdletBinding()]
 	param
 	(
@@ -188,7 +189,7 @@ function TestIsValidAdAttribute {
 		[string]$Name
 	)
 
-	if ($Name -in (Get-AvailableAdUserAttributes).ValidName) {
+	if ($Name -in (Get-AvailableAdUserAttribute).ValidName) {
 		$true
 	} else {
 		$false
@@ -682,20 +683,20 @@ function Invoke-AdSync
 
 			$FieldSyncMap.GetEnumerator().where({$_.Value -is 'string'}).foreach({
 				if (-not (TestIsValidAdAttribute -Name $_.Value)) {
-					throw 'One or more AD attributes in FieldSyncMap do not exist. Use Get-AvailableAdUserAttributes for a list of available attributes.'
+					throw 'One or more AD attributes in FieldSyncMap do not exist. Use Get-AvailableAdUserAttribute for a list of available attributes.'
 				}
 			})
 
-			Write-Host 'Enumerating all Active Directory users. This may take a few minutes depending on the number of users...'
+			Write-Output 'Enumerating all Active Directory users. This may take a few minutes depending on the number of users...'
 			if (-not ($script:adUsers = Get-CompanyAdUser -FieldMatchMap $FieldMatchMap -FieldSyncMap $FieldSyncMap)) {
 				throw 'No AD users found'
 			}
-			Write-Host 'Active Directory user enumeration complete.'
-			Write-Host 'Enumerating all CSV users...'
+			Write-Output 'Active Directory user enumeration complete.'
+			Write-Output 'Enumerating all CSV users...'
 			if (-not ($csvusers = Get-CompanyCsvUser @getCsvParams)) {
 				throw 'No CSV users found'
 			}
-			Write-Host 'CSV user enumeration complete.'
+			Write-Output 'CSV user enumeration complete.'
 
 			$script:totalSteps = @($csvusers).Count
 			$stepCounter = 0
