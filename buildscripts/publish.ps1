@@ -5,7 +5,7 @@ try {
 	$tempmoduleFolderPath = "$env:Temp\PSAdSync"
 	$null = mkdir $tempmoduleFolderPath
 
-	## Move all of the files/folders to exclude out of the main folder
+	## Remove all of the files/folders to exclude out of the main folder
 	$excludeFromPublish = @(
 		'PSAdSync\\buildscripts'
 		'PSAdSync\\appveyor\.yml'
