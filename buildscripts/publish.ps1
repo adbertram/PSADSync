@@ -18,7 +18,7 @@ try {
 
 	## Copy only the package contents to the module folder
 	Get-ChildItem -Path $env:APPVEYOR_BUILD_FOLDER -Recurse | Copy-Item -Destination $tempmoduleFolderPath -Force
-	(Get-ChildItem -Path $env:APPVEYOR_BUILD_FOLDER -Recurse | Out-String)
+	(Get-ChildItem -Path $tempmoduleFolderPath -Recurse | Out-String)
 
 	## Publish module to PowerShell Gallery
 	$publishParams = @{
