@@ -21,7 +21,6 @@ describe 'Module-level tests' -Tag Unit {
 			'PSAvoidInvokingEmptyMembers',
 			'PSUsePSCredentialType',
 			'PSAvoidUsingPlainTextForPassword'
-			'PSAvoidUsingConvertToSecureStringWithPlainText'
 		)
 
 		Invoke-ScriptAnalyzer -Path $PSScriptRoot -ExcludeRule $excludedRules -Severity Error | Select-Object -ExpandProperty RuleName | should benullorempty
