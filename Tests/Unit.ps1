@@ -1,12 +1,12 @@
-,#region import modules
-$ThisModule = "$($MyInvocation.MyCommand.Path -replace '\.Tests\.ps1$', '').psd1"
+#region import modules
+$ThisModule = "$($MyInvocation.MyCommand.Path | Split-Path -Parent | Split-Path -Parent)\PSADSync.psd1"
 $ThisModuleName = (($ThisModule | Split-Path -Leaf) -replace '\.psd1')
 Get-Module -Name $ThisModuleName -All | Remove-Module -Force
 
 Import-Module -Name $ThisModule -Force -ErrorAction Stop
 #endregion
 
-describe 'Module-level tests' -Tag Unit {
+describe 'Module-level tests' {
 	
 	it 'should validate the module manifest' {
 	
@@ -21,6 +21,7 @@ describe 'Module-level tests' -Tag Unit {
 			'PSAvoidInvokingEmptyMembers',
 			'PSUsePSCredentialType',
 			'PSAvoidUsingPlainTextForPassword'
+			'PSAvoidUsingConvertToSecureStringWithPlainText'
 		)
 
 		Invoke-ScriptAnalyzer -Path $PSScriptRoot -ExcludeRule $excludedRules -Severity Error | Select-Object -ExpandProperty RuleName | should benullorempty
@@ -80,7 +81,7 @@ InModuleScope $ThisModuleName {
 		[pscustomobject]$output 
 	}
 
-	describe 'Get-CompanyCsvUser' -Tag Unit {
+	describe 'Get-CompanyCsvUser' {
 	
 		$commandName = 'Get-CompanyCsvUser'
 	
@@ -221,7 +222,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'GetCsvColumnHeaders' -Tag Unit {
+	describe 'GetCsvColumnHeaders' {
 		
 		#region Mocks
 			mock 'Get-Content' {
@@ -241,7 +242,7 @@ InModuleScope $ThisModuleName {
 		
 	}
 
-	describe 'TestCsvHeaderExists' -Tag Unit {
+	describe 'TestCsvHeaderExists' {
 		
 		$commandName = 'TestCsvHeaderExists'
 		$script:command = Get-Command -Name $commandName
@@ -353,7 +354,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'Get-CompanyAdUser' -Tag Unit {
+	describe 'Get-CompanyAdUser' {
 		
 		$commandName = 'Get-CompanyAdUser'
 	
@@ -372,7 +373,7 @@ InModuleScope $ThisModuleName {
 				}
 				Expected = @{
 					Output = @{
-						ObjectCount = 9
+						ObjectCount = 10
 					}
 				}
 			}
@@ -413,7 +414,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'New-CompanyAdUser' -Tag Unit {
+	describe 'New-CompanyAdUser' {
 		
 		$commandName = 'New-CompanyAdUser'
 		$script:command = Get-Command -Name $commandName
@@ -424,7 +425,7 @@ InModuleScope $ThisModuleName {
 			mock 'Set-AdUser'
 
 			mock 'NewRandomPassword' {
-				ConvertTo-SecureString -Strin 'pwhere' -AsPlainText -Force
+				ConvertTo-SecureString -String 'pwhere' -AsPlainText -Force
 			}
 		#endregion
 	
@@ -642,7 +643,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'FindUserMatch' -Tag Unit {
+	describe 'FindUserMatch' {
 	
 		$commandName = 'FindUserMatch'
 		
@@ -882,7 +883,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'FindAttributeMismatch' -Tag Unit {
+	describe 'FindAttributeMismatch' {
 	
 		$commandName = 'FindAttributeMismatch'
 		
@@ -992,7 +993,7 @@ InModuleScope $ThisModuleName {
 					String = 'jdoe'
 				}
 				Expected = @{
-					LdapFilter = '(&(objectCategory=person)(objectClass=user)(samAccountName=jdoe)'
+					LdapFilter = '(&(objectCategory=person)(objectClass=user)(samAccountName=jdoe))'
 				}
 			}
 			@{
@@ -1046,7 +1047,7 @@ InModuleScope $ThisModuleName {
 					String = 'CN=jdoe,DC=domain,DC=local'
 				}
 				Expected = @{
-					LdapFilter = '(&(objectCategory=person)(objectClass=user)(distinguishedName=CN=jdoe,DC=domain,DC=local)'
+					LdapFilter = '(&(objectCategory=person)(objectClass=user)(distinguishedName=CN=jdoe,DC=domain,DC=local))'
 				}
 			}
 		)
@@ -1076,105 +1077,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'ConvertToSchemaValue' {
-		
-		$commandName = 'ConvertToSchemaValue'
-	
-		#region Mocks
-			mock 'ConvertToAdUser' {
-				[pscustomobject]@{
-					DistinguishedName = 'dnhere'
-				}
-			}
-		#endregion
-	
-		$testCases = @(
-			@{
-				Label = 'Conversion needed'
-				Parameters = @{
-					AttributeName = 'manager'
-					AttributeValue = 'Test User'
-				}
-				Expected = @{
-					Output = 'dnhere'
-				}
-			}
-			@{
-				Label = 'No conversion needed'
-				Parameters = @{
-					AttributeName = 'foo'
-					AttributeValue = 'Test User'
-				}
-				Expected = @{
-					Output = 'Test User'
-				}
-			}
-		)
-
-		foreach ($testCase in $testCases) {
-	
-			$parameters = $testCase.Parameters
-			$expected = $testCase.Expected
-	
-			context $testCase.Label {
-
-				$result = & $commandName @parameters
-
-				it 'should return the expected string' {
-					$result | should be $expected.Output
-				}
-
-			}
-		}
-	}
-
-	describe 'NewDirectorySearcherUserFilter' {
-		
-		$commandName = 'NewDirectorySearcherUserFilter'
-	
-		$testCases = @(
-			@{
-				Label = 'samAccountName'
-				Parameters = @{
-					Elements = @{ samAccountName = 'foo'}
-				}
-				Expected = @{
-					Output = @{
-						ReturnString = '(&(objectCategory=person)(objectClass=User)(&(samAccountName=foo)))'
-					}
-				}
-			}
-			@{
-				Label = 'givenName/surName'
-				Parameters = @{
-					Elements = @{ givenName = 'Adam'; sn = 'Bertram'}
-				}
-				Expected = @{
-					Output = @{
-						ReturnString = '(&(objectCategory=person)(objectClass=User)(&(givenName=Adam)(sn=Bertram)))'
-					}
-				}
-			}
-		)
-	
-		foreach ($testCase in $testCases) {
-	
-			$parameters = $testCase.Parameters
-			$expected = $testCase.Expected
-	
-			context $testCase.Label {
-
-				$result = & $commandName @parameters
-
-				it "should return [$($expected.Output.ReturnString)]" {
-					$result | should be $expected.Output.ReturnString
-				}
-	
-			}
-		}
-	}
-
-	describe 'TestIsValidAdAttribute' -Tag Unit {
+	describe 'TestIsValidAdAttribute' {
 		
 		$commandName = 'TestIsValidAdAttribute'
 	
@@ -1224,7 +1127,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'SetAduser' -Tag Unit {
+	describe 'SetAduser' {
 	
 		$commandName = 'SetAduser'
 		
@@ -1310,7 +1213,7 @@ InModuleScope $ThisModuleName {
 	
 	}
 
-	describe 'SyncCompanyUser' -Tag Unit {
+	describe 'SyncCompanyUser' {
 	
 		$commandName = 'SyncCompanyUser'
 
@@ -1425,7 +1328,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 		
-	describe 'WriteLog' -Tag Unit {
+	describe 'WriteLog' {
 	
 		$commandName = 'WriteLog'
 		
@@ -1509,7 +1412,7 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
-	describe 'Invoke-AdSync' -Tag Unit {
+	describe 'Invoke-AdSync' {
 	
 		$commandName = 'Invoke-AdSync'
 	
@@ -1790,10 +1693,19 @@ InModuleScope $ThisModuleName {
 
 							mock 'GetCsvIdField'
 
-							it 'should throw an exception' {
+							$null = & $commandName @parameters
+
+							it 'write a warning' {
 							
-								$params = @{} + $parameters
-								{ & $commandName @params } | should throw 'No CSV ID fields were found'
+								$assMParams = @{
+									CommandName = 'Write-Warning'
+									Times = 1
+									Exactly = $true
+									ExclusiveFilter = {
+										$PSBoundParameters.Message -match 'No CSV id fields were found'
+									}
+								}
+								Assert-MockCalled @assMParams
 							}			
 						}
 
@@ -1946,218 +1858,6 @@ InModuleScope $ThisModuleName {
 									Assert-MockCalled @assMParams
 								}
 						}
-					}
-				}
-			}
-		}
-	}
-
-	describe 'Invoke-AdSync - Functional' -Tag Functional {
-		
-		$commandName = 'Invoke-AdSync'
-
-		$testUserName = 'psadsynctestuser'
-		$testUserEmpId = 999999
-		$testUserManagerName = 'psadsynctumanager'
-		$testUserManagerEmpId = 111111
-
-
-		mock 'Write-Output'
-	
-		$testCases = @(
-			@{
-				Label = 'Syncing a single string attribute'
-				Parameters = @{
-					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
-					FieldSyncMap = @{ 'FIRST_NAME' = 'givenName'}
-					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
-				}
-				Expected = @{
-					ActiveDirectoryUser = @{
-						Identifier = @{ 'employeeId' = $testUserEmpId }
-						Attributes = @{
-							givenName = 'changedfirstname'
-						}
-					}	
-				}
-			}
-			@{
-				Label = 'Syncing a single string attribute that needs converting'
-				Parameters = @{
-					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
-					FieldSyncMap = @{ 'SUPERVISOR' = 'manager'}
-					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
-				}
-				Expected = @{
-					ActiveDirectoryUser = @{
-						Identifier = @{ 'employeeId' = $testUserEmpId }
-						Attributes = @{
-							manager = "CN=$testUserManagerName,DC=mylab,DC=local"
-						}
-					}
-				}
-			}
-			@{
-				Label = 'Syncing a multiple string attributes'
-				Parameters = @{
-					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
-					FieldSyncMap = @{ 
-						'FIRST_NAME' = 'givenName'
-						'LAST_NAME' = 'sn'
-					}
-					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
-				}
-				Expected = @{
-					ActiveDirectoryUser = @{
-						Identifier = @{ 'employeeId' = $testUserEmpId }
-						Attributes = @{
-							givenName = 'changedfirstname'
-							surName = 'changedlastname'
-						}
-					}	
-				}
-			}
-			@{
-				Label = 'Syncing a multiple string attributes and a scriptblock condition'
-				Parameters = @{
-					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
-					FieldSyncMap = @{
-						{ if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = 'givenName'
-						'CONTRACT_END_DATE' = 'accountexpires'
-						'LAST_NAME' = 'sn'
-					}
-					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
-				}
-				Expected = @{
-					ActiveDirectoryUser = @{
-						Identifier = @{ 'employeeId' = $testUserEmpId }
-						Attributes = @{
-							givenName = 'changednickname123'
-							surName = 'changedlastname'
-							AccountExpirationDate = '12/30/2018 19:00:00'
-						}
-					}	
-				}
-			}
-			@{
-				Label = 'Syncing a multiple string attributes and a scriptblock condition with FieldValueMap'
-				Parameters = @{
-					CsvFilePath = "$PSScriptRoot\TestUsers.csv"
-					FieldSyncMap = @{
-						{ if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = 'givenName'
-						'CONTRACT_END_DATE' = 'accountexpires'
-						'LAST_NAME' = 'sn'
-						'SUPERVISOR' = 'manager'
-					}
-					FieldMatchMap = @{'PERSON_NUM' = 'employeeId'}
-					FieldValueMap = @{ 'SUPERVISOR' = { $null = $_.SuperVisor -match '(?<LastName>\w+)\s(?<FirstName>\w+)\s\((?<NickName>\w+)'; "$($matches['LastName']) $($matches['FirstName'])"  }}
-				}
-				Expected = @{
-					ActiveDirectoryUser = @{
-						Identifier = @{ 'employeeId' = $testUserEmpId }
-						Attributes = @{
-							givenName = 'changednickname123'
-							surName = 'changedlastname'
-							AccountExpirationDate = '12/30/2018 19:00:00'
-							manager = "CN=$testUserManagerName,DC=mylab,DC=local"
-						}
-					}
-				}
-			}
-		)
-	
-		foreach ($testCase in $testCases) {	
-	
-			$parameters = $testCase.Parameters
-			$expected = $testCase.Expected
-
-			## Clean up the environment ahead of time
-			Get-AdUser -Filter "samAccountName -eq '$testUserName'" | Remove-AdUser -Confirm:$false
-			Get-AdUser -Filter "samAccountName -eq '$testUserManagerName'" | Remove-AdUser -Confirm:$false
-			New-ADUser -GivenName 'ChangeMe' -Surname 'ChangeMe' -EmployeeID $testUserEmpId -Name $testUserName
-
-			context $testCase.Label {
-
-				if ('manager' -in $parameters.FieldSyncMap.Values) {
-				
-					context 'when a manager field is being synced' {
-
-						context 'when the manager account exists' {
-						
-							New-ADUser -GivenName 'TestUser' -Surname 'Manager' -EmployeeID $testUserManagerEmpId -Name $testUserManagerName
-
-							if (-not $parameters.ContainsKey('FieldValueMap')) {
-								context 'when the manager account cannot be found' {
-
-									mock 'Write-Warning'
-								
-									& $commandName @parameters -Confirm:$false
-
-									it 'should pass the expected parameters to Write-Warning' {
-									
-										$assMParams = @{
-											CommandName = 'Write-Warning'
-											Times = 1
-											Exactly = $true
-											ExclusiveFilter = {
-												$PSBoundParameters.Message -match 'Unable to convert'
-											}
-										}
-										Assert-MockCalled @assMParams
-									}
-								}
-							} else {
-
-								& $commandName @parameters -Confirm:$false
-
-								$getParams = @{
-									Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
-									Properties = '*'
-								}
-								$testAdUser = Get-Aduser @getParams
-								
-							}
-
-							it 'should write the expected values to the log file' -Skip {
-					
-							}
-
-							it 'should change the expected AD user attributes' {
-								@($expected.ActiveDirectoryUser.Attributes).foreach({
-									$testAdUser.Keys | should be $testAdUser.Values
-								})	
-							}
-						}
-
-						# context 'when the manager account does not exist' {
-
-						# 	Get-AdUser -Filter "samAccountName -eq '$testUserManagerName'" | Remove-AdUser -Confirm:$false
-						
-						# 	it 'should throw an exception' {
-							
-						# 		{ & $commandName @parameters } | should throw 'Unable to find manager user account'
-						# 	}
-						
-						# }
-					}
-				} else {
-					& $commandName @parameters -Confirm:$false
-
-					$getParams = @{
-						Filter = "$($expected.ActiveDirectoryUser.Identifier.Keys) -eq $($expected.ActiveDirectoryUser.Identifier.Values)"
-						Properties = '*'
-					}
-					$testAdUser = Get-Aduser @getParams
-
-					it 'should change the expected AD user attributes' {
-						$expected.ActiveDirectoryUser.Attributes.GetEnumerator().foreach({
-							Write-Host "$($testAdUser.($_.Key)) should be [$($_.Value)]"
-							$testAdUser.($_.Key) | should be $_.Value
-						})	
-					}
-
-					it 'should write the expected values to the log file' -Skip {
-					
 					}
 				}
 			}

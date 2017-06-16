@@ -4,8 +4,19 @@ $parameters = @{
 }
  
 $parameters.FieldMatchMap = @{
-    'PERSON_NUM' = 'employeeID'
+    'csvIdField1' = 'adIdField1'
+	{ if ($_.'csvIdField2') { $_.'csvIdField2' } else { $_.'csvIdField3'} } = 'adIdField2'
 }
+
+$parameters.FieldMatchMap = @(
+    @{ 'csvField' = 'adField' }
+	@{ { if ($_.'PERSON_NUM') { $_.'PERSON_NUM' } else { $_.'AD_LOGON'} } = 'employeeId' }
+	@(
+		@{ { if ($_.'NICK_NAME') { $_.'NICK_NAME' } else { $_.'FIRST_NAME'} } = 'givenName' }
+		@{ 'LAST_NAME' = 'surName' }
+	)
+)
+
 $parameters.fieldSyncMap = @{
     { if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = 'givenName'
     'LAST_NAME' = 'sn'

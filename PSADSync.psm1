@@ -120,12 +120,20 @@ function Get-CompanyAdUser
 	{
 		try
 		{
-			$userProperties = ([array]($FieldMatchMap.Values) + [array]($FieldSyncMap.Values)) | Select-Object -Unique
+			$userProperties = [array]($FieldSyncMap.Values)
+			@($FieldMatchMap.GetEnumerator()).foreach({
+				if ($_.Value -is 'scriptblock') {
+					$userProperties += ParseScriptBlockHeaders -FieldScriptBlock $_.Value | Select-Object -Unique
+				} else {
+					$userProperties += $_.Value
+				}
+			})
+
 			Write-Verbose -Message "Finding all AD users in domain with properties: $($userProperties -join ',')"
 			@(Get-AdUser -Filter '*' -Properties $userProperties).where({
 				$adUser = $_
 				## Ensure at least one ID field is populated
-				@($FieldMatchMap.Values).where({ $adUser.($_) })
+				@($userProperties).where({ $adUser.($_) })
 			})
 		}
 		catch
@@ -270,22 +278,7 @@ function Get-CompanyCsvUser
 	process
 	{
 		try
-		{
-			$selectParams = @{
-				Property = '*'
-			}
-			if ($PSBoundParameters.ContainsKey('FieldValueMap'))
-			{
-				$selectParams.ExcludeProperty = $FieldValueMap.Keys
-				$selectParams.Property = @('*')
-				$FieldValueMap.GetEnumerator().foreach({
-					if ($_.Value -isnot 'scriptblock') {
-						throw 'A value in FieldValueMap is not a scriptblock'
-					}
-					$selectParams.Property += @{ 'Name' = $_.Key; Expression = $_.Value }
-				})
-			}
-			
+		{	
 			$whereFilter = { '*' }
 			if ($PSBoundParameters.ContainsKey('Exclude'))
 			{
@@ -293,13 +286,7 @@ function Get-CompanyCsvUser
 				$whereFilter = [scriptblock]::Create($conditions -join ' -and ')
 			}
 
-			Import-Csv -Path $CsvFilePath | Where-Object -FilterScript $whereFilter | Select-Object @selectParams | foreach {
-				if ($FieldValueMap -and (-not $_.($FieldValueMap.Keys))) {
-					Write-Warning -Message "The CSV [$($FieldValueMap.Keys)] field in FieldValueMap returned nothing."
-				} else {
-					$_
-				}
-			}
+			Import-Csv -Path $CsvFilePath | Where-Object -FilterScript $whereFilter
 		}
 		catch
 		{
@@ -385,6 +372,7 @@ function FindUserMatch
 	$ErrorActionPreference = 'Stop'
 
 	foreach ($matchId in $FieldMatchMap.GetEnumerator()) { ## FieldMatchMap = @{ 'AD_LOGON' = 'samAccountName' }
+
 		$adMatchField = $matchId.Value
 		$csvMatchField = $matchId.Key
 		Write-Verbose "Match fields: CSV - [$($csvMatchField)], AD - [$($adMatchField)]"
@@ -487,10 +475,8 @@ function NewRandomPassword
 
 	# Generate a password with the specified length and complexity.
 	Write-Verbose ('Generating password {0} characters in length and with a complexity of {1}.' -f $Length, $Complexity);
-	$password = [System.Web.Security.Membership]::GeneratePassword($Length, $Complexity);
-
-	# Convert the password to a secure string so we don't put plain text passwords on the pipeline.
-	ConvertTo-SecureString -String $password -AsPlainText -Force;
+	$pw = [System.Web.Security.Membership]::GeneratePassword($Length, $Complexity)
+	ConvertTo-SecureString -String $pw -AsPlainText -Force
 	
 }
 
@@ -709,9 +695,36 @@ function Invoke-AdSync
 				$csvUser = $_
 				if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
 					Write-Verbose -Message 'Match'
+
 					$csvIdMatchedon = $aduserMatch.CsvIdMatchedOn
 					$csvIdValue = $csvUser.$csvIdMatchedon
 					$csvIdField = $csvIdMatchedon
+
+					#region FieldValueMap check
+						if ($PSBoundParameters.ContainsKey('FieldValueMap'))
+						{
+							$csvUserSelectParams = @{
+								Property = '*'
+							}
+							$csvUserSelectParams.ExcludeProperty = $FieldValueMap.Keys
+							$csvUserSelectParams.Property = @('*')
+							$FieldValueMap.GetEnumerator().foreach({
+								if ($_.Value -isnot 'scriptblock') {
+									throw 'A value in FieldValueMap is not a scriptblock'
+								}
+								$csvUserSelectParams.Property += @{ 'Name' = $_.Key; Expression = $_.Value }
+							})
+
+							$csvUser| Select-Object @selectParams | foreach {
+								if ($FieldValueMap -and (-not $_.($FieldValueMap.Keys))) {
+									Write-Warning -Message "The CSV [$($FieldValueMap.Keys)] field in FieldValueMap returned nothing for CSV user [$($csvIdValue)]."
+								} else {
+									$_
+								}
+							}
+						}
+					#endregion
+
 					$findParams = @{
 						AdUser = $adUserMatch.MatchedAdUser
 						CsvUser = $csvUser
@@ -753,20 +766,16 @@ function Invoke-AdSync
 					}
 				} else {
 					if (-not ($csvIds = @(GetCsvIdField -CsvUser $csvUser -FieldMatchMap $FieldMatchMap).where({ $_.Field }))) {
-						throw 'No CSV id fields were found.'
+						Write-Warning -Message  'No CSV id fields were found.'
+						$csvIdField = 'N/A'
+					} else {
+						$csvIdField = $csvIds.Field -join ','
 					}
+					$csvIdValue = 'N/A'
 
-					$csvIdField = $csvIds.Field -join ','
-					## No ID fields are populated
-					if (-not ($csvIds | Where-Object {$_.Value})) {
-						$csvIdValue = 'N/A'
-						Write-Verbose -Message 'No CSV user identifier could be found'
-					} elseif ($csvIds | Where-Object { $_.Value}) { ## at least one ID field is populated
-						$csvIdValue = $csvIds.Value -join ','
-					}
 					$logAttribs = @{
-						CSVAttributeName = 'NoMatch'
-						CSVAttributeValue = 'NoMatch'
+						CSVAttributeName = 'N/A'
+						CSVAttributeValue = 'N/A'
 						ADAttributeName = 'NoMatch'
 						ADAttributeValue = 'NoMatch'
 					}
