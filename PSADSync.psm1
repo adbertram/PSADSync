@@ -352,6 +352,90 @@ function New-CompanyAdUser
 	}
 }
 
+function TestFieldMapIsValid
+{
+	[OutputType([bool])]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory,ParameterSetName = 'Sync')]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldSyncMap,
+
+		[Parameter(Mandatory,ParameterSetName = 'Match')]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldMatchMap,
+
+		[Parameter(Mandatory,ParameterSetName = 'Value')]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldValueMap,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$CsvFilePath	
+	)
+
+	<#
+		FieldSyncMap
+		--------------
+			Valid: 
+				@{ <scriptblock>; <string> }
+				@{ { if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = 'givenName' }
+
+				@{ <string>; <string> }
+
+		FieldMatchMap
+		--------------
+			Valid: 
+				@{ <scriptblock>; <string> }
+				@{ <array>; <array> }
+				@{ { if ($_.'csvIdField2') { $_.'csvIdField2' } else { $_.'csvIdField3'} } = 'adIdField2' }
+
+				@{ <string>; <string> }
+
+		FieldValueMap
+		--------------
+			Valid: 
+				@{ <string>; <scriptblock> }
+				@{ 'SUPERVISOR' = { $supId = $_.'SUPERVISOR_ID'; (Get-AdUser -Filter "EmployeeId -eq '$supId'").DistinguishedName }}
+	#>
+
+	$result = $true
+	switch ($PSCmdlet.ParameterSetName)
+	{
+		'Sync' {
+			$mapHt = $FieldSyncMap.Clone()
+			if ($FieldSyncMap.GetEnumerator().where({ $_.Value -is 'scriptblock' })) {
+				$result = $false
+			}
+		}
+		'Match' {
+			$mapHt = $FieldMatchMap.Clone()
+			if ($FieldMatchMap.GetEnumerator().where({ $_.Value -is 'scriptblock' })) {
+				$result = $false
+			} elseif ($FieldMatchMap.GetEnumerator().where({ @($_.Key).Count -gt 1 -and @($_.Value).Count -eq 1 })) {
+				$result = $false
+			}
+		}
+		'Value' {
+			$mapHt = $FieldValueMap.Clone()
+			if ($FieldValueMap.GetEnumerator().where({ $_.Value -isnot 'scriptblock' })) {
+				$result = $false
+			}
+			
+		}
+		default {
+			throw "Unrecognized input: [$_]"
+		}
+	}
+	if ($result) {
+	 	TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header ([array]($mapHt.Keys))
+	} else {
+		$result
+	}
+	
+}
+
 function FindUserMatch
 {
 	[OutputType([pscustomobject])]
@@ -371,30 +455,101 @@ function FindUserMatch
 	)
 	$ErrorActionPreference = 'Stop'
 
-	foreach ($matchId in $FieldMatchMap.GetEnumerator()) { ## FieldMatchMap = @{ 'AD_LOGON' = 'samAccountName' }
-
-		$adMatchField = $matchId.Value
-		$csvMatchField = $matchId.Key
-		Write-Verbose "Match fields: CSV - [$($csvMatchField)], AD - [$($adMatchField)]"
-		if ($csvMatchVal = $CsvUser.$csvMatchField) {
-			Write-Verbose -Message "CsvFieldMatchValue is [$($csvMatchVal)]"
-			if ($matchedAdUser = @($AdUsers).where({ $_.$adMatchField -eq $csvMatchVal })) {
-				Write-Verbose -Message "Found AD match for CSV user [$csvMatchVal]: [$($matchedAdUser.$adMatchField)]"
-				[pscustomobject]@{
-					MatchedAdUser = $matchedAdUser
-					CsvIdMatchedOn = $csvMatchField
-					AdIdMatchedOn = $adMatchField
-				}
-				## Stop after making a single match
-				break
-			} else {
-				Write-Verbose -Message "No user match found for CSV user [$csvMatchVal]"
-			}
-		} else {
-			Write-Verbose -Message "CSV field match value [$($csvMatchField)] could not be found."
+	<# Possibilities
+		$FieldMatchMap = @{ 
+			@( { if ($_.'NICK_NAME') { 'NICK_NAME' } else { $_.'FIRST_NAME' }}, 'LAST_NAME' )
+			@( 'givenName','surName' )
 		}
+
+		@($AdUsers).where({ $_.givenName -eq 'nick' -and $_.surName -eq 'last' })
+
+		$FieldMatchMap = @{ 
+			@( 'FIRST_NAME', 'LAST_NAME' )
+			@( 'givenName', 'surName' )
+		}
+
+		@($AdUsers).where({ $_.givenName -eq 'first' -and $_.surName -eq 'last' })
+
+		$CsvUser = [pscustomobject]@{
+			NICK_NAME = 'nick'
+			FIRST_NAME = 'first'
+			LAST_NAME = 'last'
+		}
+
+	#>
+
+	$whereFilterElements = @()
+
+	[string[]]$fieldVals = $FieldMatchmap.Values | Select-Object
+	$fieldKeys = @()
+
+	$i = 0
+	$FieldMatchMap.Keys.foreach({
+		## @( { if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME'} },'LAST_NAME')
+	
+		foreach ($k in $_) {
+			if ($k -is 'scriptblock') {
+				## { if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME'} }
+
+				## 'NICK_NAME'
+				$csvProp = EvaluateCsvFieldCondition -Condition $k -CsvUser $CsvUser
+
+			} else {
+				$csvProp = $k
+			}
+			$fieldKeys += $csvProp
+
+			## 'Joel'
+			if ($value = $CsvUser.$csvProp) {
+				$adProp = $fieldVals[$i]
+
+				$whereFilterElements += '$_.{0} -eq "{1}"' -f $adProp,$value
+			}
+			$i++
+
+		}
+	})
+
+	if (@($FieldMatchMap.Keys).Count -gt 1) {
+		$whereFilter = [scriptblock]::Create($whereFilterElements -join ' -or ')
+	} else {
+		$whereFilter = [scriptblock]::Create($whereFilterElements -join ' -and ')
+	}
+	if ($adUserMatch = @($AdUsers).where($whereFilter)) {
+		if (@($adUserMatch).Count -gt 1) {
+			Write-Warning -Message 'More than one AD user found to match found. Skipping user...'
+		} else {
+			[pscustomobject]@{
+				MatchedAdUser = $adUserMatch
+				CSVAttemptedMatchIds = ($fieldKeys -join ',')
+				ADAttemptedMatchIds = ($fieldVals -join ',')
+			}
+		}
+		
+	} else {
+		Write-Verbose -Message 'No user match found for CSV user'
 	}
 }
+
+function EvaluateCsvFieldCondition
+{
+	[OutputType('string')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[scriptblock]$Condition,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[pscustomobject]$CsvUser
+	)
+
+	$csvFieldScript = $Condition.ToString() -replace '\$_','$CsvUser'
+	& ([scriptblock]::Create($csvFieldScript))
+	
+}	
 
 function FindAttributeMismatch
 {
@@ -420,10 +575,7 @@ function FindAttributeMismatch
 	Write-Verbose -Message "Starting AD attribute mismatch check..."
 	$FieldSyncMap.GetEnumerator().foreach({
 		if ($_.Key -is 'scriptblock') {
-			Write-Verbose -Message 'The CSV attribute is a scriptblock. Evaluating scriptblock to determine field name...'
-			## Replace $_ with $CsvUser
-			$csvFieldScript = $_.Key.ToString() -replace '\$_','$CsvUser'
-			$csvFieldName = & ([scriptblock]::Create($csvFieldScript))
+			$csvFieldName = EvaluateCsvFieldCondition -Condition $_.Key -CsvUser $CsvUser
 		} else {
 			$csvFieldName = $_.Key
 		}
@@ -662,8 +814,18 @@ function Invoke-AdSync
 				$getCsvParams.Exclude = $Exclude
 			}
 
-			if (-not (TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header ([array]$FieldMatchMap.Keys))) {
-				throw 'One or more CSV headers in FieldMatchMap do not exist in the CSV file.'
+			if (-not (TestFieldMapIsValid -FieldSyncMap $FieldSyncMap -CsvFilePath $CsvFilePath)) {
+				throw 'Invalid attribute found in FieldSyncMap.'
+			}
+			if (-not (TestFieldMapIsValid -FieldMatchMap $FieldMatchMap -CsvFilePath $CsvFilePath)) {
+				throw 'Invalid attribute found in FieldMatchMap.'
+			}
+
+			if ($PSBoundParameters.ContainsKey('FieldValueMap'))
+			{
+				if (-not (TestFieldMapIsValid -FieldMatchMap $FieldValueMap -CsvFilePath $CsvFilePath)) {
+					throw 'Invalid attribute found in FieldValueMap.'
+				}	
 			}
 
 			$FieldSyncMap.GetEnumerator().where({$_.Value -is 'string'}).foreach({
@@ -696,9 +858,9 @@ function Invoke-AdSync
 				if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
 					Write-Verbose -Message 'Match'
 
-					$csvIdMatchedon = $aduserMatch.CsvIdMatchedOn
-					$csvIdValue = $csvUser.$csvIdMatchedon
-					$csvIdField = $csvIdMatchedon
+					$CSVAttemptedMatchIds = $aduserMatch.CSVAttemptedMatchIds
+					$csvIdValue = $csvUser.$CSVAttemptedMatchIds
+					$csvIdField = $CSVAttemptedMatchIds
 
 					#region FieldValueMap check
 						if ($PSBoundParameters.ContainsKey('FieldValueMap'))
