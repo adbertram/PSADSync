@@ -68,7 +68,7 @@ function Add-AssemblyToGlobalAssemblyCache{
     }
 }
 
-if (-not (Get-Module -Name 'ActiveDirectory')) {
+if (-not (Get-Module -Name 'ActiveDirectory' -ListAvailable)) {
 	$moduledirectory = "C:\Windows\System32\WindowsPowerShell\v1.0\Modules\ActiveDirectory"
 	$basepath = Split-Path -parent $MyInvocation.MyCommand.Definition
 	
