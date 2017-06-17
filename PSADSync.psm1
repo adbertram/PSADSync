@@ -216,10 +216,12 @@ function TestCsvHeaderExists
 
 	## Parse out the CSV headers used if the field is a scriptblock
 	$commonHeaders = @($Header).foreach({
-		if ($_ -is 'scriptblock') {
-			ParseScriptBlockHeaders -FieldScriptBlock $_
-		} else {
-			$_
+		$_ | ForEach-Object {
+			if ($_ -is 'scriptblock') {
+				ParseScriptBlockHeaders -FieldScriptBlock $_
+			} else {
+				$_
+			}
 		}
 	})
 	$commonHeaders = $commonHeaders | Select-Object -Unique
@@ -406,12 +408,14 @@ function TestFieldMapIsValid
 		'Sync' {
 			$mapHt = $FieldSyncMap.Clone()
 			if ($FieldSyncMap.GetEnumerator().where({ $_.Value -is 'scriptblock' })) {
+				Write-Warning -Message 'Scriptblocks are not allowed as a value in FieldSyncMap.'
 				$result = $false
 			}
 		}
 		'Match' {
 			$mapHt = $FieldMatchMap.Clone()
 			if ($FieldMatchMap.GetEnumerator().where({ $_.Value -is 'scriptblock' })) {
+				Write-Warning -Message 'Scriptblocks are not allowed as a value in FieldMatchMap.'
 				$result = $false
 			} elseif ($FieldMatchMap.GetEnumerator().where({ @($_.Key).Count -gt 1 -and @($_.Value).Count -eq 1 })) {
 				$result = $false
@@ -420,6 +424,7 @@ function TestFieldMapIsValid
 		'Value' {
 			$mapHt = $FieldValueMap.Clone()
 			if ($FieldValueMap.GetEnumerator().where({ $_.Value -isnot 'scriptblock' })) {
+				Write-Warning -Message 'A scriptblock must be a value in FieldValueMap.'
 				$result = $false
 			}
 			
@@ -429,7 +434,12 @@ function TestFieldMapIsValid
 		}
 	}
 	if ($result) {
-	 	TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header ([array]($mapHt.Keys))
+	 	if (-not (TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header ([array]($mapHt.Keys)))) {
+			Write-Warning -Message 'CSV header check failed.'
+			$false
+		} else {
+			$true
+		}
 	} else {
 		$result
 	}
@@ -859,8 +869,8 @@ function Invoke-AdSync
 					Write-Verbose -Message 'Match'
 
 					$CSVAttemptedMatchIds = $aduserMatch.CSVAttemptedMatchIds
-					$csvIdValue = $csvUser.$CSVAttemptedMatchIds
-					$csvIdField = $CSVAttemptedMatchIds
+					$csvIdValue = $CSVAttemptedMatchIds -join ','
+					$csvIdField = $CSVAttemptedMatchIds -join ','
 
 					#region FieldValueMap check
 						if ($PSBoundParameters.ContainsKey('FieldValueMap'))
