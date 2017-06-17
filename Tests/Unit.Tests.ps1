@@ -983,6 +983,8 @@ InModuleScope $ThisModuleName {
 			mock 'TestCsvHeaderExists' {
 				$true
 			}
+
+			mock 'Write-Warning'
 		#endregion
 	
 		$testCases = @(

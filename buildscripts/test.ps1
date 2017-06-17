@@ -8,7 +8,7 @@ try {
 	$testResultsFilePath = "$ProjectRoot\TestResults.xml"
 
 	$invPesterParams = @{
-		Path = "$ProjectRoot\Tests\Unit.ps1"
+		Path = "$ProjectRoot\Tests\Unit.Tests.ps1"
 		OutputFormat = 'NUnitXml'
 		OutputFile = $testResultsFilePath
 		EnableExit = $true
