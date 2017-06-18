@@ -143,6 +143,46 @@ function Get-CompanyAdUser
 	}
 }
 
+function NewUserName
+{
+	[OutputType('string')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[pscustomobject]$CsvUser,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Pattern,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldMap
+	)
+
+	if (-not (TestFieldMapIsValid -UserMatchMap $FieldMap)) {
+		throw 'One or more values in FieldMap parameter are missing.'
+	}
+
+	switch ($Pattern)
+	{
+		'FirstInitialLastName' {
+			'{0}{1}' -f ($CsvUser.($FieldMap.FirstName)).SubString(0, 1), $CsvUser.($FieldMap.LastName)
+		}
+		'FirstNameLastName' {
+			'{0}{1}' -f $CsvUser.($FieldMap.FirstName), $CsvUser.($FieldMap.LastName)
+		}
+		'FirstNameDotLastName' {
+			'{0}.{1}' -f $CsvUser.($FieldMap.FirstName), $CsvUser.($FieldMap.LastName)
+		}
+		default {
+			throw "Unrecognized UserNamePattern: [$_]"
+		}
+	}
+}
+
 function GetCsvColumnHeaders
 {
 	[OutputType([string])]
@@ -305,53 +345,73 @@ function New-CompanyAdUser
     (
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string]$Identity,
+        [pscustomobject]$CsvUser,
 
-		[Parameter()]
+		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Attributes
+		[ValidateSet('FirstInitialLastName','FirstNameLastName','FirstNameDotLastName')]
+		[string]$UsernamePattern,
+		
+		[Parameter(Mandatory,ParameterSetName = 'Password')]
+		[ValidateNotNullOrEmpty()]
+		[securestring]$Password,
+
+		[Parameter(Mandatory,ParameterSetName = 'RandomPassword')]
+		[ValidateNotNullOrEmpty()]
+		[switch]$RandomPassword,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldSyncMap,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldMatchMap,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$UserMatchMap
     )
-
-	## Create the New-AdUser parameters
-	$newAdUserParamNames = @(
-		'City'
-        'Company'
-        'DisplayName'
-        'EmailAddress'
-        'EmployeeID'
-        'EmployeeNumber'
-        'GivenName'
-        'HomePage'
-        'Office'
-        'POBox'
-        'PostalCode'
-        'State'
-        'StreetAddress'
-        'UserPrincipalName'
-	)
-    $newAdUserParams = @{ Name = $Identity }
-	$Attributes.GetEnumerator().where({ $_.Key -in $newAdUserParamNames }).foreach({ $newAdUserParams[$_.Key] = $_.Value })
-	$newAdUserParams.AccountPassword = (NewRandomPassword)
-
-	## If any, create the Set-AdUser parameters
-	$setAdUserParams = @{ 
-		Identity = $Identity
+	
+	$userName = NewUserName -CsvUser $CsvUser -Pattern $UsernamePattern -FieldMap $UserMatchMap
+	$newAdUserParams = @{ 
+		Name = $userName 
+		PassThru = $true
+		GivenName = $CsvUser.($UserMatchMap.FirstName)
+		Surname = $CsvUser.($UserMatchMap.LastName)
 	}
-	$setAdUserAddHt = @{}
-	$Attributes.GetEnumerator().where({ $_.Key -notin $newAdUserParamNames }).foreach({ $setAdUserAddHt[$_.Key] = $_.Value})
 
-	if ($setAdUserAddHt.Keys -gt 0) {
-		$confirmMsg = ($newAdUserParams + $setAdUserParams) | Out-String
+	if ($RandomPassword.IsPresent) {
+		$pw = NewRandomPassword
 	} else {
-		$confirmMsg = $newAdUserParams | Out-String
+		$Password = $pw
 	}
-    if ($PSCmdlet.ShouldProcess("User: [$($Identity)] AD attribs: [$($confirmMsg)]",'New AD User')) {
-		New-ADUser @newAdUserParams
-		if ($setAdUserAddHt.Keys -gt 0) {
-			$setAdUserParams.Add = $setAdUserAddHt
-			Set-Aduser @setAdUserParams
+
+	$otherAttribs = @{}
+	$FieldSyncMap.GetEnumerator().foreach({
+		$adAttribName = $_.Value
+		$adAttribValue = $CsvUser.($_.Key)
+		$otherAttribs.$adAttribName = $adAttribValue
+	})
+	$FieldMatchMap.GetEnumerator().foreach({
+		$adAttribName = $_.Value
+		$adAttribValue = $CsvUser.($_.Key)
+		$otherAttribs.$adAttribName = $adAttribValue
+	})
+
+	$newAdUserParams.OtherAttributes = $otherAttribs
+
+    if ($PSCmdlet.ShouldProcess("User: [$($userName)] AD attribs: [$($newAdUserParams | Out-String)]",'New AD User')) {
+		if (Get-AdUser -Filter "samAccountName -eq '$userName'") {
+			throw "The user to be created [$($userName)] already exists."
+		} else {
+			if ($newUser = New-ADUser @newAdUserParams) {
+				Set-ADAccountPassword -Identity $newUser.DistinguishedName -Reset -NewPassword $pw
+			}
 		}
+		
 	}
+	
 }
 
 function TestFieldMapIsValid
@@ -372,7 +432,11 @@ function TestFieldMapIsValid
 		[ValidateNotNullOrEmpty()]
 		[hashtable]$FieldValueMap,
 
-		[Parameter(Mandatory)]
+		[Parameter(Mandatory,ParameterSetName = 'UserMatch')]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$UserMatchMap,
+
+		[Parameter()]
 		[ValidateNotNullOrEmpty()]
 		[string]$CsvFilePath	
 	)
@@ -402,6 +466,11 @@ function TestFieldMapIsValid
 				@{ 'SUPERVISOR' = { $supId = $_.'SUPERVISOR_ID'; (Get-AdUser -Filter "EmployeeId -eq '$supId'").DistinguishedName }}
 	#>
 
+	if (-not $PSBoundParameters.ContainsKey('CsvFilePath') -and -not $UserMatchMap)
+	{	
+		throw 'CSVFilePath is required when testing any map other than UserMatchMap.'
+	}
+
 	$result = $true
 	switch ($PSCmdlet.ParameterSetName)
 	{
@@ -429,11 +498,17 @@ function TestFieldMapIsValid
 			}
 			
 		}
+		'UserMatch' {
+			$mapHt = $UserMatchMap.Clone()
+			if (($UserMatchMap.Keys | Where-Object { $_ -in @('FirstName','LastName') }).Count -ne 2) {
+				$result = $false
+			}
+		}
 		default {
 			throw "Unrecognized input: [$_]"
 		}
 	}
-	if ($result) {
+	if ($result -and (-not $UserMatchMap)) {
 	 	if (-not (TestCsvHeaderExists -CsvFilePath $CsvFilePath -Header ([array]($mapHt.Keys)))) {
 			Write-Warning -Message 'CSV header check failed.'
 			$false
@@ -792,6 +867,18 @@ function Invoke-AdSync
 		[ValidateNotNullOrEmpty()]
 		[hashtable]$FieldValueMap,
 
+		[Parameter(ParameterSetName = 'CreateNewUsers')]
+		[ValidateNotNullOrEmpty()]
+		[switch]$CreateNewUsers,
+
+		[Parameter(ParameterSetName = 'CreateNewUsers')]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$UserMatchMap,
+
+		[Parameter(ParameterSetName = 'CreateNewUsers')]
+		[ValidateNotNullOrEmpty()]
+		[string]$UsernamePattern,
+
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
 		[switch]$ReportOnly,
@@ -937,21 +1024,48 @@ function Invoke-AdSync
 						}
 					}
 				} else {
+					## No user match was found
 					if (-not ($csvIds = @(GetCsvIdField -CsvUser $csvUser -FieldMatchMap $FieldMatchMap).where({ $_.Field }))) {
-						Write-Warning -Message  'No CSV id fields were found.'
+						Write-Warning -Message  'No CSV ID fields were found.'
 						$csvIdField = 'N/A'
+						$csvIdValue = 'N/A'
+
+						$logAttribs = @{
+							CSVAttributeName = 'N/A'
+							CSVAttributeValue = 'N/A'
+							ADAttributeName = 'NoMatch'
+							ADAttributeValue = 'NoMatch'
+						}
+					} elseif ($CreateNewUsers.IsPresent) {
+						$csvIdField = $csvIds.Field -join ','
+						$newUserParams = @{
+							CsvUser = $csvUser
+							UsernamePattern = $UsernamePattern
+							UserMatchMap = $UserMatchMap
+							RandomPassword = $true
+							FieldSyncMap = $FieldSyncMap
+							FieldMatchMap = $FieldMatchMap
+						}
+						New-CompanyAdUser @newUserParams
+
+						$logAttribs = @{
+							CSVAttributeName = $csvIdField
+							CSVAttributeValue = 'NewUserCreated'
+							ADAttributeName = 'NewUserCreated'
+							ADAttributeValue = 'NewUserCreated'
+						}
+						$csvIdValue = 'N/A'
 					} else {
 						$csvIdField = $csvIds.Field -join ','
-					}
-					$csvIdValue = 'N/A'
+						$csvIdValue = 'N/A'
 
-					$logAttribs = @{
-						CSVAttributeName = 'N/A'
-						CSVAttributeValue = 'N/A'
-						ADAttributeName = 'NoMatch'
-						ADAttributeValue = 'NoMatch'
+						$logAttribs = @{
+							CSVAttributeName = 'N/A'
+							CSVAttributeValue = 'N/A'
+							ADAttributeName = 'NoMatch'
+							ADAttributeValue = 'NoMatch'
+						}
 					}
-
 				}
 				WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
 			})
