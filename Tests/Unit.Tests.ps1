@@ -1006,6 +1006,7 @@ InModuleScope $ThisModuleName {
 						First = 'Test'
 						Last = 'User'
 						Title = 'testtitle'
+						'PERSON_NUM' = '1234'
 					})
 					UsernamePattern = 'FirstInitialLastName'
 					RandomPassword = $true
@@ -1016,6 +1017,7 @@ InModuleScope $ThisModuleName {
 					FieldSyncMap = @{
 						title = 'Title'
 					}
+					FieldMatchMap = @{ 'PERSON_NUM' = 'employeeId' }
 					Confirm = $false
 				}
 				Expected = @{
@@ -1031,7 +1033,7 @@ InModuleScope $ThisModuleName {
 								Name = 'tuser'
 								GivenName = 'test'
 								Surname = 'user'
-								OtherAttributes = @{ Title = 'testtitle' }
+								OtherAttributes = @{ Title = 'testtitle'; employeeId = '1234' }
 							}
 							RunTimes = 1
 						}
@@ -1097,7 +1099,8 @@ InModuleScope $ThisModuleName {
 								$PSBoundParameters.Name -eq $thisFunc.Parameters.Name -and
 								$PSBoundParameters.GivenName -eq $thisFunc.Parameters.GivenName -and
 								$PSBoundParameters.Surname -eq $thisFunc.Parameters.SurName -and
-								$PSBoundParameters.OtherAttributes.Title -eq $thisFunc.Parameters.OtherAttributes.Title
+								$PSBoundParameters.OtherAttributes.Title -eq $thisFunc.Parameters.OtherAttributes.Title -and
+								$PSBoundParameters.OtherAttributes.EmployeeId -eq $thisFunc.Parameters.OtherAttributes.EmployeeId
 							}
 						}
 						Assert-MockCalled @assMParams
@@ -1827,6 +1830,8 @@ InModuleScope $ThisModuleName {
 			mock 'TestFieldMapIsValid' {
 				$true
 			}
+
+			mock 'New-CompanyAdUser'
 		#endregion
 
 		$parameterSets = @(
