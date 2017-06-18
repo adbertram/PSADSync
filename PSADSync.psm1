@@ -1049,12 +1049,12 @@ function Invoke-AdSync
 						New-CompanyAdUser @newUserParams
 
 						$logAttribs = @{
-							CSVAttributeName = $csvIdField
+							CSVAttributeName = 'NewUserCreated'
 							CSVAttributeValue = 'NewUserCreated'
 							ADAttributeName = 'NewUserCreated'
 							ADAttributeValue = 'NewUserCreated'
 						}
-						$csvIdValue = 'N/A'
+						$csvIdValue = ($csvIds | foreach { $csvUser.($_.Field) })
 					} else {
 						$csvIdField = $csvIds.Field -join ','
 						$csvIdValue = 'N/A'
