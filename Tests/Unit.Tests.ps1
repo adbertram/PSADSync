@@ -1485,7 +1485,7 @@ InModuleScope $ThisModuleName {
 					Output = @{
 						ObjectCount = 1
 						ObjectType = 'datetime'
-						Value = '12/30/2018 00:00:00'
+						Value = @('12/30/2018 00:00:00','12/30/2018 05:00:00')
 					}
 				}
 			}
@@ -1499,7 +1499,7 @@ InModuleScope $ThisModuleName {
 					Output = @{
 						ObjectCount = 1
 						ObjectType = 'datetime'
-						Value = '12/30/2018 00:00:00'
+						Value = @('12/30/2018 00:00:00','12/30/2018 05:00:00')
 					}
 				}
 			}
@@ -1536,7 +1536,7 @@ InModuleScope $ThisModuleName {
 				}
 
 				it "should return [$($expected.Output.Value)]" {
-					$result | should be $expected.Output.Value
+					$result | should bein $expected.Output.Value
 				}
 			}
 		}
