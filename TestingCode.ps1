@@ -4,18 +4,8 @@ $parameters = @{
 }
  
 $parameters.FieldMatchMap = @{
-    'csvIdField1' = 'adIdField1'
-	{ if ($_.'csvIdField2') { $_.'csvIdField2' } else { $_.'csvIdField3'} } = 'adIdField2'
+    'PERSON_NUM' = 'employeeId'
 }
-
-$parameters.FieldMatchMap = @(
-    @{ 'csvField' = 'adField' }
-	@{ { if ($_.'PERSON_NUM') { $_.'PERSON_NUM' } else { $_.'AD_LOGON'} } = 'employeeId' }
-	@(
-		@{ { if ($_.'NICK_NAME') { $_.'NICK_NAME' } else { $_.'FIRST_NAME'} } = 'givenName' }
-		@{ 'LAST_NAME' = 'surName' }
-	)
-)
 
 $parameters.fieldSyncMap = @{
     { if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = 'givenName'
@@ -35,19 +25,6 @@ $parameters.fieldSyncMap = @{
 $parameters.FieldValueMap = @{ 'SUPERVISOR' = { $supId = $_.'SUPERVISOR_ID'; (Get-AdUser -Filter "EmployeeId -eq '$supId'").DistinguishedName }}
  
 Invoke-AdSync @parameters
-
-
-
-
- 
-$parameters.FieldMatchMap = @{
-    { if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME' }} = ''
-}
-$parameters.fieldSyncMap = @{
-	'PERSON_NUM' = 'employeeId'
-}
-Invoke-AdSync @parameters
-
 
 
 $adUsers = Get-AdUser -Filter * -Properties *

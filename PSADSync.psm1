@@ -2,7 +2,6 @@ Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
 
 function ConvertToSchemaAttributeType
 {
-	[OutputType([bool],[string])]
 	[CmdletBinding()]
 	param
 	(
@@ -11,20 +10,26 @@ function ConvertToSchemaAttributeType
 		[string]$AttributeName,
 
 		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
+		[AllowEmptyString()]
 		[string]$AttributeValue
 	)
 
-	switch ($AttributeName)
-	{
-		'accountExpires' {
-			([datetime]$AttributeValue).AddDays(2)
+	if ($AttributeValue) {
+		switch ($AttributeName)
+		{
+			'accountExpires' {
+				if ([string]$AttributeValue -as [DateTime]) {
+					[datetime]$AttributeValue
+				} else {
+					[datetime]::FromFileTime($AttributeValue).AddDays(-1)
+				}
+			}
+			default {
+				$AttributeValue
+			}
 		}
-		default {
-			$AttributeValue
-		}
-	}	
-	
+	}
+
 }
 
 function ConvertToAdUser
@@ -664,29 +669,25 @@ function FindAttributeMismatch
 		} else {
 			$csvFieldName = $_.Key
 		}
-		Write-Verbose -Message "Checking CSV field [$($csvFieldName)] for mismatches..."
 		$adAttribName = $_.Value
-		Write-Verbose -Message "Checking AD attribute [$($adAttribName)] for mismatches..."
 		
-		## Remove the null fields
-		if (-not $AdUser.$adAttribName) {
-			$AdUser | Add-Member -MemberType NoteProperty -Name $adAttribName -Force -Value ''
-		}
-		if ($CsvUser.$csvFieldName) {
-			if (-not ($csvValue = ConvertToSchemaAttributeType -AttributeName $adAttribName -AttributeValue $CsvUser.$csvFieldName)) {
-				$false
-			} else {
-				Write-Verbose -Message "Comparing AD attribute [$($Aduser.$adAttribName)] with converted CSV value [$($csvValue)]..."
-				
-				## Compare the two property values and return the AD attribute name and value to be synced
-				if ($AdUser.$adAttribName -ne $csvValue) {
-					@{
-						ActiveDirectoryAttribute = @{ $adAttribName = $AdUser.$adAttribName }
-						CSVField = @{ $csvFieldName = $CsvUser.$csvFieldName }
-						ADShouldBe = @{ $adAttribName = $CsvUser.$csvFieldName }
-					}
-					Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]."
+		Write-Verbose -Message "Checking CSV field [$($csvFieldName)] / AD field [$($adAttribName)] for mismatches..."
+		
+		$adAttribValue = $AdUser.$adAttribName
+		$csvAttribValue = $CsvUser.$csvFieldName
+		if ($csvAttribValue) {
+			$csvAttribValue = ConvertToSchemaAttributeType -AttributeName $adAttribName -AttributeValue $csvAttribValue
+			$adAttribValue = ConvertToSchemaAttributeType -AttributeName $adAttribName -AttributeValue $adAttribValue
+			Write-Verbose -Message "Comparing AD attribute value [$($adattribValue)] with CSV value [$($csvAttribValue)]..."
+			
+			## Compare the two property values and return the AD attribute name and value to be synced
+			if ($adattribValue -ne $csvAttribValue) {
+				@{
+					ActiveDirectoryAttribute = @{ $adAttribName = $adattribValue }
+					CSVField = @{ $csvFieldName = $csvAttribValue }
+					ADShouldBe = @{ $adAttribName = $csvAttribValue }
 				}
+				Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]."
 			}
 		}
 	})

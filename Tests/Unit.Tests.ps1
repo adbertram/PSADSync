@@ -1469,6 +1469,80 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
+	describe 'ConvertToSchemaAttributeType' {
+		
+		$commandName = 'ConvertToSchemaAttributeType'
+		$script:command = Get-Command -Name $commandName
+	
+		$testCases = @(
+			@{
+				Label = 'AD accountExpires value'
+				Parameters = @{
+					AttributeName = 'accountExpires'
+					AttributeValue = '131907060000000000'
+				}
+				Expected = @{
+					Output = @{
+						ObjectCount = 1
+						ObjectType = 'datetime'
+						Value = '12/30/2018 00:00:00'
+					}
+				}
+			}
+			@{
+				Label = 'CSV accountExpires string'
+				Parameters = @{
+					AttributeName = 'accountExpires'
+					AttributeValue = '12/30/18'
+				}
+				Expected = @{
+					Output = @{
+						ObjectCount = 1
+						ObjectType = 'datetime'
+						Value = '12/30/2018 00:00:00'
+					}
+				}
+			}
+			@{
+				Label = 'Unrecognized string'
+				Parameters = @{
+					AttributeName = 'x'
+					AttributeValue = '12/30/18'
+				}
+				Expected = @{
+					Output = @{
+						ObjectCount = 1
+						ObjectType = 'string'
+						Value = '12/30/18'
+					}
+				}
+			}
+		)
+		foreach ($testCase in $testCases) {
+	
+			$parameters = $testCase.Parameters
+			$expected = $testCase.Expected
+	
+			context $testCase.Label {
+	
+				$result = & $commandName @parameters
+
+				it "should return [$($expected.Output.ObjectCount)] object(s)" {
+					@($result).Count | should be $expected.Output.ObjectCount
+				}
+
+				it "should return an object of type [$($expected.Output.ObjectType)]" {
+					$result | should beoftype $expected.Output.ObjectType
+				}
+
+				it "should return [$($expected.Output.Value)]" {
+					$result | should be $expected.Output.Value
+				}
+			}
+		}
+	}
+
+
 	describe 'SetAduser' {
 	
 		$commandName = 'SetAduser'
