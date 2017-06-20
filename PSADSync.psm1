@@ -921,7 +921,7 @@ function Invoke-AdSync
 
 			if ($PSBoundParameters.ContainsKey('FieldValueMap'))
 			{
-				if (-not (TestFieldMapIsValid -FieldMatchMap $FieldValueMap -CsvFilePath $CsvFilePath)) {
+				if (-not (TestFieldMapIsValid -FieldValueMap $FieldValueMap -CsvFilePath $CsvFilePath)) {
 					throw 'Invalid attribute found in FieldValueMap.'
 				}	
 			}
