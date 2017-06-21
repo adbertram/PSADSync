@@ -311,10 +311,6 @@ function Get-CompanyCsvUser
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$FieldValueMap,
-
-		[Parameter()]
-		[ValidateNotNullOrEmpty()]
 		[hashtable]$Exclude
 	)
 	begin
@@ -325,7 +321,7 @@ function Get-CompanyCsvUser
 	process
 	{
 		try
-		{	
+		{
 			$whereFilter = { '*' }
 			if ($PSBoundParameters.ContainsKey('Exclude'))
 			{
@@ -899,10 +895,6 @@ function Invoke-AdSync
 			$getCsvParams = @{
 				CsvFilePath = $CsvFilePath
 			}
-			if ($PSBoundParameters.ContainsKey('FieldValueMap'))
-			{
-				$getCsvParams.FieldValueMap = $FieldValueMap	
-			}
 
 			if ($PSBoundParameters.ContainsKey('Exclude'))
 			{
@@ -957,30 +949,27 @@ function Invoke-AdSync
 					Write-Verbose -Message 'Match'
 
 					$CSVAttemptedMatchIds = $aduserMatch.CSVAttemptedMatchIds
-					$csvIdValue = $CSVAttemptedMatchIds -join ','
+					$csvIdValue = ($CSVAttemptedMatchIds | % {$csvUser.$_}) -join ','
 					$csvIdField = $CSVAttemptedMatchIds -join ','
 
 					#region FieldValueMap check
-						if ($PSBoundParameters.ContainsKey('FieldValueMap'))
-						{
-							$csvUserSelectParams = @{
-								Property = '*'
-							}
-							$csvUserSelectParams.ExcludeProperty = $FieldValueMap.Keys
-							$csvUserSelectParams.Property = @('*')
-							$FieldValueMap.GetEnumerator().foreach({
-								if ($_.Value -isnot 'scriptblock') {
-									throw 'A value in FieldValueMap is not a scriptblock'
+						$selectParams = @{ Property = '*' }
+						if ($PSBoundParameters.ContainsKey('FieldValueMap')) {
+							$selectParams.Property = @('*')
+							$selectParams.Exclude = [array]($FieldValueMap.Keys)
+							@($FieldValueMap.GetEnumerator()).foreach({
+								$selectParams.Property += @{ 
+									Name = $_.Key
+									Expression = $_.Value
 								}
-								$csvUserSelectParams.Property += @{ 'Name' = $_.Key; Expression = $_.Value }
 							})
+						}
 
-							$csvUser| Select-Object @selectParams | foreach {
-								if ($FieldValueMap -and (-not $_.($FieldValueMap.Keys))) {
-									Write-Warning -Message "The CSV [$($FieldValueMap.Keys)] field in FieldValueMap returned nothing for CSV user [$($csvIdValue)]."
-								} else {
-									$_
-								}
+						$csvUser = $csvUser | Select-Object @selectParams | foreach {
+							if ($FieldValueMap -and (-not $_.($FieldValueMap.Keys))) {
+								Write-Warning -Message "The CSV [$($FieldValueMap.Keys)] field in FieldValueMap returned nothing for CSV user [$($csvIdValue)]."
+							} else {
+								$_
 							}
 						}
 					#endregion

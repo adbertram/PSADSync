@@ -1906,6 +1906,12 @@ InModuleScope $ThisModuleName {
 			}
 
 			mock 'New-CompanyAdUser'
+
+			mock 'Get-AdUser' {
+				[pscustomobject]@{
+					DistinguishedName = 'CN=manager'
+				}
+			}
 		#endregion
 
 		$parameterSets = @(
