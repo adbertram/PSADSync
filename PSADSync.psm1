@@ -85,19 +85,21 @@ function Get-CompanyAdUser
 	{
 		try
 		{
-			$userProperties = [array]($FieldSyncMap.Values)
+			$userSyncProperties = [array]($FieldSyncMap.Values)
 			@($FieldMatchMap.GetEnumerator()).foreach({
 				if ($_.Value -is 'scriptblock') {
-					$userProperties += ParseScriptBlockHeaders -FieldScriptBlock $_.Value | Select-Object -Unique
+					$userSyncProperties += ParseScriptBlockHeaders -FieldScriptBlock $_.Value | Select-Object -Unique
 				} else {
-					$userProperties += $_.Value
+					$userSyncProperties += $_.Value
 				}
 			})
 
-			@(Get-AdUser -Filter '*').where({
+			$userIdProperties = [array]($FieldMatchMap.Values)
+
+			@(Get-AdUser -Filter '*' -Properties '*').where({
 				$adUser = $_
 				## Ensure at least one ID field is populated
-				@($userProperties).where({ $adUser.($_) })
+				@($userIdProperties).where({ $adUser.($_) })
 			})
 		}
 		catch
@@ -605,7 +607,7 @@ function FindAttributeMismatch
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[object]$AdUser,
+		$AdUser,
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
