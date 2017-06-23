@@ -1343,6 +1343,20 @@ InModuleScope $ThisModuleName {
 					}
 				}
 			}
+			@{
+				Label = 'Null attribute value'
+				Parameters = @{
+					AttributeName = 'x'
+					AttributeValue = $null
+				}
+				Expected = @{
+					Output = @{
+						ObjectCount = 1
+						ObjectType = 'string'
+						Value = ''
+					}
+				}
+			}
 		)
 		foreach ($testCase in $testCases) {
 	

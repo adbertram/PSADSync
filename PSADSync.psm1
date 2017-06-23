@@ -28,6 +28,9 @@ function ConvertToSchemaAttributeType
 				$AttributeValue
 			}
 		}
+	} else {
+		## If $AttributeValue is null, return an emptry string to prevent any references to the value from failing
+		''
 	}
 
 }
