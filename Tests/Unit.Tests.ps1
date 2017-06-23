@@ -373,7 +373,7 @@ InModuleScope $ThisModuleName {
 				}
 				Expected = @{
 					Output = @{
-						ObjectCount = 10
+						ObjectCount = 9
 					}
 				}
 			}
