@@ -94,8 +94,7 @@ function Get-CompanyAdUser
 				}
 			})
 
-			Write-Verbose -Message "Finding all AD users in domain with properties: $($userProperties -join ',')"
-			@(Get-AdUser -Filter '*' -Properties $userProperties).where({
+			@(Get-AdUser -Filter '*').where({
 				$adUser = $_
 				## Ensure at least one ID field is populated
 				@($userProperties).where({ $adUser.($_) })
