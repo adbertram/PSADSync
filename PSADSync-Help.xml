@@ -1,0 +1,457 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<helpItems schema="maml" xmlns="http://msh">
+	<!--Edited with: SAPIEN PowerShell HelpWriter 2017 v2.1.34-->
+	<command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+		<!--Command-->
+		<command:details>
+			<command:name>Invoke-AdSync</command:name>
+			<maml:description>
+				<maml:para>This is the main function for the PSADSync module. This function reads all rows in a CSV file, finds an Active Directory user match and then optionally syncs each CSV field with the user's AD attribute.</maml:para>
+			</maml:description>
+			<maml:copyright>
+				<maml:para />
+			</maml:copyright>
+			<command:verb>Invoke</command:verb>
+			<command:noun>AdSync</command:noun>
+			<dev:version />
+		</command:details>
+		<maml:description>
+			<maml:para>This function has many ways to both find and sync users but the premise is the same.</maml:para>
+			<maml:para>1. Figure out a 1:1 ID match between a CSV row and an Active Directory user account.
+2. If not found:
+    - optionally create users or do nothing.
+3. If found:
+    - attempt to match each applicable CSV field to an Active Directory user attribute.
+4. If a CSV field to AD user attribute match is found:
+    - Attempt to write the applicable CSV field value to the user attribute making the CSV row field values and the user AD attributes in sync.
+5. If a CSV field to AD user attribute match is not found:
+    - Do nothing</maml:para>
+			<maml:para>All activity is recorded in a CSV file called PSADSync.csv in the folder as where this function is executed with what IDs fields were mapped along with each attribute that was synced (or needs to be synced).</maml:para>
+		</maml:description>
+		<command:syntax>
+			<!--Parameter Sets-->
+			<command:syntaxItem parametersetname="DefaultParameterSet">
+				<!--NAME: DefaultParameterSet-->
+				<maml:name>Invoke-AdSync</maml:name>
+				<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+					<maml:name>CsvFilePath</maml:name>
+					<maml:description>
+						<maml:para>A mandatory parameter that represents the location to the CSV file containing probable employee accounts is located.</maml:para>
+					</maml:description>
+					<command:parameterValue required="true" variableLength="false">string</command:parameterValue>
+					<dev:defaultValue></dev:defaultValue>
+				</command:parameter>
+				<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+					<maml:name>FieldSyncMap</maml:name>
+					<maml:description>
+						<maml:para>A mandatory hashtable representing key/value pairs in order to map a CSV field to an Active Directory user attribute. The key (left hand value) will always be the CSV field name and the value (right hand value) will always be the Active Directory attribute that field maps to. The hashtable can contain as many key/value pairs as necessary mapping a CSV field to an AD users's attribute.</maml:para>
+						<maml:para>Instead of specifying a simple string for each key in this parameter you may also specify a scriptblock. When a scriptblock is specfied as a key, this is known as a conditional map. This expression is then executed when reading the CSV file and "converts" the original CSV value to one that's the result of the expression.</maml:para>
+					</maml:description>
+					<command:parameterValue required="true" variableLength="false">hashtable</command:parameterValue>
+					<dev:defaultValue></dev:defaultValue>
+				</command:parameter>
+				<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+					<maml:name>FieldValueMap</maml:name>
+					<maml:description>
+						<maml:para>An optional hashtable parameter representing any in-memory changes that need to occur to values inside of the CSV. This parameter would be used if, instead of matching a value in the CSV, the value needs to be changed somehow before writing the attribute to Active Directory.</maml:para>
+						<maml:para>Instead of specifying a simple string for each value in this parameter you may also specify a scriptblock. When a scriptblock is specfied as a value, this is known as a conditional map. This expression is then executed when reading the CSV file and "converts" the original CSV value to one that's the result of the expression. This is useful in times when the values in a CSV field need to be changed to reflect the expected values for a user in Active Directory.</maml:para>
+					</maml:description>
+					<dev:defaultValue></dev:defaultValue>
+				</command:parameter>
+				<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+					<maml:name>FieldMatchMap</maml:name>
+					<maml:description>
+						<maml:para>A mandatory hashtable parameter representing key/value pairs in order to map an identifying CSV field to an Active Directory identifying user attribute. The key (left hand value) will always be the CSV field name and the value (right hand value) will always be the Active Directory attribute that field maps to. This hashtable is used to find the initial 1:1 match mapping a single CSV row to a single Active Directory user.</maml:para>
+						<maml:para>Instead of specifying a simple string for each key in this parameter you may also specify a scriptblock. When a scriptblock is specfied as a key, this is known as a conditional map. This expression is then executed when reading the CSV file and "converts" the original CSV value to one that's the result of the expression.</maml:para>
+						<maml:para>This is useful in times when an identifier field in the CSV needs to be changed to reflect the expected unique identifier for a user in Active Directory.</maml:para>
+					</maml:description>
+					<command:parameterValue required="true" variableLength="false">hashtable</command:parameterValue>
+					<dev:defaultValue></dev:defaultValue>
+				</command:parameter>
+				<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
+					<maml:name>ReportOnly</maml:name>
+					<maml:description>
+						<maml:para>By default, Invoke-AdSync attempts to sync user attributes. To only attempt to find matches and out of sync attributes, use this parameter to disable syncing and only write results to the log file.</maml:para>
+					</maml:description>
+					<command:parameterValue required="false" variableLength="false">switch</command:parameterValue>
+					<dev:defaultValue></dev:defaultValue>
+				</command:parameter>
+				<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
+					<maml:name>Exclude</maml:name>
+					<maml:description>
+						<maml:para>An optional hashtable parameter representing any CSV users that need to be excluded from the sync. The key value will be the CSV field name while the hashtable value will be the value of the CSV field to exclude.</maml:para>
+						<maml:para>This parameter is useful when the CSV file has values that you'd like to exclude completely from the sync.</maml:para>
+					</maml:description>
+					<command:parameterValue required="false" variableLength="false">hashtable</command:parameterValue>
+					<dev:defaultValue></dev:defaultValue>
+				</command:parameter>
+			</command:syntaxItem>
+			<command:syntaxItem parametersetname="CreateNewUsers">
+				<!--NAME: CreateNewUsers-->
+				<maml:name>Invoke-AdSync</maml:name>
+				<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
+					<maml:name>CreateNewUsers</maml:name>
+					<maml:description>
+						<maml:para>An optional switch parameter to create all users in the CSV file in which a match could not be found. By default, Invoke-AdSync only changes attributes on existing Active Directory users.</maml:para>
+					</maml:description>
+					<command:parameterValue required="false" variableLength="false">switch</command:parameterValue>
+					<dev:defaultValue></dev:defaultValue>
+				</command:parameter>
+				<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+					<maml:name>UserMatchMap</maml:name>
+					<maml:description>
+						<maml:para>An mandatory hashtable parameter to be used when creating new Active Directory users. Since a 1:1 match cannot be found using the FieldMatchMap parameter, Invoke-AdSync needs another way to make this match. The values in this hashtable will be used to dynamically build a samAccountName attribute for the soon-to-be-created Active Directory user.</maml:para>
+						<maml:para>This hashtable needs to know the first name and last name of an employee from the CSV. It is meant to map the 'First name'  and 'Last name' fields in the CSV file with the AD user's givenName and surName attributes.</maml:para>
+					</maml:description>
+					<command:parameterValue required="true" variableLength="false">hashtable</command:parameterValue>
+					<dev:defaultValue></dev:defaultValue>
+				</command:parameter>
+				<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+					<maml:name>UserNamePattern</maml:name>
+					<maml:description>
+						<maml:para>To create new users, the samAccountName attribute must be created. This string parameter allows the user to define the pattern in which it will be created. Available options are FirstInitialLastName, FirstNameLastName, FirstNameDotLastName.</maml:para>
+					</maml:description>
+					<command:parameterValue required="true" variableLength="false">string</command:parameterValue>
+					<dev:defaultValue></dev:defaultValue>
+				</command:parameter>
+			</command:syntaxItem>
+		</command:syntax>
+		<command:parameters>
+			<!--All Parameters-->
+			<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>CsvFilePath</maml:name>
+				<maml:description>
+					<maml:para>A mandatory parameter that represents the location to the CSV file containing probable employee accounts is located.</maml:para>
+				</maml:description>
+				<command:parameterValue required="true" variableLength="false">string</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>FieldSyncMap</maml:name>
+				<maml:description>
+					<maml:para>A mandatory hashtable representing key/value pairs in order to map a CSV field to an Active Directory user attribute. The key (left hand value) will always be the CSV field name and the value (right hand value) will always be the Active Directory attribute that field maps to. The hashtable can contain as many key/value pairs as necessary mapping a CSV field to an AD users's attribute.</maml:para>
+					<maml:para>Instead of specifying a simple string for each key in this parameter you may also specify a scriptblock. When a scriptblock is specfied as a key, this is known as a conditional map. This expression is then executed when reading the CSV file and "converts" the original CSV value to one that's the result of the expression.</maml:para>
+				</maml:description>
+				<command:parameterValue required="true" variableLength="false">hashtable</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>FieldMatchMap</maml:name>
+				<maml:description>
+					<maml:para>A mandatory hashtable parameter representing key/value pairs in order to map an identifying CSV field to an Active Directory identifying user attribute. The key (left hand value) will always be the CSV field name and the value (right hand value) will always be the Active Directory attribute that field maps to. This hashtable is used to find the initial 1:1 match mapping a single CSV row to a single Active Directory user.</maml:para>
+					<maml:para>Instead of specifying a simple string for each key in this parameter you may also specify a scriptblock. When a scriptblock is specfied as a key, this is known as a conditional map. This expression is then executed when reading the CSV file and "converts" the original CSV value to one that's the result of the expression.</maml:para>
+					<maml:para>This is useful in times when an identifier field in the CSV needs to be changed to reflect the expected unique identifier for a user in Active Directory.</maml:para>
+				</maml:description>
+				<command:parameterValue required="true" variableLength="false">hashtable</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>FieldValueMap</maml:name>
+				<maml:description>
+					<maml:para>An optional hashtable parameter representing any in-memory changes that need to occur to values inside of the CSV. This parameter would be used if, instead of matching a value in the CSV, the value needs to be changed somehow before writing the attribute to Active Directory.</maml:para>
+					<maml:para>Instead of specifying a simple string for each value in this parameter you may also specify a scriptblock. When a scriptblock is specfied as a value, this is known as a conditional map. This expression is then executed when reading the CSV file and "converts" the original CSV value to one that's the result of the expression. This is useful in times when the values in a CSV field need to be changed to reflect the expected values for a user in Active Directory.</maml:para>
+				</maml:description>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>CreateNewUsers</maml:name>
+				<maml:description>
+					<maml:para>An optional switch parameter to create all users in the CSV file in which a match could not be found. By default, Invoke-AdSync only changes attributes on existing Active Directory users.</maml:para>
+				</maml:description>
+				<command:parameterValue required="false" variableLength="false">switch</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>UserMatchMap</maml:name>
+				<maml:description>
+					<maml:para>An mandatory hashtable parameter to be used when creating new Active Directory users. Since a 1:1 match cannot be found using the FieldMatchMap parameter, Invoke-AdSync needs another way to make this match. The values in this hashtable will be used to dynamically build a samAccountName attribute for the soon-to-be-created Active Directory user.</maml:para>
+					<maml:para>This hashtable needs to know the first name and last name of an employee from the CSV. It is meant to map the 'First name'  and 'Last name' fields in the CSV file with the AD user's givenName and surName attributes.</maml:para>
+				</maml:description>
+				<command:parameterValue required="true" variableLength="false">hashtable</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>UserNamePattern</maml:name>
+				<maml:description>
+					<maml:para>To create new users, the samAccountName attribute must be created. This string parameter allows the user to define the pattern in which it will be created. Available options are FirstInitialLastName, FirstNameLastName, FirstNameDotLastName.</maml:para>
+				</maml:description>
+				<command:parameterValue required="true" variableLength="false">string</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>ReportOnly</maml:name>
+				<maml:description>
+					<maml:para>By default, Invoke-AdSync attempts to sync user attributes. To only attempt to find matches and out of sync attributes, use this parameter to disable syncing and only write results to the log file.</maml:para>
+				</maml:description>
+				<command:parameterValue required="false" variableLength="false">switch</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>Exclude</maml:name>
+				<maml:description>
+					<maml:para>An optional hashtable parameter representing any CSV users that need to be excluded from the sync. The key value will be the CSV field name while the hashtable value will be the value of the CSV field to exclude.</maml:para>
+					<maml:para>This parameter is useful when the CSV file has values that you'd like to exclude completely from the sync.</maml:para>
+				</maml:description>
+				<command:parameterValue required="false" variableLength="false">hashtable</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+		</command:parameters>
+		<command:returnValues>
+			<!--Outputs-->
+			<command:returnValue>
+				<dev:type>
+					<maml:name>None</maml:name>
+					<maml:uri />
+				</dev:type>
+				<maml:description>
+					<maml:para />
+				</maml:description>
+			</command:returnValue>
+		</command:returnValues>
+		<command:examples>
+			<!--Examples-->
+			<command:example>
+				<maml:title>EXAMPLE 1 - Performing Simple String Match and Sync</maml:title>
+				<maml:introduction>
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found however, the function would then read the 'givenName' and 'surName` attributes on each AD account. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user.
+===========</maml:para>
+				</maml:introduction>
+				<dev:code>===========
+PS&gt; Import-Csv -Path C:\CsvUsers.csv
+FirstName    LastName    userName
+Adam           Bertram       abertram
+Joe               Jones           jjones
+
+$parameters = @{
+    CsvFilePath = 'C:\CsvUsers.csv'
+    FieldMatchMap = @{ userName = 'samAccountName' }
+    FieldSyncMap = @{ 
+        FirstName = 'givenName'; 
+        LastName = 'surName' 
+    }
+}
+C:\PS&gt; Invoke-AdSync @parameters</dev:code>
+				<dev:remarks>
+					<maml:para />
+				</dev:remarks>
+			</command:example>
+			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
+				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 2 - Performing Simple String Match</maml:title>
+				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found however, the function would write the CSV fields, their values along with the AD user attribute names and values that are out of sync to the log file PSADSync.csv located in the same folder in which the function was executed.
+===========</maml:para>
+				</maml:introduction>
+				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
+PS&gt; Import-Csv -Path C:\CsvUsers.csv
+FirstName    LastName    userName
+Adam           Bertram       abertram
+Joe               Jones           jjones
+
+
+$parameters = @{
+    CsvFilePath = 'C:\CsvUsers.csv'
+    FieldMatchMap = @{ userName = 'samAccountName' }
+    FieldSyncMap = @{ 
+        FirstName = 'givenName'; 
+        LastName = 'surName' 
+    }
+    ReportOnly = $true
+}
+C:\PS&gt; Invoke-AdSync @parameters</dev:code>
+				<dev:remarks xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+					<maml:para />
+				</dev:remarks>
+			</command:example>
+			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
+				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 3 - Performing Simple String Match to Create New User Accounts</maml:title>
+				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would then assume the 'FirstN` CSV field is the users's first name and the 'LastN` CSV field is the user's last name. It would then combine these two strings creating AD user accounts with the samAccountName of 'abertram' and 'jjones' based on the UserNamePattern specified. Once username has been assembled, it would then create both of these users with the appropriate samAccountName with a givenName and surName mapped appropriately.
+===========</maml:para>
+				</maml:introduction>
+				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
+PS&gt; Import-Csv -Path C:\CsvUsers.csv
+FirstN    LastN          userName
+Adam    Bertram       abertram
+Joe        Jones           jjones
+
+$parameters = @{
+    CsvFilePath = 'C:\CsvUsers.csv'
+    FieldMatchMap = @{ userName = 'samAccountName' }
+    FieldSyncMap @{ 
+        FirstName = 'givenName'
+        LastName = 'surName' 
+    }
+    CreateNewUsers = $true
+    UserMatchMap = @{ FirstName = ‘FirstN’; LastName = ‘LastN’ }
+    UserNamePattern = 'FirstInitialLastName'
+}
+C:\PS&gt; Invoke-AdSync @parameters</dev:code>
+				<dev:remarks xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+					<maml:para />
+				</dev:remarks>
+			</command:example>
+			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
+				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 4 - Performing a Simple String Match and Sync with a Fallback Identifier</maml:title>
+				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would then attempt to perform the same match on the CSV field 'id' with the AD user attibute 'employeeId'. If still not found, it would do nothing. If found however, the function would then read the 'givenName' and 'surName` attributes on each AD account. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user.
+===========</maml:para>
+				</maml:introduction>
+				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
+PS&gt; Import-Csv -Path C:\CsvUsers.csv
+FirstName    LastName    userName  id
+Adam           Bertram       abertram    1
+Joe               Jones           jjones          2
+
+$parameters = @{
+    CsvFilePath = 'C:\CsvUsers.csv'
+    FieldMatchMap = @{
+        userName = 'samAccountName' 
+        id = 'employeeId'
+    }
+    FieldSyncMap = @{ 
+        FirstName = 'givenName'
+        LastName = 'surName' 
+    }
+}
+C:\PS&gt; Invoke-AdSync @parameters</dev:code>
+				<dev:remarks xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+					<maml:para />
+				</dev:remarks>
+			</command:example>
+			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
+				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 5 - Performing a Conditional String Match</maml:title>
+				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
+					<maml:para>If the 'usrname' field in a CSV row is blank, this example would attempt to find the Active Directory users with a samAccountName of '1'  based on the CSV field 'id' and a samAccountName of 'abertram' based on the CSV field 'userName'. If the 'username' value is not blank, it would attemp to find the Active Directory users with a samAccountName of 'userName'.</maml:para>
+					<maml:para>If a match was not found, it would do nothing. If found however, the function would then read the 'givenName' and 'surName` attributes on each AD account. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user.
+===========</maml:para>
+				</maml:introduction>
+				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
+PS&gt; Import-Csv -Path C:\CsvUsers.csv
+FirstName    LastName    userName  id
+Adam           Bertram       abertram    1
+Joe               Jones                               2
+
+$parameters = @{
+    CsvFilePath = 'C:\CsvUsers.csv'
+    FieldMatchMap = @{
+        { if ($_.userName -eq $null) { 'id' } else { 'username' }  } = 'samAccountName' 
+        id = 'employeeId'
+    }
+    FieldSyncMap = @{ 
+        FirstName = 'givenName'
+        LastName = 'surName' 
+    }
+}
+C:\PS&gt; Invoke-AdSync @parameters</dev:code>
+				<dev:remarks xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+					<maml:para />
+				</dev:remarks>
+			</command:example>
+			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
+				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 6 - Performing a Simple String Match and a Conditional Sync</maml:title>
+				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found however, the function would then check to see if the 'NickName' field in the CSV was populated. If so, it would map the 'NickName' field to the 'givenName' AD attribute. If not, it would map the 'FirstName' field to the 'givenName' AD attribute. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user.
+===========</maml:para>
+				</maml:introduction>
+				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
+PS&gt; Import-Csv -Path C:\CsvUsers.csv
+FirstName    LastName    NickName userName  id
+Adam           Bertram        ace            abertram    1
+Joe               Jones             Joey          2
+
+$parameters = @{
+    CsvFilePath = 'C:\CsvUsers.csv'
+    FieldMatchMap = @{
+        'userName' = 'samAccountName'
+    }
+    FieldSyncMap = @{ 
+        { if ($_.NickName) { 'NickName' } else 'FirstName' }} = 'givenName'
+        LastName = 'surName' 
+    }
+}
+C:\PS&gt; Invoke-AdSync @parameters</dev:code>
+				<dev:remarks xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+					<maml:para />
+				</dev:remarks>
+			</command:example>
+			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
+				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 7 - Performing a Simple String Match and Sync Using a Conditional Value</maml:title>
+				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found, it would map the 'Supervisor' CSV field to the 'manager' AD attribute. If differed from 'CN=jjones,DC=lab,DC=local' in the AD user manager attribute, it would attempt to write this values to each AD user.</maml:para>
+					<maml:para>This example uses the `FieldValueMap` to dynamically replace a CSV field value with the result of an expression.
+===========</maml:para>
+				</maml:introduction>
+				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
+PS&gt; Import-Csv -Path C:\CsvUsers.csv
+FirstName    LastName    NickName userName  id  Supervisor      SupervisorId
+Adam           Bertram        ace            abertram    1    'Joey Jones'    2
+Joe               Jones             Joey          jjones         2
+
+PS&gt; (Get-AdUser -Filter "EmployeeId -eq '2'").DistinguishedName
+CN=jjones,DC=lab,DC=local
+
+$parameters = @{
+    CsvFilePath = 'C:\CsvUsers.csv'
+    FieldMatchMap = @{
+        'userName' = 'samAccountName' 
+    }
+    FieldSyncMap = @{ 
+        Supervisor = 'manager'
+    }
+    FieldValueMap = @{
+        'SUPERVISOR' = { $supId = $_.SupervisorId ; (Get-AdUser -Filter "EmployeeId -eq '$supId'").DistinguishedName }
+    }
+}
+C:\PS&gt; Invoke-AdSync @parameters</dev:code>
+				<dev:remarks xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+					<maml:para />
+				</dev:remarks>
+			</command:example>
+		</command:examples>
+	</command:command>
+	<!--Edited with: SAPIEN PowerShell HelpWriter 2017 v2.1.34-->
+	<command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+		<!--Command-->
+		<command:details>
+			<command:name>Get-AvailableAdUserAttribute</command:name>
+			<maml:description>
+				<maml:para>In order to create a working field map, the AD attribute must match exactly what's stored in the AD schema for a user account. This command allows you to find all of these attributes to discover what the name of the AD attribute is that you'd like to match or sync on.</maml:para>
+			</maml:description>
+			<maml:copyright>
+				<maml:para />
+			</maml:copyright>
+			<command:verb>Get</command:verb>
+			<command:noun>AvailableAdUserAttribute</command:noun>
+			<dev:version />
+		</command:details>
+		<maml:description>
+			<maml:para />
+		</maml:description>
+		<command:syntax>
+			<!--Parameter Sets-->
+		</command:syntax>
+		<command:returnValues>
+			<!--Outputs-->
+			<command:returnValue>
+				<dev:type>
+					<maml:name>string</maml:name>
+					<maml:uri></maml:uri>
+				</dev:type>
+				<maml:description>
+					<maml:para />
+				</maml:description>
+			</command:returnValue>
+		</command:returnValues>
+		<command:examples>
+			<!--Examples-->
+			<command:example>
+				<maml:title>EXAMPLE 1</maml:title>
+				<dev:code>C:\PS&gt; Get-AvailableUserAttributes</dev:code>
+				<dev:remarks>
+					<maml:para />
+				</dev:remarks>
+			</command:example>
+		</command:examples>
+	</command:command>
+	<!--Edited with: SAPIEN PowerShell HelpWriter 2017 v2.1.34-->
+</helpItems>

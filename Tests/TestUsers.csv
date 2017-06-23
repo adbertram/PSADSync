@@ -1,2 +1,8 @@
-EXPORT_DATE,PERSON_ID,PERSON_NUM,PERSON_TYPE,PERSON_SUB_TYPE,FIRST_NAME,MIDDLE_NAME,LAST_NAME,NICK_NAME,FULL_NAME,TITLE,LOCATION,DEPARTMENT,BUSINESS_UNIT,SUPERVISOR,COMPANY,DEFAULT_ACCOUNT,VENDOR,JOB,GENDER,HIRE_DATE,TERM_DATE,EMAIL_ADDRESS,OFFICE_NUMBER,MOBILE_NUMBER,FAX_NUMBER,AD_DOMAIN,AD_LOGON,ADDRESS_TYPE,PRIMARY_ADDRESS_FLAG,ADDRESS_LINE_1,ADDRESS_LINE_2,ADDRESS_LINE_3,CITY,COUNTY,STATE,ZIP,COUNTRY,SUPERVISOR_ID,LOCATION_ID,REPORTING_ESTABLISHMENT,ASSIGNMENT_CATEGORY,COST_CENTER,CONTRACT_END_DATE,ACTIVE
-20170508,999999,999999,Regular,Full_time,changedfirstname,P,changedlastname,changednickname123,"changedlastname, changedfirstname P",Accountant 2,"Some City, CA",G&A - Accounting,,TestUser Manager (NickName),1,5,,POS_6160,,10/10/05,,changedfirstname.changedlastname@domain.com,+1 (888) 555-1325,,,domain.com,mchangedlastname,HOME,TRUE,addr here,,,Some City,,California,88888,US,931726,LOC001-Alis,CO-GA-Accounting,,6112,12/30/18,TRUE
+"csvEmployeeIdField","csvsamAccountNameIdField","csvAccountExpiresSyncField","csvManagerIdSyncField","csvFirstNameSyncField","csvLastNameSyncField","csvNickNameSyncField","csvManagerSyncField"
+"1","psadsyncuser1","1/1/20","6","firstnamechangeme1","lastnamechangeme1","nicknamechangeme1","managerchangeme1"
+,"psadsyncuser2",,"7","firstnamechangeme2","lastnamechangeme2","nicknamechangeme2","managerchangeme2"
+"3",,"1/1/20","8","firstnamechangeme3","lastnamechangeme3","nicknamechangeme3","managerchangeme3"
+,"psadsyncuser4","1/1/20","6","firstnamechangeme4","lastnamechangeme4","nicknamechangeme4","managerchangeme4"
+"5","psadsyncuser5",,,"firstnamechangeme5","lastnamechangeme5",,
+"6","psadsyncuser6",,"5","firstnamechangeme6","lastnamechangeme6","nicknamechangeme6","managerchangeme6"
+"7","psadsyncuser7",,"5",,,"nicknamechangeme7","managerchangeme7"

@@ -32,46 +32,6 @@ function ConvertToSchemaAttributeType
 
 }
 
-function ConvertToAdUser
-{
-	[OutputType('string')]
-	[CmdletBinding()]
-	param
-	(
-		[Parameter(Mandatory,ParameterSetName = 'String')]
-		[ValidateNotNullOrEmpty()]
-		[string]$String
-	)
-
-	$baseLdapString = '(&(objectCategory=person)(objectClass=user)'
-	
-	$ldapString = switch -regex ($String)
-	{
-		'^(?<givenName>\w+)\s+(?<sn>\w+)$' { ## John Doe
-			'(&(givenName={0})(sn={1}))'  -f $Matches.givenName,$Matches.sn
-		}
-		'^(?<sn>\w+),\s?(?<givenName>\w+)$' { ## Doe,John
-			'(&(givenName={0})(sn={1}))'  -f $Matches.givenName,$Matches.sn
-		}
-		'^(?<samAccountName>\w+)$' { ## jdoe
-			'(samAccountName={0})' -f $Matches.samAccountName
-		}
-		'^(?<distinguishedName>(\w+[=]{1}\w+)([,{1}]\w+[=]{1}\w+)*)$' {
-			'(distinguishedName={0})' -f $Matches.distinguishedName
-		}
-		default {
-			Write-Warning -Message "Unrecognized input: [$_]: Unable to convert [$($String)] to LDAP filter."
-		}
-	}
-	if ($ldapString) {
-		$ldapFilter = '{0}{1})' -f $baseLdapString,$ldapString
-
-		Write-Verbose -Message "LDAP filter is [$($ldapFilter)]"
-		Get-AdUser -LdapFilter $ldapFilter
-	}
-	
-}
-
 function SetAdUser
 {
 	[OutputType([void])]
@@ -202,6 +162,7 @@ function GetCsvColumnHeaders
 	(Get-Content -Path $CsvFilePath | Select-Object -First 1).Split(',') -replace '"'
 }
 
+# .ExternalHelp PSADSync-Help.xml
 function Get-AvailableAdUserAttribute {
 	param()
 
@@ -714,32 +675,6 @@ function NewRandomPassword
 	
 }
 
-function ConvertToAdAttribute
-{
-	[OutputType([hashtable])]
-	[CmdletBinding()]
-	param
-	(
-		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
-		[pscustomobject]$CsvUser,
-
-		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
-		[hashtable]$FieldMap
-	)
-
-	$adAttributes = @{}
-	@($CsvUser.PsObject.Properties).foreach({
-		$csvField = $_
-		$adAttrib = $FieldMap.($csvField.Name)
-		$adAttributes.$adAttrib = $csvField.Value
-	})
-
-	$adAttributes
-
-}
-
 function SyncCompanyUser
 {
 	[OutputType()]
@@ -842,10 +777,11 @@ function Write-ProgressHelper {
 	Write-Progress -Activity 'Active Directory Report/Sync' -Status $Message -PercentComplete (($StepNumber / $script:totalSteps) * 100)
 }
 
+# .ExternalHelp PSADSync-Help.xml
 function Invoke-AdSync
 {
-	[OutputType()]
-	[CmdletBinding(SupportsShouldProcess)]
+	[OutputType([void])]
+	[CmdletBinding(SupportsShouldProcess,DefaultParameterSetName = 'Default')]
 	param
 	(
 		[Parameter(Mandatory)]
@@ -864,15 +800,15 @@ function Invoke-AdSync
 		[ValidateNotNullOrEmpty()]
 		[hashtable]$FieldValueMap,
 
-		[Parameter(ParameterSetName = 'CreateNewUsers')]
+		[Parameter(Mandatory,ParameterSetName = 'CreateNewUsers')]
 		[ValidateNotNullOrEmpty()]
 		[switch]$CreateNewUsers,
 
-		[Parameter(ParameterSetName = 'CreateNewUsers')]
+		[Parameter(Mandatory,ParameterSetName = 'CreateNewUsers')]
 		[ValidateNotNullOrEmpty()]
 		[hashtable]$UserMatchMap,
 
-		[Parameter(ParameterSetName = 'CreateNewUsers')]
+		[Parameter(Mandatory,ParameterSetName = 'CreateNewUsers')]
 		[ValidateNotNullOrEmpty()]
 		[string]$UsernamePattern,
 
