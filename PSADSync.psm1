@@ -878,126 +878,136 @@ function Invoke-AdSync
 			$script:totalSteps = @($csvusers).Count
 			$stepCounter = 0
 			@($csvUsers).foreach({
-				if ($ReportOnly.IsPresent) {
-					$prgMsg = "Attempting to find attribute mismatch for user in CSV row [$($stepCounter + 1)]"
-				} else {
-					$prgMsg = "Attempting to find and sync AD any attribute mismatches for user in CSV row [$($stepCounter + 1)]"
-				}
-				Write-ProgressHelper -Message $prgMsg -StepNumber ($stepCounter++)
-				$csvUser = $_
-				if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
-					Write-Verbose -Message 'Match'
+				try {
+					if ($ReportOnly.IsPresent) {
+						$prgMsg = "Attempting to find attribute mismatch for user in CSV row [$($stepCounter + 1)]"
+					} else {
+						$prgMsg = "Attempting to find and sync AD any attribute mismatches for user in CSV row [$($stepCounter + 1)]"
+					}
+					Write-ProgressHelper -Message $prgMsg -StepNumber ($stepCounter++)
+					$csvUser = $_
+					if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
+						Write-Verbose -Message 'Match'
 
-					$CSVAttemptedMatchIds = $aduserMatch.CSVAttemptedMatchIds
-					$csvIdValue = ($CSVAttemptedMatchIds | % {$csvUser.$_}) -join ','
-					$csvIdField = $CSVAttemptedMatchIds -join ','
+						$CSVAttemptedMatchIds = $aduserMatch.CSVAttemptedMatchIds
+						$csvIdValue = ($CSVAttemptedMatchIds | % {$csvUser.$_}) -join ','
+						$csvIdField = $CSVAttemptedMatchIds -join ','
 
-					#region FieldValueMap check
-						$selectParams = @{ Property = '*' }
-						if ($PSBoundParameters.ContainsKey('FieldValueMap')) {
-							$selectParams.Property = @('*')
-							$selectParams.Exclude = [array]($FieldValueMap.Keys)
-							@($FieldValueMap.GetEnumerator()).foreach({
-								$selectParams.Property += @{ 
-									Name = $_.Key
-									Expression = $_.Value
+						#region FieldValueMap check
+							$selectParams = @{ Property = '*' }
+							if ($PSBoundParameters.ContainsKey('FieldValueMap')) {
+								$selectParams.Property = @('*')
+								$selectParams.Exclude = [array]($FieldValueMap.Keys)
+								@($FieldValueMap.GetEnumerator()).foreach({
+									$selectParams.Property += @{ 
+										Name = $_.Key
+										Expression = $_.Value
+									}
+								})
+							}
+
+							$csvUser = $csvUser | Select-Object @selectParams | foreach {
+								if ($FieldValueMap -and (-not $_.($FieldValueMap.Keys))) {
+									throw "The CSV [$($FieldValueMap.Keys)] field in FieldValueMap returned nothing for CSV user [$($csvIdValue)]."
 								}
-							})
-						}
-
-						$csvUser = $csvUser | Select-Object @selectParams | foreach {
-							if ($FieldValueMap -and (-not $_.($FieldValueMap.Keys))) {
-								Write-Warning -Message "The CSV [$($FieldValueMap.Keys)] field in FieldValueMap returned nothing for CSV user [$($csvIdValue)]."
-							} else {
 								$_
 							}
-						}
-					#endregion
+						#endregion
 
-					$findParams = @{
-						AdUser = $adUserMatch.MatchedAdUser
-						CsvUser = $csvUser
-						FieldSyncMap = $FieldSyncMap
-					}
-					$attribMismatches = FindAttributeMismatch @findParams
-					if ($attribMismatches) {
-						$logAttribs = @{
-							CSVAttributeName = ([array]($attribMismatches.CSVField.Keys))[0]
-							CSVAttributeValue = ([array]($attribMismatches.CSVField.Values))[0]
-							ADAttributeName = ([array]($attribMismatches.ActiveDirectoryAttribute.Keys))[0]
-							ADAttributeValue = ([array]($attribMismatches.ActiveDirectoryAttribute.Values))[0]
-						}
-						if (-not $ReportOnly.IsPresent) {
-							$syncParams = @{
-								CsvUser = $csvUser
-								ActiveDirectoryAttributes = $attribMismatches.ADShouldBe
-								Identity = $adUserMatch.MatchedAduser.samAccountName
-							}
-							Write-Verbose -Message "Running SyncCompanyUser with params: [$($syncParams | Out-String)]"
-							SyncCompanyUser @syncParams
-						}
-					} elseif ($attribMismatches -eq $false) {
-						$logAttribs = @{
-							CSVAttributeName = 'SyncError'
-							CSVAttributeValue = 'SyncError'
-							ADAttributeName = 'SyncError'
-							ADAttributeValue = 'SyncError'
-						}
-
-					} else {
-						Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
-						$logAttribs = @{
-							CSVAttributeName = 'AlreadyInSync'
-							CSVAttributeValue = 'AlreadyInSync'
-							ADAttributeName = 'AlreadyInSync'
-							ADAttributeValue = 'AlreadyInSync'
-						}
-					}
-				} else {
-					## No user match was found
-					if (-not ($csvIds = @(GetCsvIdField -CsvUser $csvUser -FieldMatchMap $FieldMatchMap).where({ $_.Field }))) {
-						Write-Warning -Message  'No CSV ID fields were found.'
-						$csvIdField = 'N/A'
-						$csvIdValue = 'N/A'
-
-						$logAttribs = @{
-							CSVAttributeName = 'N/A'
-							CSVAttributeValue = 'N/A'
-							ADAttributeName = 'NoMatch'
-							ADAttributeValue = 'NoMatch'
-						}
-					} elseif ($CreateNewUsers.IsPresent) {
-						$csvIdField = $csvIds.Field -join ','
-						$newUserParams = @{
+						$findParams = @{
+							AdUser = $adUserMatch.MatchedAdUser
 							CsvUser = $csvUser
-							UsernamePattern = $UsernamePattern
-							UserMatchMap = $UserMatchMap
-							RandomPassword = $true
 							FieldSyncMap = $FieldSyncMap
-							FieldMatchMap = $FieldMatchMap
 						}
-						New-CompanyAdUser @newUserParams
-
-						$logAttribs = @{
-							CSVAttributeName = 'NewUserCreated'
-							CSVAttributeValue = 'NewUserCreated'
-							ADAttributeName = 'NewUserCreated'
-							ADAttributeValue = 'NewUserCreated'
+						$attribMismatches = FindAttributeMismatch @findParams
+						if ($attribMismatches) {
+							$logAttribs = @{
+								CSVAttributeName = ([array]($attribMismatches.CSVField.Keys))[0]
+								CSVAttributeValue = ([array]($attribMismatches.CSVField.Values))[0]
+								ADAttributeName = ([array]($attribMismatches.ActiveDirectoryAttribute.Keys))[0]
+								ADAttributeValue = ([array]($attribMismatches.ActiveDirectoryAttribute.Values))[0]
+								Message = $null
+							}
+							if (-not $ReportOnly.IsPresent) {
+								$syncParams = @{
+									CsvUser = $csvUser
+									ActiveDirectoryAttributes = $attribMismatches.ADShouldBe
+									Identity = $adUserMatch.MatchedAduser.samAccountName
+								}
+								Write-Verbose -Message "Running SyncCompanyUser with params: [$($syncParams | Out-String)]"
+								SyncCompanyUser @syncParams
+							}
+						} elseif ($attribMismatches -eq $false) {
+							throw 'Error occurred in FindAttributeMismatch'
+						} else {
+							Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
+							$logAttribs = @{
+								CSVAttributeName = 'AlreadyInSync'
+								CSVAttributeValue = 'AlreadyInSync'
+								ADAttributeName = 'AlreadyInSync'
+								ADAttributeValue = 'AlreadyInSync'
+								Message = $null
+							}
 						}
-						$csvIdValue = ($csvIds | foreach { $csvUser.($_.Field) })
 					} else {
-						$csvIdField = $csvIds.Field -join ','
-						$csvIdValue = 'N/A'
+						## No user match was found
+						if (-not ($csvIds = @(GetCsvIdField -CsvUser $csvUser -FieldMatchMap $FieldMatchMap).where({ $_.Field }))) {
+							Write-Warning -Message  'No CSV ID fields were found.'
+							$csvIdField = 'N/A'
+							$csvIdValue = 'N/A'
 
-						$logAttribs = @{
-							CSVAttributeName = 'N/A'
-							CSVAttributeValue = 'N/A'
-							ADAttributeName = 'NoMatch'
-							ADAttributeValue = 'NoMatch'
+							$logAttribs = @{
+								CSVAttributeName = 'N/A'
+								CSVAttributeValue = 'N/A'
+								ADAttributeName = 'NoMatch'
+								ADAttributeValue = 'NoMatch'
+								Message = $null
+							}
+						} elseif ($CreateNewUsers.IsPresent) {
+							$csvIdField = $csvIds.Field -join ','
+							$newUserParams = @{
+								CsvUser = $csvUser
+								UsernamePattern = $UsernamePattern
+								UserMatchMap = $UserMatchMap
+								RandomPassword = $true
+								FieldSyncMap = $FieldSyncMap
+								FieldMatchMap = $FieldMatchMap
+							}
+							New-CompanyAdUser @newUserParams
+
+							$logAttribs = @{
+								CSVAttributeName = 'NewUserCreated'
+								CSVAttributeValue = 'NewUserCreated'
+								ADAttributeName = 'NewUserCreated'
+								ADAttributeValue = 'NewUserCreated'
+								Message = $null
+							}
+							$csvIdValue = ($csvIds | foreach { $csvUser.($_.Field) })
+						} else {
+							$csvIdField = $csvIds.Field -join ','
+							$csvIdValue = 'N/A'
+
+							$logAttribs = @{
+								CSVAttributeName = 'N/A'
+								CSVAttributeValue = 'N/A'
+								ADAttributeName = 'NoMatch'
+								ADAttributeValue = 'NoMatch'
+								Message = $null
+							}
 						}
 					}
+					
+				} catch {
+					$logAttribs = @{
+						CSVAttributeName = 'Error'
+						CSVAttributeValue = 'Error'
+						ADAttributeName = 'Error'
+						ADAttributeValue = 'Error'
+						Message = $_.Exception.Message
+					}
+				} finally {
+					WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
 				}
-				WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
 			})
 		}
 		catch
