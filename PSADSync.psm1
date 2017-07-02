@@ -11,7 +11,12 @@ function ConvertToSchemaAttributeType
 
 		[Parameter(Mandatory)]
 		[AllowEmptyString()]
-		[string]$AttributeValue
+		[string]$AttributeValue,
+
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[ValidateSet('Read','Set')]
+		[string]$Action
 	)
 
 	if ($AttributeValue) {
@@ -19,9 +24,21 @@ function ConvertToSchemaAttributeType
 		{
 			'accountExpires' {
 				if ([string]$AttributeValue -as [DateTime]) {
-					[datetime]$AttributeValue
+					$date = ([datetime]$AttributeValue).Date
 				} else {
-					[datetime]::FromFileTime($AttributeValue).AddDays(-1)
+					$date = ([datetime]::FromFileTime($AttributeValue)).Date
+				}
+				switch ($Action)
+				{
+					'Read' {
+						$date.AddDays(-1)
+					}
+					'Set' {
+						$date.AddDays(2)
+					}
+					default {
+						throw "Unrecognized input: [$_]"
+					}
 				}
 			}
 			default {
@@ -53,7 +70,12 @@ function SetAdUser
 	$replaceHt = @{}
 	foreach ($attrib in $ActiveDirectoryAttributes.GetEnumerator()) {
 		$attribName = $attrib.Key
-		$replaceHt.$attribName = (ConvertToSchemaAttributeType -AttributeName $attrib.Key -AttributeValue $attrib.Value)
+		$convertParams = @{
+			AttributeName = $attrib.Key
+			AttributeValue = $attrib.Value
+			Action = 'Set'
+		}
+		$replaceHt.$attribName = (ConvertToSchemaAttributeType @convertParams)
 	}
 
 	$setParams = @{
@@ -61,7 +83,7 @@ function SetAdUser
 		Replace = $replaceHt
 	}
 		
-	if ($PSCmdlet.ShouldProcess("User: [$($Identity)] AD attribs: [$($replaceHt.Keys -join ',')] to [$($replaceHt.Values -join ',')]",'Set AD attributes')) {
+	if ($PSCmdlet.ShouldProcess("User: [$($Identity)] AD attribs: [$($replaceHt.Keys -join ',')] to [$($ActiveDirectoryAttributes.Values -join ',')]",'Set AD attributes')) {
 		Write-Verbose -Message "Replacing AD attribs: [$($setParams.Replace | Out-String)]"
 		Set-AdUser @setParams
 	} 
@@ -637,8 +659,12 @@ function FindAttributeMismatch
 		$adAttribValue = $AdUser.$adAttribName
 		$csvAttribValue = $CsvUser.$csvFieldName
 		if ($csvAttribValue) {
-			$csvAttribValue = ConvertToSchemaAttributeType -AttributeName $adAttribName -AttributeValue $csvAttribValue
-			$adAttribValue = ConvertToSchemaAttributeType -AttributeName $adAttribName -AttributeValue $adAttribValue
+			$adConvertParams = @{
+				AttributeName = $adAttribName
+				AttributeValue = $adAttribValue
+				Action = 'Read'
+			}
+			$adAttribValue = ConvertToSchemaAttributeType @adConvertParams
 			Write-Verbose -Message "Comparing AD attribute value [$($adattribValue)] with CSV value [$($csvAttribValue)]..."
 			
 			## Compare the two property values and return the AD attribute name and value to be synced

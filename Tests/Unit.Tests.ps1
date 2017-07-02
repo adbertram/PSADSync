@@ -1302,10 +1302,11 @@ InModuleScope $ThisModuleName {
 	
 		$testCases = @(
 			@{
-				Label = 'AD accountExpires value'
+				Label = 'AD accountExpires value / Read'
 				Parameters = @{
 					AttributeName = 'accountExpires'
 					AttributeValue = '131907060000000000'
+					Action = 'Read'
 				}
 				Expected = @{
 					Output = @{
@@ -1316,16 +1317,17 @@ InModuleScope $ThisModuleName {
 				}
 			}
 			@{
-				Label = 'CSV accountExpires string'
+				Label = 'AD accountExpires value / Set'
 				Parameters = @{
 					AttributeName = 'accountExpires'
-					AttributeValue = '12/30/18'
+					AttributeValue = '131907060000000000'
+					Action = 'Set'
 				}
 				Expected = @{
 					Output = @{
 						ObjectCount = 1
 						ObjectType = 'datetime'
-						Value = @('12/30/2018 00:00:00','12/30/2018 05:00:00')
+						Value = @('01/02/2019 00:00:00','01/02/2019 05:00:00')
 					}
 				}
 			}
@@ -1334,6 +1336,7 @@ InModuleScope $ThisModuleName {
 				Parameters = @{
 					AttributeName = 'x'
 					AttributeValue = '12/30/18'
+					Action = 'Set'
 				}
 				Expected = @{
 					Output = @{
@@ -1348,6 +1351,7 @@ InModuleScope $ThisModuleName {
 				Parameters = @{
 					AttributeName = 'x'
 					AttributeValue = $null
+					Action = 'Set'
 				}
 				Expected = @{
 					Output = @{
