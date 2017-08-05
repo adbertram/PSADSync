@@ -1332,6 +1332,36 @@ InModuleScope $ThisModuleName {
 				}
 			}
 			@{
+				Label = 'AD accountExpires value not set / Read'
+				Parameters = @{
+					AttributeName = 'accountExpires'
+					AttributeValue = 0
+					Action = 'Read'
+				}
+				Expected = @{
+					Output = @{
+						ObjectCount = 1
+						ObjectType = 'int'
+						Value = 0
+					}
+				}
+			}
+			@{
+				Label = 'AD accountExpires value not set / Set'
+				Parameters = @{
+					AttributeName = 'accountExpires'
+					AttributeValue = 0
+					Action = 'Set'
+				}
+				Expected = @{
+					Output = @{
+						ObjectCount = 1
+						ObjectType = 'int'
+						Value = 0
+					}
+				}
+			}
+			@{
 				Label = 'Unrecognized string'
 				Parameters = @{
 					AttributeName = 'x'
@@ -1376,7 +1406,12 @@ InModuleScope $ThisModuleName {
 				}
 
 				it "should return an object of type [$($expected.Output.ObjectType)]" {
-					$result | should beoftype $expected.Output.ObjectType
+					if ([bool]$result) {
+						$result | should beoftype $expected.Output.ObjectType
+					} else {
+						$result | should benullorempty
+					}
+					
 				}
 
 				it "should return [$($expected.Output.Value)]" {

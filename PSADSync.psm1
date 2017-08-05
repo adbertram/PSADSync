@@ -11,7 +11,8 @@ function ConvertToSchemaAttributeType
 
 		[Parameter(Mandatory)]
 		[AllowEmptyString()]
-		[string]$AttributeValue,
+		[AllowNull()]
+		$AttributeValue,
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
@@ -23,22 +24,25 @@ function ConvertToSchemaAttributeType
 		switch ($AttributeName)
 		{
 			'accountExpires' {
-				if ([string]$AttributeValue -as [DateTime]) {
-					$date = ([datetime]$AttributeValue).Date
+				if ([bool]$AttributeValue) {
+					if ([string]$AttributeValue -as [DateTime]) {
+						$date = ([datetime]$AttributeValue).Date
+					} else {
+						$date = ([datetime]::FromFileTime($AttributeValue)).Date
+					}
+					switch ($Action) {
+						'Read' {
+							$date.AddDays(-1)
+						}
+						'Set' {
+							$date.AddDays(2)
+						}
+						default {
+							throw "Unrecognized input: [$_]"
+						}
+					}
 				} else {
-					$date = ([datetime]::FromFileTime($AttributeValue)).Date
-				}
-				switch ($Action)
-				{
-					'Read' {
-						$date.AddDays(-1)
-					}
-					'Set' {
-						$date.AddDays(2)
-					}
-					default {
-						throw "Unrecognized input: [$_]"
-					}
+					0
 				}
 			}
 			default {
