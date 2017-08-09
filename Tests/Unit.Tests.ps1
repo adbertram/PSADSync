@@ -1311,7 +1311,6 @@ InModuleScope $ThisModuleName {
 				Expected = @{
 					Output = @{
 						ObjectCount = 1
-						ObjectType = 'datetime'
 						Value = @('12/30/2018 00:00:00','12/30/2018 05:00:00')
 					}
 				}
@@ -1326,7 +1325,6 @@ InModuleScope $ThisModuleName {
 				Expected = @{
 					Output = @{
 						ObjectCount = 1
-						ObjectType = 'datetime'
 						Value = @('01/02/2019 00:00:00','01/02/2019 05:00:00')
 					}
 				}
@@ -1341,7 +1339,6 @@ InModuleScope $ThisModuleName {
 				Expected = @{
 					Output = @{
 						ObjectCount = 1
-						ObjectType = 'int'
 						Value = 0
 					}
 				}
@@ -1356,7 +1353,34 @@ InModuleScope $ThisModuleName {
 				Expected = @{
 					Output = @{
 						ObjectCount = 1
-						ObjectType = 'int'
+						Value = 0
+					}
+				}
+			}
+			@{
+				Label = 'AD accountExpires never set / Read'
+				Parameters = @{
+					AttributeName = 'accountExpires'
+					AttributeValue = '9223372036854775807'
+					Action = 'Read'
+				}
+				Expected = @{
+					Output = @{
+						ObjectCount = 1
+						Value = 0
+					}
+				}
+			}
+			@{
+				Label = 'AD accountExpires value never set / Set'
+				Parameters = @{
+					AttributeName = 'accountExpires'
+					AttributeValue = '9223372036854775807'
+					Action = 'Set'
+				}
+				Expected = @{
+					Output = @{
+						ObjectCount = 1
 						Value = 0
 					}
 				}
@@ -1371,7 +1395,6 @@ InModuleScope $ThisModuleName {
 				Expected = @{
 					Output = @{
 						ObjectCount = 1
-						ObjectType = 'string'
 						Value = '12/30/18'
 					}
 				}
@@ -1386,7 +1409,6 @@ InModuleScope $ThisModuleName {
 				Expected = @{
 					Output = @{
 						ObjectCount = 1
-						ObjectType = 'string'
 						Value = ''
 					}
 				}
@@ -1403,15 +1425,6 @@ InModuleScope $ThisModuleName {
 
 				it "should return [$($expected.Output.ObjectCount)] object(s)" {
 					@($result).Count | should be $expected.Output.ObjectCount
-				}
-
-				it "should return an object of type [$($expected.Output.ObjectType)]" {
-					if ([bool]$result) {
-						$result | should beoftype $expected.Output.ObjectType
-					} else {
-						$result | should benullorempty
-					}
-					
 				}
 
 				it "should return [$($expected.Output.Value)]" {

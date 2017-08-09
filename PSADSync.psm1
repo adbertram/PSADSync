@@ -24,7 +24,9 @@ function ConvertToSchemaAttributeType
 		switch ($AttributeName)
 		{
 			'accountExpires' {
-				if ([bool]$AttributeValue) {
+				if ((-not $AttributeValue) -or ($AttributeValue -eq '9223372036854775807')) {
+					0
+				} else {
 					if ([string]$AttributeValue -as [DateTime]) {
 						$date = ([datetime]$AttributeValue).Date
 					} else {
@@ -41,8 +43,6 @@ function ConvertToSchemaAttributeType
 							throw "Unrecognized input: [$_]"
 						}
 					}
-				} else {
-					0
 				}
 			}
 			default {
