@@ -14,6 +14,7 @@ try {
 		'PSAdSync\\README\.md'
 		'PSAdSync\\TestUsers\.csv'
 		'PSAdSync\\TestResults\.xml'
+		'PSAdSync\\TestingCode\.ps1'
 
 	)
 	$exclude = $excludeFromPublish -join '|'

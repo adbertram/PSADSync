@@ -247,7 +247,11 @@ function TestCsvHeaderExists
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[object[]]$Header
+		[object[]]$Header,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[switch]$ParseScriptBlockHeaders
 	)
 
 	$csvHeaders = GetCsvColumnHeaders -CsvFilePath $CsvFilePath
@@ -256,19 +260,28 @@ function TestCsvHeaderExists
 	$commonHeaders = @($Header).foreach({
 		$_ | ForEach-Object {
 			if ($_ -is 'scriptblock') {
-				ParseScriptBlockHeaders -FieldScriptBlock $_
+				## It's extremely hard to figure out what values inside of the scriptblock are actual CSV headers
+				## Give the option here.
+				if ($ParseScriptBlockHeaders.IsPresent) {
+					ParseScriptBlockHeaders -FieldScriptBlock $_
+				}
 			} else {
 				$_
 			}
 		}
 	})
-	$commonHeaders = $commonHeaders | Select-Object -Unique
 
-	$matchedHeaders = $csvHeaders | Where-Object { $_ -in $commonHeaders }
-	if (@($matchedHeaders).Count -ne @($commonHeaders).Count) {
-		$false
-	} else {
+	## Assuming that ParseScriptBlockHeaders was not used and all of the headers
+	## are scriptblocks. We check nothing but still return true.
+	if (-not ($commonHeaders = $commonHeaders | Select-Object -Unique)) {
 		$true
+	} else {
+		$matchedHeaders = $csvHeaders | Where-Object { $_ -in $commonHeaders }
+		if (@($matchedHeaders).Count -ne @($commonHeaders).Count) {
+			$false
+		} else {
+			$true
+		}
 	}
 }
 
@@ -304,7 +317,12 @@ function Get-CompanyCsvUser
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Exclude
+		[hashtable]$Exclude,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[ValidateSet('Comma','Tab')]
+		[string]$Delimiter = 'Comma'
 	)
 	begin
 	{
@@ -322,7 +340,16 @@ function Get-CompanyCsvUser
 				$whereFilter = [scriptblock]::Create($conditions -join ' -and ')
 			}
 
-			Import-Csv -Path $CsvFilePath | Where-Object -FilterScript $whereFilter
+			$importCsvParams = @{
+				Path = $CsvFilePath
+			}
+			if ($Delimiter -eq 'Comma') {
+				$importCsvParams.Delimiter = ','
+			} elseif ($Delimiter -eq 'Tab') {
+				$importCsvParams.Delimiter = "`t"
+			}
+
+			Import-Csv @importCsvParams | Where-Object -FilterScript $whereFilter
 		}
 		catch
 		{

@@ -288,11 +288,11 @@ InModuleScope $ThisModuleName {
 				Expected = @{
 					Execution = @{
 						ParseScriptBlockHeaders = @{
-							RunTimes = 1
+							RunTimes = 0
 						}
 					}
 					Output = @{
-						ReturnValue = $false
+						ReturnValue = $true ## Returning $true because all scriptblocks and nothing checked.
 						ObjectCount = 1
 					}
 				}
@@ -301,6 +301,28 @@ InModuleScope $ThisModuleName {
 				Label = 'Multiple headers / string/scriptblock'
 				Parameters = @{
 					CsvFilePath = 'C:\foopass.csv'
+					Header = 
+						'a',
+						{ if (-not $_.Header) { 'b' } else { 'c' } },
+						{ if (-not $_.Header) { 'd' } else { 'e' } }
+				}
+				Expected = @{
+					Execution = @{
+						ParseScriptBlockHeaders = @{
+							RunTimes = 0
+						}
+					}
+					Output = @{
+						ReturnValue = $true
+						ObjectCount = 1
+					}
+				}
+			}
+			@{
+				Label = 'Multiple headers / string/scriptblock / ParseScriptBlockHeaders'
+				Parameters = @{
+					CsvFilePath = 'C:\foopass.csv'
+					ParseScriptBlockHeaders = $true
 					Header = 
 						'a',
 						{ if (-not $_.Header) { 'b' } else { 'c' } },
