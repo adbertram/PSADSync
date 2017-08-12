@@ -711,6 +711,46 @@ function NewRandomPassword
 	
 }
 
+
+function TestUserTerminated
+{
+	[OutputType([bool])]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[object]$CsvUser
+	)
+
+	if (-not (TestIsUserTerminationEnabled)) {
+		throw 'User termination checking is not enabled in the configuration'
+	} else {
+		$csvField = $PSAdSyncConfiguration.UserTerminationTest.CsvField
+		$csvValue = $PSAdSyncConfiguration.UserTerminationTest.CsvValue
+		
+		if ($CsvUser.$csvField -eq $csvValue) {
+			$true
+		} else {
+			$false
+		}
+	}
+}
+
+function TestIsUserTerminationEnabled
+{
+	[OutputType('bool')]
+	[CmdletBinding()]
+	param
+	()
+
+	if ($PSAdSyncConfiguration.UserTerminationTest.Enabled) {
+		$true
+	} else {
+		$false
+	}
+}
+
 function SyncCompanyUser
 {
 	[OutputType()]

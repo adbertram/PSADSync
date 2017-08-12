@@ -2446,6 +2446,87 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
+	describe 'TestUserTerminated' {
+		$commandName = 'TestUserTerminated'
+		$command = Get-Command -Name $commandName
+	
+		context 'when user termination is enabled' {
+
+			mock 'TestIsUserTerminationEnabled' {
+				$true
+			}
+
+			context 'when the user has been terminated' {
+
+				$parameters = @{
+					CsvUser = [pscustomobject]@{
+						Status = 'Withdrawn'
+					}
+				}
+			
+				$result = & $commandName @parameters
+
+				it 'should return the expected number of objects' {
+					@($result).Count | should be 1
+				}
+		
+				it 'should return the same object type in OutputType()' {
+					$result | should beoftype $command.OutputType.Name
+				}
+
+				it 'should return $true' {
+					$result | should be $true
+				}
+			
+			}
+
+			context 'when the user has not been terminated' {
+			
+				$parameters = @{
+					CsvUser = [pscustomobject]@{
+						Status = 'NotWithdrawn'
+					}
+				}
+
+				$result = & $commandName @parameters
+
+				it 'should return the expected number of objects' {
+					@($result).Count | should be 1
+				}
+		
+				it 'should return the same object type in OutputType()' {
+					$result | should beoftype $command.OutputType.Name
+				}
+
+				it 'should return $false' {
+					$result | should be $false
+				}
+			
+			}
+
+		}
+
+		context 'when user terminated is disabled' {
+
+			mock 'TestIsUserTerminationEnabled' {
+				$false
+			}
+		
+			$parameters = @{
+				CsvUser = [pscustomobject]@{
+					test = 'foo'
+				}
+			}
+
+			it 'should throw an exception' {
+			
+				{ & $commandName @parameters } | should throw 'User termination checking is not enabled'
+			}
+		
+		}
+	
+	}
+
 	Remove-Variable -Name allAdUsers -Scope Script
 	Remove-Variable -Name allCsvUsers -Scope Script
 }
