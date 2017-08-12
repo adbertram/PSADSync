@@ -862,7 +862,7 @@ function WriteLog
 	$Attributes['CsvIdentifierField'] = $CsvIdentifierField
 	$Attributes['Time'] = $time
 	
-	([pscustomobject]$Attributes) | Export-Csv -Path $FilePath -Append -NoTypeInformation
+	([pscustomobject]$Attributes) | Export-Csv -Path $FilePath -Append -NoTypeInformation -Confirm:$false
 
 }
 
