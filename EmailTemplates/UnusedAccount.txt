@@ -1,0 +1,7 @@
+Hi {0},
+
+{1} still has an AD account in our system. If you no longer need anything thing from this employee's account, please reply back letting us know if we can remove the account.
+
+Thanks,
+
+{2}

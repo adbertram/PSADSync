@@ -1,5 +1,7 @@
 Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
 
+$PSAdSyncConfiguration = Import-PowerShellDataFile -Path "$PSScriptRoot\Configuration.psd1"
+
 function ConvertToSchemaAttributeType
 {
 	[CmdletBinding()]
@@ -798,7 +800,106 @@ function GetCsvIdField
 	
 }
 
-function Write-ProgressHelper {
+function GetManagerEmailAddress
+{
+	[OutputType('string')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[object]$AdUser
+	)
+
+	$ErrorActionPreference = 'Stop'
+
+	if ($AdUser.Manager -and ($managerAdAccount = Get-ADUser -Filter "DistinguishedName -eq '$($AdUser.Manager)'" -Properties EmailAddress)) {
+		$managerAdAccount.EmailAddress
+	}	
+
+}
+
+function SendStaleAccountEmail
+{
+	[OutputType([void])]
+	[CmdletBinding(SupportsShouldProcess,ConfirmImpact = 'High')]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[object]$AdUser,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$Subject = $PSAdSyncConfiguration.Email.Templates.UnusedAccount.Subject,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$FromEmailAddress = $PSAdSyncConfiguration.Email.Templates.UnusedAccount.FromEmailAddress,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$FromEmailName = $PSAdSyncConfiguration.Email.Templates.UnusedAccount.FromEmailName,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$SmtpServer = $PSAdSyncConfiguration.Email.SmtpServer
+
+	)
+	begin
+	{
+		$ErrorActionPreference = 'Stop'
+	}
+	process
+	{
+		try
+		{
+			if (-not $AdUser.Manager) {
+				throw "No manager defined for user: [$($AdUser.name)]. Cannot send email."
+			}
+			if (-not ($managerEmail = GetManagerEmailAddress -AdUser $AdUser))
+			{
+				throw "Could not find a manager email address for user [$($AdUser.Name)]"
+			}
+			$emailBody = ReadEmailTemplate -Name UnusedSccount
+			$emailBody = $emailBody -f $managerEmail,$AdUser.Name,$PSAdSyncConfiguration.CompanyName
+
+			$sendParams = @{
+				To = $managerEmail
+				From = "$FromEmailName <$FromEmailAddress>"
+				Subject = $Subject
+				Body = $emailBody
+				SmtpServer = $SmtpServer
+			}
+			if ($PSCmdlet.ShouldProcess($managerEmail,"Send email about account [$($AdUser.Name)]"))
+			{
+				Send-MailMessage @sendParams
+			}
+		}
+		catch
+		{
+			$PSCmdlet.ThrowTerminatingError($_)
+		}
+	}
+}
+
+function ReadEmailTemplate
+{
+	[OutputType('string')]
+	[CmdletBinding(SupportsShouldProcess)]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$Name	
+	)
+	
+	if ($template = Get-ChildItem -Path "$PSScriptRoot\EmailTemplates" -Filter "$Name.txt") {
+		Get-Content -Path $template.FullName -Raw
+	}
+}
+
+function WriteProgressHelper {
 	param (
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
@@ -912,9 +1013,9 @@ function Invoke-AdSync
 					if ($ReportOnly.IsPresent) {
 						$prgMsg = "Attempting to find attribute mismatch for user in CSV row [$($stepCounter + 1)]"
 					} else {
-						$prgMsg = "Attempting to find and sync AD any attribute mismatches for user in CSV row [$($stepCounter + 1)]"
+						$prgMsg = "Attempting to find and sync AD any attribute mismatches for user in CSV row [$($stepCounter + 1)"
 					}
-					Write-ProgressHelper -Message $prgMsg -StepNumber ($stepCounter++)
+					WriteProgressHelper -Message $prgMsg -StepNumber ($stepCounter++)
 					$csvUser = $_
 					if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
 						Write-Verbose -Message 'Match'

@@ -1434,7 +1434,218 @@ InModuleScope $ThisModuleName {
 		}
 	}
 
+	describe 'GetManagerEmailAddress' {
+		$commandName = 'GetManagerEmailAddress'
+		$command = Get-Command -Name $commandName
+	
+		context 'when the AD user has no manager' {
 
+			mock 'Get-AdUser' {
+				[pscustomobject]@{
+					EmailAddress = 'jjones@company.local'
+				}
+			}
+	
+			$parameters = @{
+				AdUser = [pscustomobject]@{
+					EmailAddress = 'jjones@company.local'
+					Manager = $null
+				}
+			}
+	
+			$result = & $commandName @parameters
+	
+			it 'should return nothing' {
+				$result | should benullorempty
+			}
+	
+		}
+
+		context 'when no email address is found' {
+
+			mock 'Get-AdUser' {
+				[pscustomobject]@{
+					EmailAddress = $null
+				}
+			}
+
+			$parameters = @{
+				AdUser = [pscustomobject]@{
+					EmailAddress = $null
+					Manager = 'bsmith'
+				}
+			}
+		
+			$result = & $commandName @parameters
+
+			it 'should return nothing' {
+				$result | should benullorempty
+			}
+		
+		}
+
+		context 'when an email addreses is found' {
+		
+			mock 'Get-AdUser' {
+				[pscustomobject]@{
+					EmailAddress = 'bsmith@company.local'
+				}
+			}
+
+			$parameters = @{
+				AdUser = [pscustomobject]@{
+					EmailAddress = 'jjones@company.local'
+					Manager = 'bsmith'
+				}
+			}
+		
+			$result = & $commandName @parameters
+
+			it 'should return the manager email address' {
+				$result | should be 'bsmith@company.local'
+			}
+		
+		}
+	
+	}
+
+	describe 'ReadEmailTemplate' {
+		$commandName = 'ReadEmailTemplate'
+		$command = Get-Command -Name $commandName
+
+		BeforeAll {
+			Add-Content -Path 'TestDrive:\UnusedAccounts.txt' -Value 'template {0}'
+			$templates = Get-ChildItem -Path 'TestDrive:\'
+			$templateContent = Get-Content -Path 'TestDrive:\UnusedAccounts.txt'
+		}
+	
+		#region Mocks
+			mock 'Get-ChildItem' {
+				$templates
+			} -ParameterFilter { $Path -eq "$PSScriptRoot\EmailTemplates" }
+
+			mock 'Get-Content' {
+				$templateContent
+			}
+		#endregion
+	
+		context 'Single template' {
+	
+			$parameters = @{
+				Name = 'UnusedAccount'
+			}
+	
+			$result = & $commandName @parameters
+	
+			it 'should return the expected number of objects' {
+				@($result).Count | should be 1
+			}
+	
+			it 'should return the same object type in OutputType()' {
+				$result | should beoftype $command.OutputType.Name
+			}
+	
+		}
+
+		context 'when no template exists' {
+
+			$parameters = @{
+				Name = 'DoesNotExist'
+			}
+		
+			$result = & $commandName @parameters
+
+			it 'should return nothing' {
+				$result | should benullorempty
+			}
+		
+		}
+	
+	}
+
+	describe 'SendStaleAccountEmail' {
+		$commandName = 'SendStaleAccountEmail'
+	
+		context 'when no manager is defined' {
+	
+			$parameters = @{
+				AdUser = [pscustomobject]@{ 
+					Name = 'jjones'
+					Manager = $null
+				}
+				Confirm = $false
+			}
+	
+			it 'should throw an exception' {
+				{ & $commandName @parameters } | should throw 'No manager defined'
+			}
+			
+		}
+
+		context 'when the manager email address cannot be found' {
+
+			mock 'GetManagerEmailAddress'
+
+			$parameters = @{
+				AdUser = [pscustomobject]@{ 
+					Name = 'jjones'
+					Manager = 'CN=bsmwith,DC=test,DC=local'
+				}
+				Confirm = $false
+			}
+		
+			it 'should throw an exception' {
+				{ & $commandName @parameters } | should throw 'Could not find a manager email address'
+			}
+		
+		}
+
+		context 'when a manager email is found' {
+
+			mock 'GetManagerEmailAddress' {
+				'bsmith@test.local'
+			}
+
+			mock 'ReadEmailTemplate' {
+				'{0} {1} {2}'
+			}
+
+			mock 'Send-MailMessage'
+
+			$parameters = @{
+				AdUser = [pscustomobject]@{ 
+					Name = 'jjones'
+					Manager = 'CN=bsmith,DC=test,DC=local'
+				}
+				Confirm = $false
+			}
+		
+			$result = & $commandName @parameters
+
+			it 'should send an email with the expected attributes' {
+
+				$assMParams = @{
+					CommandName = 'Send-MailMessage'
+					Times = 1
+					Exactly = $true
+					ExclusiveFilter = {
+						$PSBoundParameters.To -eq 'bsmith@test.local' -and
+						$PSBoundParameters.From -eq 'unusedaccountfromname <unusedaccountfromemail@company.local>' -and
+						$PSBoundParameters.Subject -eq 'unusedaccountsubject' -and
+						$PSBoundParameters.Body -eq 'bsmith@test.local jjones YourCompany' -and
+						$PSBoundParameters.SmtpServer -eq 'yoursmtpserver.company.local'
+					}
+				}
+				Assert-MockCalled @assMParams
+				
+			}
+
+			it 'should return nothing' {
+				$result | should benullorempty
+			}
+		
+		}
+	}
 	describe 'SetAduser' {
 	
 		$commandName = 'SetAduser'
@@ -1520,7 +1731,6 @@ InModuleScope $ThisModuleName {
 		}
 	
 	}
-
 	describe 'SyncCompanyUser' {
 	
 		$commandName = 'SyncCompanyUser'
@@ -1634,8 +1844,7 @@ InModuleScope $ThisModuleName {
 				}
 			}
 		}
-	}
-		
+	}	
 	describe 'WriteLog' {
 	
 		$commandName = 'WriteLog'
@@ -1719,7 +1928,6 @@ InModuleScope $ThisModuleName {
 			Assert-MockCalled @assMParams
 		}
 	}
-
 	describe 'Invoke-AdSync' {
 	
 		$commandName = 'Invoke-AdSync'
@@ -1804,6 +2012,8 @@ InModuleScope $ThisModuleName {
 					DistinguishedName = 'CN=manager'
 				}
 			}
+
+			mock 'WriteProgressHelper'
 		#endregion
 
 		$parameterSets = @(
