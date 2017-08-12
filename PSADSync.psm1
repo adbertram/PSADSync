@@ -340,11 +340,6 @@ function New-CompanyAdUser
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
         [pscustomobject]$CsvUser,
-
-		[Parameter(Mandatory)]
-		[ValidateNotNullOrEmpty()]
-		[ValidateSet('FirstInitialLastName','FirstNameLastName','FirstNameDotLastName')]
-		[string]$UsernamePattern,
 		
 		[Parameter(Mandatory,ParameterSetName = 'Password')]
 		[ValidateNotNullOrEmpty()]
@@ -364,7 +359,12 @@ function New-CompanyAdUser
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$UserMatchMap
+		[hashtable]$UserMatchMap,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[ValidateSet('FirstInitialLastName','FirstNameLastName','FirstNameDotLastName')]
+		[string]$UsernamePattern = $PSAdSyncConfiguration.NewUserCreation.AccountNamePattern
     )
 	
 	$userName = NewUserName -CsvUser $CsvUser -Pattern $UsernamePattern -FieldMap $UserMatchMap
