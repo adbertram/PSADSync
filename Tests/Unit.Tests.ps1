@@ -1960,6 +1960,10 @@ InModuleScope $ThisModuleName {
 				$true
 			}
 
+			mock 'TestIsUserTerminationEnabled' {
+				$false
+			}
+
 			mock 'SyncCompanyUser'
 
 			mock 'Write-Warning'
@@ -2206,7 +2210,6 @@ InModuleScope $ThisModuleName {
 						}
 						Assert-MockCalled @assMParams
 					}
-				
 				}
 
 				context 'when at least one AD attribute in FieldSyncMap is not available' {
@@ -2440,10 +2443,106 @@ InModuleScope $ThisModuleName {
 									Assert-MockCalled @assMParams
 								}
 						}
+
+						context 'when user termination is enabled' {
+
+							mock 'TestIsUserTerminationEnabled' {
+								$true
+							}
+
+							mock 'InvokeUserTermination'
+
+							context 'when the user should be terminated' {
+
+								mock 'TestUserTerminated' {
+									$true
+								}
+							
+								$null = & $commandName @parameters
+
+								it 'should terminate the AD user' {
+								
+									$params = @{
+										CommandName = 'InvokeUserTermination'
+										Times = 1
+										Exactly = $true
+										ExclusiveFilter = {
+											$PSBoundParameters.AdUser.Name -eq 'nameval'
+										}
+									}
+									Assert-MockCalled @params
+								}
+								
+							
+							}
+						
+							context 'when the user should not be terminated' {
+
+								mock 'TestUserTerminated' {
+									$false
+								}
+							
+								$null = & $commandName @parameters
+
+								it 'should not terminate the AD user' {
+								
+									$params = @{
+										CommandName = 'InvokeUserTermination'
+										Times = 0
+										Exactly = $true
+									}
+									Assert-MockCalled @params
+								}
+							
+							}
+						
+						}
 					}
 				}
 			}
 		}
+	}
+
+	describe 'InvokeUserTermination' {
+		$commandName = 'InvokeUserTermination'
+		$command = Get-Command -Name $commandName
+	
+		#region Mocks
+			mock 'Disable-AdAccount'
+		#endregion
+	
+		context 'when the user account needs to be disabled' {
+	
+			$parameters = @{
+				AdUser = [pscustomobject]@{
+					Name = 'testname'
+					samAccountName = 'testsamname'
+				}
+				Confirm = $false
+			}
+	
+			$result = & $commandName @parameters
+	
+			it 'should return nothing' {
+				$result | should benullorempty
+			}
+
+			it 'should disable the AD account' {
+			
+				$params = @{
+					CommandName = 'Disable-AdAccount'
+					Times = 1
+					Exactly = $true
+					ExclusiveFilter = {
+						[string]$PSBoundParameters.Identity -eq 'testsamName'
+					}
+				}
+				Assert-MockCalled @params
+			}
+	
+	
+		}
+	
 	}
 
 	describe 'TestUserTerminated' {

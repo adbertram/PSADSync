@@ -710,7 +710,31 @@ function NewRandomPassword
 	ConvertTo-SecureString -String $pw -AsPlainText -Force
 	
 }
+function InvokeUserTermination
+{
+	[OutputType('void')]
+	[CmdletBinding(SupportsShouldProcess,ConfirmImpact = 'High')]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[object]$AdUser	
+	)
 
+	switch ($PSAdSyncConfiguration.UserTermination.Action)
+	{
+		'Disable' {
+			if ($PSCmdlet.ShouldProcess("AD User [$($AdUser.Name)]",'Disable'))
+			{
+				Disable-AdAccount -Identity $AdUser.samAccountName -Confirm:$false	
+			}
+		}
+		default {
+			throw "Unrecognized user termination action: [$_]"
+		}
+	}
+	
+}
 
 function TestUserTerminated
 {
@@ -726,8 +750,8 @@ function TestUserTerminated
 	if (-not (TestIsUserTerminationEnabled)) {
 		throw 'User termination checking is not enabled in the configuration'
 	} else {
-		$csvField = $PSAdSyncConfiguration.UserTerminationTest.CsvField
-		$csvValue = $PSAdSyncConfiguration.UserTerminationTest.CsvValue
+		$csvField = $PSAdSyncConfiguration.UserTermination.CsvField
+		$csvValue = $PSAdSyncConfiguration.UserTermination.CsvValue
 		
 		if ($CsvUser.$csvField -eq $csvValue) {
 			$true
@@ -744,7 +768,7 @@ function TestIsUserTerminationEnabled
 	param
 	()
 
-	if ($PSAdSyncConfiguration.UserTerminationTest.Enabled) {
+	if ($PSAdSyncConfiguration.UserTermination.Enabled) {
 		$true
 	} else {
 		$false
@@ -1084,40 +1108,53 @@ function Invoke-AdSync
 								$_
 							}
 						#endregion
+						
+						## User termination check
+						if ((TestIsUserTerminationEnabled) -and (TestUserTerminated -CsvUser $csvUser)) {
+							InvokeUserTermination -AdUser $adUserMatch.MatchedAduser
 
-						$findParams = @{
-							AdUser = $adUserMatch.MatchedAdUser
-							CsvUser = $csvUser
-							FieldSyncMap = $FieldSyncMap
-						}
-						$attribMismatches = FindAttributeMismatch @findParams
-						if ($attribMismatches) {
 							$logAttribs = @{
-								CSVAttributeName = ([array]($attribMismatches.CSVField.Keys))[0]
-								CSVAttributeValue = ([array]($attribMismatches.CSVField.Values))[0]
-								ADAttributeName = ([array]($attribMismatches.ActiveDirectoryAttribute.Keys))[0]
-								ADAttributeValue = ([array]($attribMismatches.ActiveDirectoryAttribute.Values))[0]
-								Message = $null
+								CSVAttributeName = 'UserTermination'
+								CSVAttributeValue = 'UserTermination'
+								ADAttributeName = 'UserTermination'
+								ADAttributeValue = 'UserTermination'
+								Message = $_.Exception.Message
 							}
-							if (-not $ReportOnly.IsPresent) {
-								$syncParams = @{
-									CsvUser = $csvUser
-									ActiveDirectoryAttributes = $attribMismatches.ADShouldBe
-									Identity = $adUserMatch.MatchedAduser.samAccountName
-								}
-								Write-Verbose -Message "Running SyncCompanyUser with params: [$($syncParams | Out-String)]"
-								SyncCompanyUser @syncParams
-							}
-						} elseif ($attribMismatches -eq $false) {
-							throw 'Error occurred in FindAttributeMismatch'
 						} else {
-							Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
-							$logAttribs = @{
-								CSVAttributeName = 'AlreadyInSync'
-								CSVAttributeValue = 'AlreadyInSync'
-								ADAttributeName = 'AlreadyInSync'
-								ADAttributeValue = 'AlreadyInSync'
-								Message = $null
+							$findParams = @{
+								AdUser = $adUserMatch.MatchedAdUser
+								CsvUser = $csvUser
+								FieldSyncMap = $FieldSyncMap
+							}
+							$attribMismatches = FindAttributeMismatch @findParams
+							if ($attribMismatches) {
+								$logAttribs = @{
+									CSVAttributeName = ([array]($attribMismatches.CSVField.Keys))[0]
+									CSVAttributeValue = ([array]($attribMismatches.CSVField.Values))[0]
+									ADAttributeName = ([array]($attribMismatches.ActiveDirectoryAttribute.Keys))[0]
+									ADAttributeValue = ([array]($attribMismatches.ActiveDirectoryAttribute.Values))[0]
+									Message = $null
+								}
+								if (-not $ReportOnly.IsPresent) {
+									$syncParams = @{
+										CsvUser = $csvUser
+										ActiveDirectoryAttributes = $attribMismatches.ADShouldBe
+										Identity = $adUserMatch.MatchedAduser.samAccountName
+									}
+									Write-Verbose -Message "Running SyncCompanyUser with params: [$($syncParams | Out-String)]"
+									SyncCompanyUser @syncParams
+								}
+							} elseif ($attribMismatches -eq $false) {
+								throw 'Error occurred in FindAttributeMismatch'
+							} else {
+								Write-Verbose -Message "No attributes found to be mismatched between CSV and AD user account for user [$csvIdValue]"
+								$logAttribs = @{
+									CSVAttributeName = 'AlreadyInSync'
+									CSVAttributeValue = 'AlreadyInSync'
+									ADAttributeName = 'AlreadyInSync'
+									ADAttributeValue = 'AlreadyInSync'
+									Message = $null
+								}
 							}
 						}
 					} else {
