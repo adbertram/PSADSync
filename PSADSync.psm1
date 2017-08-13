@@ -691,7 +691,9 @@ function FindAttributeMismatch
 		
 		$adAttribValue = $AdUser.$adAttribName
 		$csvAttribValue = $CsvUser.$csvFieldName
-		if ($csvAttribValue) {
+		## Do not return mismatches if either the CSV value or the field is null. The field can be null either when
+		## the actual CSV field is null in the file or the expression evaluates to null.
+		if ($csvAttribValue -and $csvFieldName) {
 			$adConvertParams = @{
 				AttributeName = $adAttribName
 				AttributeValue = $adAttribValue

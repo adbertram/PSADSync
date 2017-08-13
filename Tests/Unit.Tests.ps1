@@ -1229,6 +1229,14 @@ InModuleScope $ThisModuleName {
 					FieldSyncMap = @{ 'OtherAttrib' = 'otherattribmap' }
 				}
 			}
+			@{
+				Label = 'Null FieldSyncMap key expression'
+				Parameters = @{
+					AdUser = $script:AdUserNoMisMatch
+					CsvUser = $script:csvUserNoMisMatch
+					FieldSyncMap = @{ { $null } = 'OtherAttrib' }
+				}
+			}
 		)
 
 		foreach ($testCase in $testCases) {
@@ -1236,6 +1244,17 @@ InModuleScope $ThisModuleName {
 			$parameters = $testCase.Parameters
 
 			context $testCase.Label {
+
+				if ($testCase.Label -eq 'Null FieldSyncMap key expression') {
+					context 'when FieldValueMap has a key expression that does not return anything' {
+
+						it 'should return nothing' {
+						
+							& $commandName @parameters | should benullorempty
+						}
+					
+					}
+				}
 
 				if ($testCase.Label -eq 'No mismatch') {
 					context 'when no attribute mismatch is found' {
