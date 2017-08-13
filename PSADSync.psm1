@@ -1138,7 +1138,9 @@ function Invoke-AdSync
 						
 						## User termination check
 						if ((TestIsUserTerminationEnabled) -and (TestUserTerminated -CsvUser $csvUser)) {
-							InvokeUserTermination -AdUser $adUserMatch.MatchedAduser
+							if (-not $ReportOnly.IsPresent) {
+								InvokeUserTermination -AdUser $adUserMatch.MatchedAduser
+							}
 
 							$logAttribs = @{
 								CSVAttributeName = 'UserTermination'

@@ -2482,22 +2482,40 @@ InModuleScope $ThisModuleName {
 							
 								$null = & $commandName @parameters
 
-								it 'should terminate the AD user' {
-								
-									$params = @{
-										CommandName = 'InvokeUserTermination'
-										Times = 1
-										Exactly = $true
-										ExclusiveFilter = {
-											$PSBoundParameters.AdUser.Name -eq 'nameval'
+								if (-not $parameters.ContainsKey('ReportOnly')) {
+									it 'should terminate the AD user' {
+									
+										$params = @{
+											CommandName = 'InvokeUserTermination'
+											Times = 1
+											Exactly = $true
+											ExclusiveFilter = {
+												$PSBoundParameters.AdUser.Name -eq 'nameval'
+											}
 										}
+										Assert-MockCalled @params
 									}
-									Assert-MockCalled @params
 								}
-								
-							
+
+								if ($parameters.ContainsKey('ReportOnly')) {
+									context 'when only reporting is enabled' {
+									
+										$null = & $commandName @parameters
+
+										it 'should not terminate the AD user' {
+										
+											$params = @{
+												CommandName = 'InvokeUserTermination'
+												Times = 0
+												Exactly = $true
+											}
+											Assert-MockCalled @params
+										}
+									
+									}
+								}
 							}
-						
+
 							context 'when the user should not be terminated' {
 
 								mock 'TestUserTerminated' {
