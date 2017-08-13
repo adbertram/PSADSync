@@ -687,18 +687,18 @@ function FindAttributeMismatch
 		}
 		$adAttribName = $_.Value
 		
-		Write-Verbose -Message "Checking CSV field [$($csvFieldName)] / AD field [$($adAttribName)] for mismatches..."
-		
 		$adAttribValue = $AdUser.$adAttribName
 		$csvAttribValue = $CsvUser.$csvFieldName
 		## Do not return mismatches if either the CSV value or the field is null. The field can be null either when
 		## the actual CSV field is null in the file or the expression evaluates to null.
 		if ($csvAttribValue -and $csvFieldName) {
+			Write-Verbose -Message "Checking CSV field [$($csvFieldName)] / AD field [$($adAttribName)] for mismatches..."
 			$adConvertParams = @{
 				AttributeName = $adAttribName
 				AttributeValue = $adAttribValue
 				Action = 'Read'
 			}
+			
 			$adAttribValue = ConvertToSchemaAttributeType @adConvertParams
 			Write-Verbose -Message "Comparing AD attribute value [$($adattribValue)] with CSV value [$($csvAttribValue)]..."
 			
