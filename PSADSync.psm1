@@ -395,6 +395,7 @@ function New-CompanyAdUser
     )
 	
 	$userName = NewUserName -CsvUser $CsvUser -Pattern $UsernamePattern -FieldMap $UserMatchMap
+
 	$newAdUserParams = @{ 
 		Name = $userName 
 		PassThru = $true
@@ -804,6 +805,20 @@ function TestIsUserTerminationEnabled
 	}
 }
 
+function TestIsUserCreationEnabled
+{
+	[OutputType('bool')]
+	[CmdletBinding()]
+	param
+	()
+
+	if ($PSAdSyncConfiguration.UserCreation.Enabled) {
+		$true
+	} else {
+		$false
+	}
+}
+
 function SyncCompanyUser
 {
 	[OutputType()]
@@ -1092,12 +1107,11 @@ function Invoke-AdSync
 			if (-not ($script:adUsers = Get-CompanyAdUser -FieldMatchMap $FieldMatchMap -FieldSyncMap $FieldSyncMap)) {
 				throw 'No AD users found'
 			}
-			Write-Output 'Active Directory user enumeration complete.'
+
 			Write-Output 'Enumerating all CSV users...'
 			if (-not ($csvusers = Get-CompanyCsvUser @getCsvParams)) {
 				throw 'No CSV users found'
 			}
-			Write-Output 'CSV user enumeration complete.'
 
 			$script:totalSteps = @($csvusers).Count
 			$stepCounter = 0
@@ -1200,15 +1214,17 @@ function Invoke-AdSync
 							}
 						} elseif ($CreateNewUsers.IsPresent) {
 							$csvIdField = $csvIds.Field -join ','
-							$newUserParams = @{
-								CsvUser = $csvUser
-								UsernamePattern = $UsernamePattern
-								UserMatchMap = $UserMatchMap
-								RandomPassword = $true
-								FieldSyncMap = $FieldSyncMap
-								FieldMatchMap = $FieldMatchMap
+							if (-not $ReportOnly.IsPresent) {
+								$newUserParams = @{
+									CsvUser = $csvUser
+									UsernamePattern = $UsernamePattern
+									UserMatchMap = $UserMatchMap
+									RandomPassword = $true
+									FieldSyncMap = $FieldSyncMap
+									FieldMatchMap = $FieldMatchMap
+								}
+								New-CompanyAdUser @newUserParams
 							}
-							New-CompanyAdUser @newUserParams
 
 							$logAttribs = @{
 								CSVAttributeName = 'NewUserCreated'
