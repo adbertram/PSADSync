@@ -698,7 +698,7 @@ function FindAttributeMismatch
 				AttributeValue = $adAttribValue
 				Action = 'Read'
 			}
-			
+
 			$adAttribValue = ConvertToSchemaAttributeType @adConvertParams
 			Write-Verbose -Message "Comparing AD attribute value [$($adattribValue)] with CSV value [$($csvAttribValue)]..."
 			
@@ -1101,6 +1101,7 @@ function Invoke-AdSync
 
 			$script:totalSteps = @($csvusers).Count
 			$stepCounter = 0
+			$rowsProcessed = 1
 			@($csvUsers).foreach({
 				try {
 					if ($ReportOnly.IsPresent) {
@@ -1187,12 +1188,12 @@ function Invoke-AdSync
 						## No user match was found
 						if (-not ($csvIds = @(GetCsvIdField -CsvUser $csvUser -FieldMatchMap $FieldMatchMap).where({ $_.Field }))) {
 							Write-Warning -Message  'No CSV ID fields were found.'
-							$csvIdField = 'N/A'
-							$csvIdValue = 'N/A'
+							$csvIdField = "CSV Row: $rowsProcessed"
+							$csvIdValue = "CSV Row: $rowsProcessed"
 
 							$logAttribs = @{
-								CSVAttributeName = 'N/A'
-								CSVAttributeValue = 'N/A'
+								CSVAttributeName = "CSV Row: $rowsProcessed"
+								CSVAttributeValue = "CSV Row: $rowsProcessed"
 								ADAttributeName = 'NoMatch'
 								ADAttributeValue = 'NoMatch'
 								Message = $null
@@ -1219,11 +1220,11 @@ function Invoke-AdSync
 							$csvIdValue = ($csvIds | foreach { $csvUser.($_.Field) })
 						} else {
 							$csvIdField = $csvIds.Field -join ','
-							$csvIdValue = 'N/A'
+							$csvIdValue = "CSV Row: $rowsProcessed"
 
 							$logAttribs = @{
-								CSVAttributeName = 'N/A'
-								CSVAttributeValue = 'N/A'
+								CSVAttributeName = "CSV Row: $rowsProcessed"
+								CSVAttributeValue = "CSV Row: $rowsProcessed"
 								ADAttributeName = 'NoMatch'
 								ADAttributeValue = 'NoMatch'
 								Message = $null
@@ -1242,6 +1243,7 @@ function Invoke-AdSync
 				} finally {
 					WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
 				}
+				$rowsProcessed++
 			})
 		}
 		catch

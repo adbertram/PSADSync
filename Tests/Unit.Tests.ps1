@@ -2348,7 +2348,22 @@ InModuleScope $ThisModuleName {
 									}
 								}
 								Assert-MockCalled @assMParams
-							}			
+							}
+
+							it 'should pass the CSV row as the CSV id field for WriteLog' {
+
+								$assMParams = @{
+									CommandName = 'WriteLog'
+									Times = 1
+									Exactly = $true
+									ParameterFilter = { 
+										$PSBoundParameters.CsvIdentifierValue -eq 'CSV Row: 1' -and
+										$PSBoundParameters.CSVIdentifierField -eq 'CSV Row: 1'
+									}
+								}
+								Assert-MockCalled @assMParams
+							}
+									
 						}
 
 						context 'when at least one CSV ID field can be found' {
@@ -2402,14 +2417,14 @@ InModuleScope $ThisModuleName {
 
 								$null = & $commandName @parameters
 
-								it 'should pass N/A as the CSV id field for WriteLog' {
+								it 'should pass the CSV row as the CSV id field for WriteLog' {
 
 									$assMParams = @{
 										CommandName = 'WriteLog'
 										Times = 1
 										Exactly = $true
 										ParameterFilter = { 
-											$PSBoundParameters.CsvIdentifierValue -eq 'N/A' -and
+											$PSBoundParameters.CsvIdentifierValue -eq 'CSV Row: 1' -and
 											$PSBoundParameters.CSVIdentifierField -eq 'field1,field2'
 										}
 									}
