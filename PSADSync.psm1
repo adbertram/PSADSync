@@ -1116,23 +1116,18 @@ function Invoke-AdSync
 						$csvIdField = $CSVAttemptedMatchIds -join ','
 
 						#region FieldValueMap check
-							$selectParams = @{ Property = '*' }
 							if ($PSBoundParameters.ContainsKey('FieldValueMap')) {
-								$selectParams.Property = @('*')
-								$selectParams.Exclude = [array]($FieldValueMap.Keys)
+								$selectParams = @{ 
+									Property = @('*') 
+									Exclude = [array]($FieldValueMap.Keys)
+								}
 								@($FieldValueMap.GetEnumerator()).foreach({
 									$selectParams.Property += @{ 
 										Name = $_.Key
 										Expression = $_.Value
 									}
 								})
-							}
-
-							$csvUser = $csvUser | Select-Object @selectParams | foreach {
-								if ($FieldValueMap -and (-not $_.($FieldValueMap.Keys))) {
-									throw "The CSV [$($FieldValueMap.Keys)] field in FieldValueMap returned nothing for CSV user [$($csvIdValue)]."
-								}
-								$_
+								$csvUser = $csvUser | Select-Object @selectParams
 							}
 						#endregion
 						

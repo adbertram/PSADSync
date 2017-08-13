@@ -2145,12 +2145,28 @@ InModuleScope $ThisModuleName {
 				}
 			}
 			@{
-				Label = 'FieldValueMap'
+				Label = 'FieldValueMap / value is returned'
 				Parameters = @{
 					CsvFilePath = 'C:\log.csv'
 					FieldMatchMap = @{ 'PERSON_NUM' = 'employeeId' }
 					FieldSyncMap = @{ 'CsvTitle' = 'ADTitle' }
 					FieldValueMap = @{ 'SUPERVISOR' = { $supId = $_.'SUPERVISOR_ID'; (Get-AdUser -Filter "EmployeeId -eq '$supId'").DistinguishedName }}
+				}
+				Expect = @{
+					Execution = @{
+						TestIsValidAdAttribute = @{
+							RunTimes = 1
+						}
+					}
+				}
+			}
+			@{
+				Label = 'FieldValueMap / value is not returned'
+				Parameters = @{
+					CsvFilePath = 'C:\log.csv'
+					FieldMatchMap = @{ 'PERSON_NUM' = 'employeeId' }
+					FieldSyncMap = @{ 'CsvTitle' = 'ADTitle' }
+					FieldValueMap = @{ 'SUPERVISOR' = { }}
 				}
 				Expect = @{
 					Execution = @{
@@ -2438,6 +2454,48 @@ InModuleScope $ThisModuleName {
 											}
 										}
 										Assert-MockCalled @assMParams
+									}
+								}
+
+								if ($parameters.ContainsKey('FieldValueMap')) {
+									if ($testCase.Label -eq 'FieldValueMap / value is returned') {
+										context 'when a value in the FieldValueMap hashtable returns a value' {
+
+											$null = & $commandName @parameters
+
+											it 'should attempt to find the value expression value with FindAttributeMismatch' {
+
+												$assMParams = @{
+													CommandName = 'FindAttributeMismatch'
+													Times = 1
+													Exactly = $true
+													ParameterFilter = { 
+														$PSBoundParameters.CsvUser.'SUPERVISOR' -eq 'CN=manager'
+													}
+												}
+												Assert-MockCalled @assMParams
+											}
+										}
+									}
+
+									if ($testCase.Label -eq 'FieldValueMap / value is not returned') {
+										context 'when a value in the FieldValueMap hashtable returns nothing' {
+
+											$null = & $commandName @parameters
+
+											it 'should attempt to find the value expression value with FindAttributeMismatch' {
+
+												$assMParams = @{
+													CommandName = 'FindAttributeMismatch'
+													Times = 1
+													Exactly = $true
+													ParameterFilter = { 
+														-not $PSBoundParameters.CsvUser.'SUPERVISOR'
+													}
+												}
+												Assert-MockCalled @assMParams
+											}
+										}
 									}
 								}
 							}
