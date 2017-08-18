@@ -15,8 +15,11 @@
 	## for archival purposes.
 	UserTermination = @{
 		Enabled = $true
-		CsvField = 'Status'
-		CsvValue = 'Withdrawn'
+		Criteria = 'FieldValue' ## This can be FieldValue or UserDoesNotExist
+		FieldValueSettings = @{
+			CsvField = 'Status'
+			CsvValue = 'Withdrawn'
+		}
 		Action = 'Disable' ## This will leave the account where it is and just disable it
 	}
 	NewUserCreation = @{

@@ -841,6 +841,27 @@ InModuleScope $ThisModuleName {
 				}
 			}
 			@{
+				Label = 'Valid LastNameFirstTwoFirstNameChars'
+				Parameters = @{
+					CsvUser = ([pscustomobject]@{
+						First = 'Test'
+						Last = 'User'
+						Title = 'testtitle'
+					})
+					Pattern = 'LastNameFirstTwoFirstNameChars'
+					FieldMap = @{
+						FirstName = 'First'
+						LastName = 'Last'
+					}
+				}
+				Expected = @{
+					Output = @{
+						Value = 'userte'
+						ObjectCount = 1
+					}
+				}
+			}
+			@{
 				Label = 'Invalid: pattern'
 				Parameters = @{
 					CsvUser = ([pscustomobject]@{
@@ -2195,6 +2216,27 @@ InModuleScope $ThisModuleName {
 					}
 				}
 			}
+			@{
+				Label = 'Creating new users'
+				Parameters = @{
+					CsvFilePath = 'C:\log.csv'
+					FieldSyncMap = @{ 'CsvTitle' = 'ADTitle' }
+					FieldMatchMap = @{ PERSON_NUM = 'EmployeeId' }
+					CreateNewUsers = $true
+					UserNamePattern = 'FirstInitialLastName'
+					UserMatchMap = @{
+						FirstName = 'FIRST_NAME'
+						LastName = 'LAST_NAME'
+					}
+				}
+				Expect = @{
+					Execution = @{
+						TestIsValidAdAttribute = @{
+							RunTimes = 1
+						}
+					}
+				}
+			}
 		)
 
 		$testCases = $parameterSets
@@ -2380,7 +2422,7 @@ InModuleScope $ThisModuleName {
 										Value = 'val2'
 									}
 									[pscustomobject]@{
-										Field = 'populatedfield1'
+										Field = 'PERSON_NUM'
 										Value = 'val1'
 									}
 								}
@@ -2394,26 +2436,43 @@ InModuleScope $ThisModuleName {
 										Times = 1
 										Exactly = $true
 										ParameterFilter = { 
-											$PSBoundParameters.CSVIdentifierField -eq 'populatedfield1' 
+											$PSBoundParameters.CSVIdentifierField -eq 'PERSON_NUM' 
 										}
 									}
 									Assert-MockCalled @assMParams
 								}
-							
+
+								if ($parameters.ContainsKey('CreateNewUsers')) {
+									context 'when creating new users' {
+									
+										$null = & $commandName @parameters
+										
+										it 'should create a new user' {
+										
+											$params = @{
+												CommandName = 'New-CompanyAdUser'
+												Times = 1
+												Exactly = $true
+												ExclusiveFilter = {
+													$PSBoundParameters.CsvUser.'AD_LOGON' -eq 'nameval' -and
+													$PSBoundParameters.UsernamePattern -eq 'FirstInitialLastName' -and
+													$PSBoundParameters.UserMatchMap.FirstName -eq 'FIRST_NAME' -and
+													$PSBoundParameters.UserMatchMap.LastName -eq 'LAST_NAME' -and
+													$PSBoundParameters.FieldSyncMap.CsvTitle -eq 'ADTitle' -and
+													$PSBoundParameters.FieldMatchMap.'PERSON_NUM' -eq 'employeeId'
+												}
+											}
+											Assert-MockCalled @params
+										}
+
+									
+									}	
+								}	
 							}
 
 							context 'when no CSV ID fields are populated' {
 							
-								mock 'GetCsvIdField' {
-									[pscustomobject]@{
-										Field = 'field1'
-										Value = $null
-									}
-									[pscustomobject]@{
-										Field = 'field2'
-										Value = $null
-									}
-								}
+								mock 'GetCsvIdField'
 
 								$null = & $commandName @parameters
 
@@ -2425,7 +2484,7 @@ InModuleScope $ThisModuleName {
 										Exactly = $true
 										ParameterFilter = { 
 											$PSBoundParameters.CsvIdentifierValue -eq 'CSV Row: 1' -and
-											$PSBoundParameters.CSVIdentifierField -eq 'field1,field2'
+											$PSBoundParameters.CSVIdentifierField -eq 'CSV Row: 1'
 										}
 									}
 									Assert-MockCalled @assMParams

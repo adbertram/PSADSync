@@ -174,6 +174,9 @@ function NewUserName
 		'FirstNameDotLastName' {
 			'{0}.{1}' -f $CsvUser.($FieldMap.FirstName), $CsvUser.($FieldMap.LastName)
 		}
+		'LastNameFirstTwoFirstNameChars' {
+			'{0}{1}' -f $CsvUser.($FieldMap.LastName), $CsvUser.($FieldMap.FirstName).SubString(0,2)
+		}
 		default {
 			throw "Unrecognized UserNamePattern: [$_]"
 		}
@@ -780,8 +783,8 @@ function TestUserTerminated
 	if (-not (TestIsUserTerminationEnabled)) {
 		throw 'User termination checking is not enabled in the configuration'
 	} else {
-		$csvField = $PSAdSyncConfiguration.UserTermination.CsvField
-		$csvValue = $PSAdSyncConfiguration.UserTermination.CsvValue
+		$csvField = $PSAdSyncConfiguration.UserTermination.FieldValueSettings.CsvField
+		$csvValue = $PSAdSyncConfiguration.UserTermination.FieldValueSettings.CsvValue
 		
 		if ($CsvUser.$csvField -eq $csvValue) {
 			$true
@@ -1053,6 +1056,7 @@ function Invoke-AdSync
 
 		[Parameter(Mandatory,ParameterSetName = 'CreateNewUsers')]
 		[ValidateNotNullOrEmpty()]
+		[ValidateSet('FirstInitialLastName','FirstNameLastName','FirstNameDotLastName','LastNameFirstTwoFirstNameChars')]
 		[string]$UsernamePattern,
 
 		[Parameter()]

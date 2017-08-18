@@ -109,7 +109,7 @@
 				<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
 					<maml:name>UserNamePattern</maml:name>
 					<maml:description>
-						<maml:para>To create new users, the samAccountName attribute must be created. This string parameter allows the user to define the pattern in which it will be created. Available options are FirstInitialLastName, FirstNameLastName, FirstNameDotLastName.</maml:para>
+						<maml:para>To create new users, the samAccountName attribute must be created. This string parameter allows the user to define the pattern in which it will be created. Available options are FirstInitialLastName, FirstNameLastName, FirstNameDotLastName,LastNameFirstTwoFirstNameChars.</maml:para>
 					</maml:description>
 					<command:parameterValue required="true" variableLength="false">string</command:parameterValue>
 					<dev:defaultValue></dev:defaultValue>
