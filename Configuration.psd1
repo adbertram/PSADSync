@@ -23,6 +23,6 @@
 		Action = 'Disable' ## This will leave the account where it is and just disable it
 	}
 	NewUserCreation = @{
-		AccountNamePattern = 'FirstInitialLastName' ## Available options are FirstInitialLastName,FirstNameLastName,FirstNameDotLastName
+		AccountNamePattern = 'FirstInitialLastName' ## Available options are FirstInitialLastName,FirstNameLastName,FirstNameDotLastName,LastNameFirstTwoFirstNameChars
 	}
 }

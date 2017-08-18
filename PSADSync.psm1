@@ -175,7 +175,7 @@ function NewUserName
 			'{0}.{1}' -f $CsvUser.($FieldMap.FirstName), $CsvUser.($FieldMap.LastName)
 		}
 		'LastNameFirstTwoFirstNameChars' {
-			'{0}{1}' -f $CsvUser.($FieldMap.LastName), $CsvUser.($FieldMap.FirstName).SubString(0,2)
+			'{0}{1}' -f $CsvUser.($FieldMap.LastName), ($CsvUser.($FieldMap.FirstName)).SubString(0,2)
 		}
 		default {
 			throw "Unrecognized UserNamePattern: [$_]"
@@ -393,7 +393,6 @@ function New-CompanyAdUser
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[ValidateSet('FirstInitialLastName','FirstNameLastName','FirstNameDotLastName')]
 		[string]$UsernamePattern = $PSAdSyncConfiguration.NewUserCreation.AccountNamePattern
     )
 	
@@ -426,7 +425,7 @@ function New-CompanyAdUser
 
 	$newAdUserParams.OtherAttributes = $otherAttribs
 
-    if ($PSCmdlet.ShouldProcess("User: [$($userName)] AD attribs: [$($newAdUserParams | Out-String)]",'New AD User')) {
+    if ($PSCmdlet.ShouldProcess("User: [$($userName)] AD attribs: [$($newAdUserParams | Out-String; $newAdUserParams.OtherAttributes | Out-String)]",'New AD User')) {
 		if (Get-AdUser -Filter "samAccountName -eq '$userName'") {
 			throw "The user to be created [$($userName)] already exists."
 		} else {
@@ -590,6 +589,7 @@ function FindUserMatch
 
 	$whereFilterElements = @()
 
+	## TODO: Why is Select-Object necessary here?
 	[string[]]$fieldVals = $FieldMatchmap.Values | Select-Object
 	$fieldKeys = @()
 
@@ -1125,13 +1125,11 @@ function Invoke-AdSync
 					if ($ReportOnly.IsPresent) {
 						$prgMsg = "Attempting to find attribute mismatch for user in CSV row [$($stepCounter + 1)]"
 					} else {
-						$prgMsg = "Attempting to find and sync AD any attribute mismatches for user in CSV row [$($stepCounter + 1)"
+						$prgMsg = "Attempting to find and sync AD any attribute mismatches for user in CSV row [$($stepCounter + 1)]"
 					}
 					WriteProgressHelper -Message $prgMsg -StepNumber ($stepCounter++)
 					$csvUser = $_
 					if ($adUserMatch = FindUserMatch -CsvUser $csvUser -FieldMatchMap $FieldMatchMap) {
-						Write-Verbose -Message 'Match'
-
 						$CSVAttemptedMatchIds = $aduserMatch.CSVAttemptedMatchIds
 						$csvIdValue = ($CSVAttemptedMatchIds | % {$csvUser.$_}) -join ','
 						$csvIdField = $CSVAttemptedMatchIds -join ','
@@ -1253,6 +1251,8 @@ function Invoke-AdSync
 					}
 					
 				} catch {
+					$csvIdField = "CSV Row: $rowsProcessed"
+					$csvIdValue = "CSV Row: $rowsProcessed"
 					$logAttribs = @{
 						CSVAttributeName = 'Error'
 						CSVAttributeValue = 'Error'
