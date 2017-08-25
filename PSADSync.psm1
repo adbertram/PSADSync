@@ -823,7 +823,7 @@ function WriteLog {
 	(
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$FilePath = '.\PSAdSync.csv',
+		[string]$FilePath = "$PSScriptRoot\PSAdSync.csv",
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
