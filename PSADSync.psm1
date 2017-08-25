@@ -120,7 +120,7 @@ function Get-CompanyAdUser {
 
 			$userIdProperties = [array]($FieldMatchMap.Values)
 
-			@(Get-AdUser -Filter '*' -Properties '*').where({
+			@(Get-AdUser -Filter 'Enabled -eq $true' -Properties '*').where({
 					$adUser = $_
 					## Ensure at least one ID field is populated
 					@($userIdProperties).where({ $adUser.($_) })
