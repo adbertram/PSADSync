@@ -84,6 +84,7 @@ function SetAdUser {
 	$setParams = @{
 		Identity = $Identity
 		Replace  = $replaceHt
+		Confirm  = $false
 	}
 		
 	if ($PSCmdlet.ShouldProcess("User: [$($Identity)] AD attribs: [$($replaceHt.Keys -join ',')] to [$($ActiveDirectoryAttributes.Values -join ',')]", 'Set AD attributes')) {
