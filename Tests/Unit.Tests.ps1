@@ -2545,14 +2545,14 @@ InModuleScope $ThisModuleName {
 
 								Assert-MockCalled @assMParams -Times 1 -ParameterFilter $pfilter2
 
-								# $pfilter3 = {
-								# 	$PSBoundParameters.Attributes.CSVAttributeName  -notin '1', '7' -and
-								# 	$PSBoundParameters.Attributes.CSVAttributeValue -notin '2', '8' -and
-								# 	$PSBoundParameters.Attributes.ADAttributeName   -notin '3', '9' -and
-								# 	$PSBoundParameters.Attributes.ADAttributeValue  -notin '4', '10'
-								# }
+								$pfilter3 = {
+									$PSBoundParameters.Attributes.CSVAttributeName  -notin '1', '7' -and
+									$PSBoundParameters.Attributes.CSVAttributeValue -notin '2', '8' -and
+									$PSBoundParameters.Attributes.ADAttributeName   -notin '3', '9' -and
+									$PSBoundParameters.Attributes.ADAttributeValue  -notin '4', '10'
+								}
 
-								# Assert-MockCalled @assMParams -Times 0 -ParameterFilter $pfilter3
+								Assert-MockCalled @assMParams -Times 0 -ParameterFilter $pfilter3
 								
 							}
 
