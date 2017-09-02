@@ -24,5 +24,6 @@
 	}
 	NewUserCreation = @{
 		AccountNamePattern = 'FirstInitialLastName' ## Available options are FirstInitialLastName,FirstNameLastName,FirstNameDotLastName,LastNameFirstTwoFirstNameChars
+		Path               = ''
 	}
 }
