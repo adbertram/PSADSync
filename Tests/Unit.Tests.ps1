@@ -2506,11 +2506,16 @@ InModuleScope $ThisModuleName {
 						context 'when an attribute mismatch is found' {
 
 							mock 'FindAttributeMismatch' {
-								@{
+								@(@{
 									CSVField = @{'x' = 'y'}
 									ActiveDirectoryAttribute = @{ 'z' = 'i' }
 									ADShouldBe = @{ 'z' = 'y' }
 								}
+								@{
+									CSVField = @{'z' = '1'}
+									ActiveDirectoryAttribute = @{ 'a' = 'b' }
+									ADShouldBe = @{ 'a' = 'foo' }
+								})
 							}
 
 							if ($parameters.ContainsKey('ReportOnly')) {
@@ -2526,6 +2531,42 @@ InModuleScope $ThisModuleName {
 											Exactly = $true
 										}
 										Assert-MockCalled @assMParams
+									}
+
+									it 'should record each changed attribute to the log' {
+										
+										$assMParams = @{
+											CommandName = 'WriteLog'
+											Exactly = $true
+										}
+
+										$pfilter1 = {
+											$PSBoundParameters.Attributes.CSVAttributeName  -eq 'x' -and
+											$PSBoundParameters.Attributes.CSVAttributeValue -eq 'y' -and
+											$PSBoundParameters.Attributes.ADAttributeName   -eq 'z' -and
+											$PSBoundParameters.Attributes.ADAttributeValue  -eq 'y'
+										}
+
+										Assert-MockCalled @assMParams -Times 1 -ParameterFilter $pfilter1
+
+										$pfilter2 = {
+											$PSBoundParameters.Attributes.CSVAttributeName  -eq 'z' -and
+											$PSBoundParameters.Attributes.CSVAttributeValue -eq '1' -and
+											$PSBoundParameters.Attributes.ADAttributeName   -eq 'a' -and
+											$PSBoundParameters.Attributes.ADAttributeValue  -eq 'foo'
+										}
+
+										Assert-MockCalled @assMParams -Times 1 -ParameterFilter $pfilter2
+
+										$pfilter3 = {
+											$PSBoundParameters.Attributes.CSVAttributeName  -notin 'z','x' -and
+											$PSBoundParameters.Attributes.CSVAttributeValue -notin 'y','1' -and
+											$PSBoundParameters.Attributes.ADAttributeName   -notin 'z','a' -and
+											$PSBoundParameters.Attributes.ADAttributeValue  -notin 'y','foo'
+										}
+
+										Assert-MockCalled @assMParams -Times 0 -ParameterFilter $pfilter3
+										
 									}
 								}
 							} else {

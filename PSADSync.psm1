@@ -1069,6 +1069,7 @@ function Invoke-AdSync {
 			$rowsProcessed = 1
 			@($csvUsers).foreach({
 					try {
+						$logEntry = $true
 						if ($ReportOnly.IsPresent) {
 							$prgMsg = "Attempting to find attribute mismatch for user in CSV row [$($stepCounter + 1)]"
 						} else {
@@ -1118,13 +1119,18 @@ function Invoke-AdSync {
 								}
 								$attribMismatches = FindAttributeMismatch @findParams
 								if ($attribMismatches) {
-									$logAttribs = @{
-										CSVAttributeName  = ([array]($attribMismatches.CSVField.Keys))[0]
-										CSVAttributeValue = ([array]($attribMismatches.CSVField.Values))[0]
-										ADAttributeName   = ([array]($attribMismatches.ActiveDirectoryAttribute.Keys))[0]
-										ADAttributeValue  = ([array]($attribMismatches.ActiveDirectoryAttribute.Values))[0]
-										Message           = $null
+									$logEntry = $false
+									$attribMismatches | foreach {
+										$logAttribs = @{
+											CSVAttributeName  = $_.CSVField.Keys[0]
+											CSVAttributeValue = $_.CSVField.Values[0]
+											ADAttributeName   = $_.ADShouldBe.Keys[0]
+											ADAttributeValue  = $_.ADShouldBe.Values[0]
+											Message           = $null
+										}
+										WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs	
 									}
+									
 									if (-not $ReportOnly.IsPresent) {
 										$syncParams = @{
 											CsvUser                   = $csvUser
@@ -1208,9 +1214,11 @@ function Invoke-AdSync {
 							Message           = $_.Exception.Message
 						}
 					} finally {
-						WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
+						if ($logEntry) {
+							WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
+						}
+						$rowsProcessed++
 					}
-					$rowsProcessed++
 				})
 		} catch {
 			Write-Error -Message "Function: $($MyInvocation.MyCommand.Name) Error: $($_.Exception.Message)"
