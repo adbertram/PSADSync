@@ -1122,10 +1122,10 @@ function Invoke-AdSync {
 									$logEntry = $false
 									$attribMismatches | foreach {
 										$logAttribs = @{
-											CSVAttributeName  = $_.CSVField.Keys[0]
-											CSVAttributeValue = $_.CSVField.Values[0]
-											ADAttributeName   = $_.ADShouldBe.Keys[0]
-											ADAttributeValue  = $_.ADShouldBe.Values[0]
+											CSVAttributeName  = [string]($_.CSVField.Keys)
+											CSVAttributeValue = [string]($_.CSVField.Values)
+											ADAttributeName   = [string]($_.ADShouldBe.Keys)
+											ADAttributeValue  = [string]($_.ADShouldBe.Values)
 											Message           = $null
 										}
 										WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs	

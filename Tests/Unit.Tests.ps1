@@ -2533,7 +2533,7 @@ InModuleScope $ThisModuleName {
 										Assert-MockCalled @assMParams
 									}
 
-									it 'should record each changed attribute to the log' {
+									it 'should record each changed attribute to the log and no more' {
 										
 										$assMParams = @{
 											CommandName = 'WriteLog'
