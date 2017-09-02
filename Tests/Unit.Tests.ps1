@@ -2230,7 +2230,6 @@ InModuleScope $ThisModuleName {
 					CsvFilePath = 'C:\log.csv'
 					FieldSyncMap = @{ 'CsvTitle' = 'ADTitle' }
 					FieldMatchMap = @{ PERSON_NUM = 'EmployeeId' }
-					CreateNewUsers = $true
 					UserNamePattern = 'FirstInitialLastName'
 					UserMatchMap = @{
 						FirstName = 'FIRST_NAME'

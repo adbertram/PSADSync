@@ -1115,10 +1115,6 @@ function Invoke-AdSync {
 
 		[Parameter(Mandatory, ParameterSetName = 'CreateNewUsers')]
 		[ValidateNotNullOrEmpty()]
-		[switch]$CreateNewUsers,
-
-		[Parameter(Mandatory, ParameterSetName = 'CreateNewUsers')]
-		[ValidateNotNullOrEmpty()]
 		[hashtable]$UserMatchMap,
 
 		[Parameter(Mandatory, ParameterSetName = 'CreateNewUsers')]
@@ -1284,7 +1280,7 @@ function Invoke-AdSync {
 									ADAttributeValue  = 'NoMatch'
 									Message           = $null
 								}
-							} elseif ($CreateNewUsers.IsPresent) {
+							} elseif ($PSBoundParameters.ContainsKey('UserMatchMap')) {
 								$csvIdField = $csvIds.Field -join ','
 								if (-not $ReportOnly.IsPresent) {
 									$newUserParams = @{
