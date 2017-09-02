@@ -2507,15 +2507,53 @@ InModuleScope $ThisModuleName {
 
 							mock 'FindAttributeMismatch' {
 								@(@{
-									CSVField = @{'x' = 'y'}
-									ActiveDirectoryAttribute = @{ 'z' = 'i' }
-									ADShouldBe = @{ 'z' = 'y' }
+									CSVField = @{'1' = '2'}
+									ActiveDirectoryAttribute = @{ '3' = '4' }
+									ADShouldBe = @{ '5' = '6' }
 								}
 								@{
-									CSVField = @{'z' = '1'}
-									ActiveDirectoryAttribute = @{ 'a' = 'b' }
-									ADShouldBe = @{ 'a' = 'foo' }
+									CSVField = @{'7' = '8'}
+									ActiveDirectoryAttribute = @{ '9' = '10' }
+									ADShouldBe = @{ '11' = '12' }
 								})
+							}
+
+							$null = & $commandName @parameters
+
+							it 'should record each changed attribute to the log and no more' {
+										
+								$assMParams = @{
+									CommandName = 'WriteLog'
+									Exactly = $true
+								}
+
+								$pfilter1 = {
+									$PSBoundParameters.Attributes.CSVAttributeName  -eq '1' -and
+									$PSBoundParameters.Attributes.CSVAttributeValue -eq '2' -and
+									$PSBoundParameters.Attributes.ADAttributeName   -eq '3' -and
+									$PSBoundParameters.Attributes.ADAttributeValue  -eq '4'
+								}
+
+								Assert-MockCalled @assMParams -Times 1 -ParameterFilter $pfilter1
+
+								$pfilter2 = {
+									$PSBoundParameters.Attributes.CSVAttributeName  -eq '7' -and
+									$PSBoundParameters.Attributes.CSVAttributeValue -eq '8' -and
+									$PSBoundParameters.Attributes.ADAttributeName   -eq '9' -and
+									$PSBoundParameters.Attributes.ADAttributeValue  -eq '10'
+								}
+
+								Assert-MockCalled @assMParams -Times 1 -ParameterFilter $pfilter2
+
+								# $pfilter3 = {
+								# 	$PSBoundParameters.Attributes.CSVAttributeName  -notin '1', '7' -and
+								# 	$PSBoundParameters.Attributes.CSVAttributeValue -notin '2', '8' -and
+								# 	$PSBoundParameters.Attributes.ADAttributeName   -notin '3', '9' -and
+								# 	$PSBoundParameters.Attributes.ADAttributeValue  -notin '4', '10'
+								# }
+
+								# Assert-MockCalled @assMParams -Times 0 -ParameterFilter $pfilter3
+								
 							}
 
 							if ($parameters.ContainsKey('ReportOnly')) {
@@ -2532,42 +2570,6 @@ InModuleScope $ThisModuleName {
 										}
 										Assert-MockCalled @assMParams
 									}
-
-									it 'should record each changed attribute to the log and no more' {
-										
-										$assMParams = @{
-											CommandName = 'WriteLog'
-											Exactly = $true
-										}
-
-										$pfilter1 = {
-											$PSBoundParameters.Attributes.CSVAttributeName  -eq 'x' -and
-											$PSBoundParameters.Attributes.CSVAttributeValue -eq 'y' -and
-											$PSBoundParameters.Attributes.ADAttributeName   -eq 'z' -and
-											$PSBoundParameters.Attributes.ADAttributeValue  -eq 'y'
-										}
-
-										Assert-MockCalled @assMParams -Times 1 -ParameterFilter $pfilter1
-
-										$pfilter2 = {
-											$PSBoundParameters.Attributes.CSVAttributeName  -eq 'z' -and
-											$PSBoundParameters.Attributes.CSVAttributeValue -eq '1' -and
-											$PSBoundParameters.Attributes.ADAttributeName   -eq 'a' -and
-											$PSBoundParameters.Attributes.ADAttributeValue  -eq 'foo'
-										}
-
-										Assert-MockCalled @assMParams -Times 1 -ParameterFilter $pfilter2
-
-										$pfilter3 = {
-											$PSBoundParameters.Attributes.CSVAttributeName  -notin 'z','x' -and
-											$PSBoundParameters.Attributes.CSVAttributeValue -notin 'y','1' -and
-											$PSBoundParameters.Attributes.ADAttributeName   -notin 'z','a' -and
-											$PSBoundParameters.Attributes.ADAttributeValue  -notin 'y','foo'
-										}
-
-										Assert-MockCalled @assMParams -Times 0 -ParameterFilter $pfilter3
-										
-									}
 								}
 							} else {
 								context 'when syncing' {
@@ -2580,11 +2582,13 @@ InModuleScope $ThisModuleName {
 											CommandName = 'SyncCompanyUser'
 											Times = 1
 											Exactly = $true
-											ParameterFilter = { 
+											ParameterFilter = {
 												$PSBoundParameters.Identity -eq 'samval' -and
 												$PSBoundParameters.CsvUser.'AD_LOGON' -eq 'nameval' -and
 												$PSBoundParameters.CsvUser.'PERSON_NUM' -eq "1" -and
-												$PSBoundParameters.ActiveDirectoryAttributes.z -eq 'y'
+												$PSBoundParameters.ActiveDirectoryAttributes.5 -eq '6' -and
+												$PSBoundParameters.ActiveDirectoryAttributes.11 -eq '12'
+
 											}
 										}
 										Assert-MockCalled @assMParams

@@ -1124,8 +1124,8 @@ function Invoke-AdSync {
 										$logAttribs = @{
 											CSVAttributeName  = [string]($_.CSVField.Keys)
 											CSVAttributeValue = [string]($_.CSVField.Values)
-											ADAttributeName   = [string]($_.ADShouldBe.Keys)
-											ADAttributeValue  = [string]($_.ADShouldBe.Values)
+											ADAttributeName   = [string]($_.ActiveDirectoryAttribute.Keys)
+											ADAttributeValue  = [string]($_.ActiveDirectoryAttribute.Values)
 											Message           = $null
 										}
 										WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs	
