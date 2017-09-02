@@ -46,7 +46,8 @@ function ConvertToSchemaAttributeType {
 				}
 			}
 			default {
-				$AttributeValue
+				## Remove any special characters
+				$AttributeValue -replace "'"
 			}
 		}
 	} else {
@@ -341,7 +342,7 @@ function Get-CompanyCsvUser {
 }
 
 function New-CompanyAdUser {
-	[OutputType([void])]
+	[OutputType([Microsoft.ActiveDirectory.Management.ADUser])]
 	[CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
 	param
 	(
@@ -386,8 +387,9 @@ function New-CompanyAdUser {
 	if ($RandomPassword.IsPresent) {
 		$pw = NewRandomPassword
 	} else {
-		$Password = $pw
+		$pw = $Password
 	}
+	$secPw = ConvertTo-SecureString -String $pw -AsPlainText -Force
 
 	$otherAttribs = @{}
 	$FieldSyncMap.GetEnumerator().foreach({
@@ -408,7 +410,8 @@ function New-CompanyAdUser {
 			throw "The user to be created [$($userName)] already exists."
 		} else {
 			if ($newUser = New-ADUser @newAdUserParams) {
-				Set-ADAccountPassword -Identity $newUser.DistinguishedName -Reset -NewPassword $pw
+				Set-ADAccountPassword -Identity $newUser.DistinguishedName -Reset -NewPassword $secPw
+				$newUser | Add-Member -MemberType NoteProperty -Name 'Password' -Force -Value $pw -PassThru
 			}
 		}
 		
@@ -693,27 +696,139 @@ function FindAttributeMismatch {
 }
 
 function NewRandomPassword {
-	[CmdletBinding()]
-	[OutputType([System.Security.SecureString])]
-	param
+	<#
+    .Synopsis
+       Generates one or more complex passwords designed to fulfill the requirements for Active Directory
+    .DESCRIPTION
+       Generates one or more complex passwords designed to fulfill the requirements for Active Directory
+    .EXAMPLE
+       New-SWRandomPassword
+       C&3SX6Kn
+
+       Will generate one password with a length between 8  and 12 chars.
+    .EXAMPLE
+       New-SWRandomPassword -MinPasswordLength 8 -MaxPasswordLength 12 -Count 4
+       7d&5cnaB
+       !Bh776T"Fw
+       9"C"RxKcY
+       %mtM7#9LQ9h
+
+       Will generate four passwords, each with a length of between 8 and 12 chars.
+    .EXAMPLE
+       New-SWRandomPassword -InputStrings abc, ABC, 123 -PasswordLength 4
+       3ABa
+
+       Generates a password with a length of 4 containing atleast one char from each InputString
+    .EXAMPLE
+       New-SWRandomPassword -InputStrings abc, ABC, 123 -PasswordLength 4 -FirstChar abcdefghijkmnpqrstuvwxyzABCEFGHJKLMNPQRSTUVWXYZ
+       3ABa
+
+       Generates a password with a length of 4 containing atleast one char from each InputString that will start with a letter from 
+       the string specified with the parameter FirstChar
+    .OUTPUTS
+       [String]
+    .NOTES
+       Written by Simon Wåhlin, blog.simonw.se
+       I take no responsibility for any issues caused by this script.
+    .FUNCTIONALITY
+       Generates random passwords
+    .LINK
+       http://blog.simonw.se/powershell-generating-random-password-for-active-directory/
+   
+    #>
+	[CmdletBinding(DefaultParameterSetName='FixedLength', ConfirmImpact='None')]
+	[OutputType([String])]
+	Param
 	(
-		[Parameter()]
-		[ValidateRange(8, 64)]
-		[int]$Length = (Get-Random -Minimum 20 -Maximum 32),
+		# Specifies minimum password length
+		[Parameter(Mandatory=$false,
+			ParameterSetName='RandomLength')]
+		[ValidateScript({$_ -gt 0})]
+		[Alias('Min')] 
+		[int]$MinPasswordLength = 8,
+        
+		# Specifies maximum password length
+		[Parameter(Mandatory=$false,
+			ParameterSetName='RandomLength')]
+		[ValidateScript({
+				if($_ -ge $MinPasswordLength){$true}
+				else{Throw 'Max value cannot be lesser than min value.'}})]
+		[Alias('Max')]
+		[int]$MaxPasswordLength = 12,
 
-		[Parameter()]
-		[ValidateRange(0, 8)]
-		[int]$Complexity = 3
+		# Specifies a fixed password length
+		[Parameter(Mandatory=$false,
+			ParameterSetName='FixedLength')]
+		[ValidateRange(1, 2147483647)]
+		[int]$PasswordLength = 8,
+        
+		# Specifies an array of strings containing charactergroups from which the password will be generated.
+		# At least one char from each group (string) will be used.
+		[String[]]$InputStrings = @('abcdefghijkmnpqrstuvwxyz', 'ABCEFGHJKLMNPQRSTUVWXYZ', '23456789', '!"#%&'),
+
+		# Specifies a string containing a character group from which the first character in the password will be generated.
+		# Useful for systems which requires first char in password to be alphabetic.
+		[String] $FirstChar,
+        
+		# Specifies number of passwords to generate.
+		[ValidateRange(1, 2147483647)]
+		[int]$Count = 1
 	)
-	$ErrorActionPreference = 'Stop'
+	Begin {
+		Function Get-Seed{
+			# Generate a seed for randomization
+			$RandomBytes = New-Object -TypeName 'System.Byte[]' 4
+			$Random = New-Object -TypeName 'System.Security.Cryptography.RNGCryptoServiceProvider'
+			$Random.GetBytes($RandomBytes)
+			[BitConverter]::ToUInt32($RandomBytes, 0)
+		}
+	}
+	Process {
+		For($iteration = 1; $iteration -le $Count; $iteration++){
+			$Password = @{}
+			# Create char arrays containing groups of possible chars
+			[char[][]]$CharGroups = $InputStrings
 
-	Add-Type -AssemblyName 'System.Web'
+			# Create char array containing all chars
+			$AllChars = $CharGroups | ForEach-Object {[Char[]]$_}
 
-	# Generate a password with the specified length and complexity.
-	Write-Verbose ('Generating password {0} characters in length and with a complexity of {1}.' -f $Length, $Complexity);
-	$pw = [System.Web.Security.Membership]::GeneratePassword($Length, $Complexity)
-	ConvertTo-SecureString -String $pw -AsPlainText -Force
-	
+			# Set password length
+			if($PSCmdlet.ParameterSetName -eq 'RandomLength') {
+				if($MinPasswordLength -eq $MaxPasswordLength) {
+					# If password length is set, use set length
+					$PasswordLength = $MinPasswordLength
+				} else {
+					# Otherwise randomize password length
+					$PasswordLength = ((Get-Seed) % ($MaxPasswordLength + 1 - $MinPasswordLength)) + $MinPasswordLength
+				}
+			}
+
+			# If FirstChar is defined, randomize first char in password from that string.
+			if($PSBoundParameters.ContainsKey('FirstChar')){
+				$Password.Add(0, $FirstChar[((Get-Seed) % $FirstChar.Length)])
+			}
+			# Randomize one char from each group
+			Foreach($Group in $CharGroups) {
+				if($Password.Count -lt $PasswordLength) {
+					$Index = Get-Seed
+					While ($Password.ContainsKey($Index)){
+						$Index = Get-Seed                        
+					}
+					$Password.Add($Index, $Group[((Get-Seed) % $Group.Count)])
+				}
+			}
+
+			# Fill out with chars from $AllChars
+			for($i=$Password.Count; $i -lt $PasswordLength; $i++) {
+				$Index = Get-Seed
+				While ($Password.ContainsKey($Index)){
+					$Index = Get-Seed                        
+				}
+				$Password.Add($Index, $AllChars[((Get-Seed) % $AllChars.Count)])
+			}
+			Write-Output -InputObject $(-join ($Password.GetEnumerator() | Sort-Object -Property Name | Select-Object -ExpandProperty Value))
+		}
+	}
 }
 function InvokeUserTermination {
 	[OutputType('void')]
@@ -1069,6 +1184,8 @@ function Invoke-AdSync {
 			$rowsProcessed = 1
 			@($csvUsers).foreach({
 					try {
+						## account for the CSV header row
+						$csvRow = $rowsProcessed + 1
 						$logEntry = $true
 						if ($ReportOnly.IsPresent) {
 							$prgMsg = "Attempting to find attribute mismatch for user in CSV row [$($stepCounter + 1)]"
@@ -1157,12 +1274,12 @@ function Invoke-AdSync {
 							## No user match was found
 							if (-not ($csvIds = @(GetCsvIdField -CsvUser $csvUser -FieldMatchMap $FieldMatchMap).where({ $_.Field }))) {
 								Write-Warning -Message  'No CSV ID fields were found.'
-								$csvIdField = "CSV Row: $rowsProcessed"
-								$csvIdValue = "CSV Row: $rowsProcessed"
+								$csvIdField = "CSV Row: $csvRow"
+								$csvIdValue = "CSV Row: $csvRow"
 
 								$logAttribs = @{
-									CSVAttributeName  = "CSV Row: $rowsProcessed"
-									CSVAttributeValue = "CSV Row: $rowsProcessed"
+									CSVAttributeName  = "CSV Row: $csvRow"
+									CSVAttributeValue = "CSV Row: $csvRow"
 									ADAttributeName   = 'NoMatch'
 									ADAttributeValue  = 'NoMatch'
 									Message           = $null
@@ -1178,7 +1295,7 @@ function Invoke-AdSync {
 										FieldSyncMap    = $FieldSyncMap
 										FieldMatchMap   = $FieldMatchMap
 									}
-									New-CompanyAdUser @newUserParams
+									$newAdUser = New-CompanyAdUser @newUserParams
 								}
 
 								$logAttribs = @{
@@ -1186,16 +1303,16 @@ function Invoke-AdSync {
 									CSVAttributeValue = 'NewUserCreated'
 									ADAttributeName   = 'NewUserCreated'
 									ADAttributeValue  = 'NewUserCreated'
-									Message           = $null
+									Message           = "UserName: [$($newUser.Name)] - Password: [$($newUserPw)]"
 								}
 								$csvIdValue = ($csvIds | foreach { $csvUser.($_.Field) })
 							} else {
 								$csvIdField = $csvIds.Field -join ','
-								$csvIdValue = "CSV Row: $rowsProcessed"
+								$csvIdValue = "CSV Row: $csvRow"
 
 								$logAttribs = @{
-									CSVAttributeName  = "CSV Row: $rowsProcessed"
-									CSVAttributeValue = "CSV Row: $rowsProcessed"
+									CSVAttributeName  = "CSV Row: $csvRow"
+									CSVAttributeValue = "CSV Row: $csvRow"
 									ADAttributeName   = 'NoMatch'
 									ADAttributeValue  = 'NoMatch'
 									Message           = $null
@@ -1204,8 +1321,8 @@ function Invoke-AdSync {
 						}
 					
 					} catch {
-						$csvIdField = "CSV Row: $rowsProcessed"
-						$csvIdValue = "CSV Row: $rowsProcessed"
+						$csvIdField = "CSV Row: $csvRow"
+						$csvIdValue = "CSV Row: $csvRow"
 						$logAttribs = @{
 							CSVAttributeName  = 'Error'
 							CSVAttributeValue = 'Error'

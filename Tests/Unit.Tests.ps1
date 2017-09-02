@@ -952,15 +952,14 @@ InModuleScope $ThisModuleName {
 			} -ParameterFilter { $Pattern -eq 'FirstNameDotLastName' }
 
 			mock 'NewRandomPassword' {
-				ConvertTo-SecureString -String 'randompwhere' -AsPlainText -Force
+				'randompwhere'
 			}
 
 			mock 'Get-AdUser'
 
 			mock 'New-AdUser' {
-				[pscustomobject]@{
-					DistinguishedName = 'newuserdn'
-				}
+				$obj = New-MockObject -Type 'Microsoft.ActiveDirectory.Management.ADUser'
+				$obj | Add-Member -MemberType NoteProperty -Name 'DistinguishedName' -Force -Value 'dnNamehere' -PassThru
 			}
 		#endregion
 	
@@ -991,6 +990,7 @@ InModuleScope $ThisModuleName {
 						'Set-AdAccountPassword' = @{
 							Parameters = @{
 								Identity = 'newuserdn'
+								NewPassword = 'randompwhere'
 							}
 							RunTimes = 1
 						}
@@ -1081,18 +1081,26 @@ InModuleScope $ThisModuleName {
 							Times = $thisFunc.RunTimes
 							Exactly = $true
 							ParameterFilter = {
-								Write-Host ($PSBoundParameters.Identity | Out-String)
-								Write-Host ($thisFunc.Parameters.Identity)
-								$PSBoundParameters.Identity.samAccountName -eq $thisFunc.Parameters.Identity
+								$check1 = $PSBoundParameters.Identity.samAccountName -eq $thisFunc.Parameters.Identity
+								
+								$cntParams = @{
+									AsPlainText = $true
+									Force = $true
+								}
+								$check2 = (ConvertTo-SecureString @cntParams -String $PSBoundParameters.NewPassword) -eq (ConvertTo-SecureString @cntParams -String $thisFunc.Parameters.NewPassword)
+								$check1 -and $check2
 							}
 						}
 						Assert-MockCalled @assMParams
 					}
 
-					it "should return nothing" {
-						$result | should benullorempty
+					it "should return Microsoft.ActiveDirectory.Management.ADUser" {
+						$result | should beofType 'Microsoft.ActiveDirectory.Management.ADUser'
 					}
 
+					it 'should return the expected new password' {
+						$result.Password | should be 'randompwhere'
+					}
 				}
 			}
 		}
@@ -2399,8 +2407,8 @@ InModuleScope $ThisModuleName {
 									Times = 1
 									Exactly = $true
 									ParameterFilter = { 
-										$PSBoundParameters.CsvIdentifierValue -eq 'CSV Row: 1' -and
-										$PSBoundParameters.CSVIdentifierField -eq 'CSV Row: 1'
+										$PSBoundParameters.CsvIdentifierValue -eq 'CSV Row: 2' -and
+										$PSBoundParameters.CSVIdentifierField -eq 'CSV Row: 2'
 									}
 								}
 								Assert-MockCalled @assMParams
@@ -2483,8 +2491,8 @@ InModuleScope $ThisModuleName {
 										Times = 1
 										Exactly = $true
 										ParameterFilter = { 
-											$PSBoundParameters.CsvIdentifierValue -eq 'CSV Row: 1' -and
-											$PSBoundParameters.CSVIdentifierField -eq 'CSV Row: 1'
+											$PSBoundParameters.CsvIdentifierValue -eq 'CSV Row: 2' -and
+											$PSBoundParameters.CSVIdentifierField -eq 'CSV Row: 2'
 										}
 									}
 									Assert-MockCalled @assMParams
