@@ -47,7 +47,7 @@ function ConvertToSchemaAttributeType {
 			}
 			default {
 				## Remove any special characters
-				$AttributeValue -replace "'"
+				$AttributeValue
 			}
 		}
 	} else {
@@ -55,6 +55,20 @@ function ConvertToSchemaAttributeType {
 		''
 	}
 
+}
+
+function CleanAdAccountName {
+	[OutputType('string')]
+	[CmdletBinding()]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[string]$AccountName
+	)
+
+	$AccountName -replace "'"
+	
 }
 
 function SetAdUser {
@@ -358,6 +372,14 @@ function New-CompanyAdUser {
 		[ValidateNotNullOrEmpty()]
 		[switch]$RandomPassword,
 
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$Path = $PSAdSyncConfiguration.NewUserCreation.Path,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[hashtable]$FieldValueMap,
+
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
 		[hashtable]$FieldSyncMap,
@@ -374,14 +396,20 @@ function New-CompanyAdUser {
 		[ValidateNotNullOrEmpty()]
 		[string]$UsernamePattern = $PSAdSyncConfiguration.NewUserCreation.AccountNamePattern
 	)
-	
-	$userName = NewUserName -CsvUser $CsvUser -Pattern $UsernamePattern -FieldMap $UserMatchMap
 
+	$userName = CleanAdAccountName(NewUserName -CsvUser $CsvUser -Pattern $UsernamePattern -FieldMap $UserMatchMap)
+
+	$firstName = $CsvUser.($UserMatchMap.FirstName)
+	$lastName = $CsvUser.($UserMatchMap.LastName)
 	$newAdUserParams = @{ 
-		Name      = $userName 
-		PassThru  = $true
-		GivenName = $CsvUser.($UserMatchMap.FirstName)
-		Surname   = $CsvUser.($UserMatchMap.LastName)
+		Name           = $userName
+		samAccountName = $userName
+		DisplayName    = "$firstName $lastName"
+		PassThru       = $true
+		GivenName      = $firstName
+		Surname        = $lastName
+		Enabled        = $true
+		Path           = $Path
 	}
 
 	if ($RandomPassword.IsPresent) {
@@ -390,16 +418,42 @@ function New-CompanyAdUser {
 		$pw = $Password
 	}
 	$secPw = ConvertTo-SecureString -String $pw -AsPlainText -Force
-
 	$otherAttribs = @{}
 	$FieldSyncMap.GetEnumerator().foreach({
-			$adAttribName = $_.Value
-			$adAttribValue = $CsvUser.($_.Key)
+			if ($_.Value -is 'string') {
+				$adAttribName = $_.Value
+			} else {
+				$adAttribName = EvaluateCsvFieldCondition -Condition $_.Value -CsvUser $CsvUser
+			}
+
+			if ($_.Key -is 'string') {
+				$key = $_.Key
+			} else {
+				$key = EvaluateCsvFieldCondition -Condition $_.Key -CsvUser $CsvUser
+			}
+			
+			if ($FieldValueMap -and $FieldValueMap.ContainsKey($key)) {
+				$adAttribValue = EvaluateCsvFieldCondition -Condition $FieldValueMap.$key -CsvUser $CsvUser 
+			} else {
+				$adAttribValue = $CsvUser.$key
+			}
+
 			$otherAttribs.$adAttribName = $adAttribValue
 		})
+
 	$FieldMatchMap.GetEnumerator().foreach({
-			$adAttribName = $_.Value
-			$adAttribValue = $CsvUser.($_.Key)
+			if ($_.Value -is 'string') {
+				$adAttribName = $_.Value
+			} else {
+				$adAttribName = EvaluateCsvFieldCondition -Condition $_.Value -CsvUser $CsvUser
+			}
+			
+			if ($_.Key -is 'string') {
+				$key = $_.Key	
+			} else {
+				$key = EvaluateCsvFieldCondition -Condition $_.Key -CsvUser $CsvUser
+			}
+			$adAttribValue = $CsvUser.$key
 			$otherAttribs.$adAttribName = $adAttribValue
 		})
 
@@ -736,7 +790,7 @@ function NewRandomPassword {
        http://blog.simonw.se/powershell-generating-random-password-for-active-directory/
    
     #>
-	[CmdletBinding(DefaultParameterSetName='FixedLength', ConfirmImpact='None')]
+	[CmdletBinding(DefaultParameterSetName='RandomLength', ConfirmImpact='None')]
 	[OutputType([String])]
 	Param
 	(
@@ -745,7 +799,7 @@ function NewRandomPassword {
 			ParameterSetName='RandomLength')]
 		[ValidateScript({$_ -gt 0})]
 		[Alias('Min')] 
-		[int]$MinPasswordLength = 8,
+		[int]$MinPasswordLength = 12,
         
 		# Specifies maximum password length
 		[Parameter(Mandatory=$false,
@@ -754,7 +808,7 @@ function NewRandomPassword {
 				if($_ -ge $MinPasswordLength){$true}
 				else{Throw 'Max value cannot be lesser than min value.'}})]
 		[Alias('Max')]
-		[int]$MaxPasswordLength = 12,
+		[int]$MaxPasswordLength = 15,
 
 		# Specifies a fixed password length
 		[Parameter(Mandatory=$false,
@@ -1290,6 +1344,9 @@ function Invoke-AdSync {
 										RandomPassword  = $true
 										FieldSyncMap    = $FieldSyncMap
 										FieldMatchMap   = $FieldMatchMap
+									}
+									if ($PSBoundParameters.ContainsKey('FieldValueMap')) {
+										$newUserParams.FieldValueMap = $FieldValueMap
 									}
 									$newAdUser = New-CompanyAdUser @newUserParams
 								}

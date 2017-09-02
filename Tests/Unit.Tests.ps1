@@ -939,18 +939,6 @@ InModuleScope $ThisModuleName {
 		#region Mocks
 			mock 'Set-AdAccountPassword'
 
-			mock 'NewUserName' {
-				'tuser'
-			} -ParameterFilter { $Pattern -eq 'FirstInitialLastName' }
-
-			mock 'NewUserName' {
-				'testuser'
-			} -ParameterFilter { $Pattern -eq 'FirstNameLastName' }
-
-			mock 'NewUserName' {
-				'test.user'
-			} -ParameterFilter { $Pattern -eq 'FirstNameDotLastName' }
-
 			mock 'NewRandomPassword' {
 				'randompwhere'
 			}
@@ -969,10 +957,11 @@ InModuleScope $ThisModuleName {
 				Parameters = @{
 					CsvUser = ([pscustomobject]@{
 						First = 'Test'
-						Last = 'User'
+						Last = "O'Leary"
 						Title = 'testtitle'
 						'PERSON_NUM' = '1234'
 					})
+					Path = 'useroupath'
 					UsernamePattern = 'FirstInitialLastName'
 					RandomPassword = $true
 					UserMatchMap = @{
@@ -996,16 +985,18 @@ InModuleScope $ThisModuleName {
 						}
 						'New-AdUser' = @{
 							Parameters = @{
-								Name = 'tuser'
-								GivenName = 'test'
-								Surname = 'user'
+								Name = 'toleary'
+								GivenName = 'Test'
+								Surname = "O'Leary"
+								Path = 'useroupath'
+								Enabled = $true
 								OtherAttributes = @{ Title = 'testtitle'; employeeId = '1234' }
 							}
 							RunTimes = 1
 						}
 						'Get-AdUser' = @{
 							Parameters = @{
-								Filter = "samAccountName -eq 'tuser'"
+								Filter = "samAccountName -eq 'toleary'"
 							}
 							RunTimes = 1
 						}
@@ -1063,6 +1054,8 @@ InModuleScope $ThisModuleName {
 							Exactly = $true
 							ExclusiveFilter = {
 								$PSBoundParameters.Name -eq $thisFunc.Parameters.Name -and
+								$PSBoundParameters.Path -eq $thisFunc.Parameters.Path -and
+								$PSBoundParameters.Enabled -eq $thisFunc.Parameters.Enabled -and
 								$PSBoundParameters.GivenName -eq $thisFunc.Parameters.GivenName -and
 								$PSBoundParameters.Surname -eq $thisFunc.Parameters.SurName -and
 								$PSBoundParameters.OtherAttributes.Title -eq $thisFunc.Parameters.OtherAttributes.Title -and
