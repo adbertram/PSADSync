@@ -1,6 +1,14 @@
 Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
 
-$PSAdSyncConfiguration = Import-PowerShellDataFile -Path "$PSScriptRoot\Configuration.psd1"
+function GetPsAdSyncConfiguration {
+	[OutputType('hashtable')]
+	[CmdletBinding()]
+	param
+	()
+
+	Import-PowerShellDataFile -Path "$PSScriptRoot\Configuration.psd1"
+
+}
 
 function ConvertToSchemaAttributeType {
 	[CmdletBinding()]
@@ -374,7 +382,7 @@ function New-CompanyAdUser {
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$Path = $PSAdSyncConfiguration.NewUserCreation.Path,
+		[string]$Path = (GetPsAdSyncConfiguration).NewUserCreation.Path,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
@@ -394,7 +402,7 @@ function New-CompanyAdUser {
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$UsernamePattern = $PSAdSyncConfiguration.NewUserCreation.AccountNamePattern
+		[string]$UsernamePattern = (GetPsAdSyncConfiguration).NewUserCreation.AccountNamePattern
 	)
 
 	$userName = CleanAdAccountName(NewUserName -CsvUser $CsvUser -Pattern $UsernamePattern -FieldMap $UserMatchMap)
@@ -884,6 +892,7 @@ function NewRandomPassword {
 		}
 	}
 }
+
 function InvokeUserTermination {
 	[OutputType('void')]
 	[CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
@@ -894,7 +903,7 @@ function InvokeUserTermination {
 		[object]$AdUser	
 	)
 
-	switch ($PSAdSyncConfiguration.UserTermination.Action) {
+	switch ((GetPsAdSyncConfiguration).UserTermination.Action) {
 		'Disable' {
 			if ($PSCmdlet.ShouldProcess("AD User [$($AdUser.Name)]", 'Disable')) {
 				Disable-AdAccount -Identity $AdUser.samAccountName -Confirm:$false	
@@ -917,17 +926,13 @@ function TestUserTerminated {
 		[object]$CsvUser
 	)
 
-	if (-not (TestIsUserTerminationEnabled)) {
-		throw 'User termination checking is not enabled in the configuration'
+	$csvField = (GetPsAdSyncConfiguration).UserTermination.FieldValueSettings.CsvField
+	$csvValue = (GetPsAdSyncConfiguration).UserTermination.FieldValueSettings.CsvValue
+	
+	if ($CsvUser.$csvField -in $csvValue) {
+		$true
 	} else {
-		$csvField = $PSAdSyncConfiguration.UserTermination.FieldValueSettings.CsvField
-		$csvValue = $PSAdSyncConfiguration.UserTermination.FieldValueSettings.CsvValue
-		
-		if ($CsvUser.$csvField -eq $csvValue) {
-			$true
-		} else {
-			$false
-		}
+		$false
 	}
 }
 
@@ -937,7 +942,7 @@ function TestIsUserTerminationEnabled {
 	param
 	()
 
-	if ($PSAdSyncConfiguration.UserTermination.Enabled) {
+	if ((GetPsAdSyncConfiguration).UserTermination.Enabled) {
 		$true
 	} else {
 		$false
@@ -950,7 +955,7 @@ function TestIsUserCreationEnabled {
 	param
 	()
 
-	if ($PSAdSyncConfiguration.UserCreation.Enabled) {
+	if ((GetPsAdSyncConfiguration).UserCreation.Enabled) {
 		$true
 	} else {
 		$false
@@ -1072,19 +1077,19 @@ function SendStaleAccountEmail {
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$Subject = $PSAdSyncConfiguration.Email.Templates.UnusedAccount.Subject,
+		[string]$Subject = (GetPsAdSyncConfiguration).Email.Templates.UnusedAccount.Subject,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$FromEmailAddress = $PSAdSyncConfiguration.Email.Templates.UnusedAccount.FromEmailAddress,
+		[string]$FromEmailAddress = (GetPsAdSyncConfiguration).Email.Templates.UnusedAccount.FromEmailAddress,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$FromEmailName = $PSAdSyncConfiguration.Email.Templates.UnusedAccount.FromEmailName,
+		[string]$FromEmailName = (GetPsAdSyncConfiguration).Email.Templates.UnusedAccount.FromEmailName,
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$SmtpServer = $PSAdSyncConfiguration.Email.SmtpServer
+		[string]$SmtpServer = (GetPsAdSyncConfiguration).Email.SmtpServer
 
 	)
 	begin {
@@ -1099,7 +1104,7 @@ function SendStaleAccountEmail {
 				throw "Could not find a manager email address for user [$($AdUser.Name)]"
 			}
 			$emailBody = ReadEmailTemplate -Name UnusedSccount
-			$emailBody = $emailBody -f $managerEmail, $AdUser.Name, $PSAdSyncConfiguration.CompanyName
+			$emailBody = $emailBody -f $managerEmail, $AdUser.Name, (GetPsAdSyncConfiguration).CompanyName
 
 			$sendParams = @{
 				To         = $managerEmail
@@ -1143,6 +1148,32 @@ function WriteProgressHelper {
 		[string]$Message
 	)
 	Write-Progress -Activity 'Active Directory Report/Sync' -Status $Message -PercentComplete (($StepNumber / $script:totalSteps) * 100)
+}
+
+function TestShouldCreateNewUser {
+	[OutputType('bool')]
+	[CmdletBinding(SupportsShouldProcess)]
+	param
+	(
+		[Parameter(Mandatory)]
+		[ValidateNotNullOrEmpty()]
+		[object]$CsvUser
+	)
+
+	if ((TestIsUserTerminationEnabled) -and (TestUserTerminated -CsvUser $CsvUser)) {
+		$false	
+	} else {
+		if ($csvfield = (GetPsAdSyncConfiguration).NewUserCreation.Exclude.FieldValueSettings.CsvField) {
+			$csvValue = (GetPsAdSyncConfiguration).NewUserCreation.Exclude.FieldValueSettings.CsvValue
+			if ($CsvUser.$csvField -in $csvValue) {
+				$false
+			} else {
+				$true
+			}
+		} else {
+			$true
+		}
+	}
 }
 
 # .ExternalHelp PSADSync-Help.xml
@@ -1334,7 +1365,7 @@ function Invoke-AdSync {
 									ADAttributeValue  = 'NoMatch'
 									Message           = $null
 								}
-							} elseif ($PSBoundParameters.ContainsKey('UserMatchMap')) {
+							} elseif ($PSBoundParameters.ContainsKey('UserMatchMap') -and (TestShouldCreateNewUser -CsvUser $csvUser)) {
 								$csvIdField = $csvIds.Field -join ','
 								if (-not $ReportOnly.IsPresent) {
 									$newUserParams = @{

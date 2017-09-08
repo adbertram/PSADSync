@@ -14,16 +14,26 @@
 	## been terminated or not. This allows you to then either disable the account or move to another OU
 	## for archival purposes.
 	UserTermination = @{
-		Enabled            = $true
-		Criteria           = 'FieldValue' ## This can be FieldValue or UserDoesNotExist
+		Enabled            = $false
+		Criteria           = 'FieldValue' ## This can be FieldValue which looks for a specific set of values in a field to designate a "termed" employee
 		FieldValueSettings = @{
 			CsvField = 'Status'
-			CsvValue = 'Withdrawn'
+			CsvValue = '0', '2'
 		}
 		Action             = 'Disable' ## This will leave the account where it is and just disable it
 	}
 	NewUserCreation = @{
-		AccountNamePattern = 'FirstInitialLastName' ## Available options are FirstInitialLastName,FirstNameLastName,FirstNameDotLastName,LastNameFirstTwoFirstNameChars
+		## Available options are FirstInitialLastName,FirstNameLastName,FirstNameDotLastName,LastNameFirstTwoFirstNameChars
+		AccountNamePattern = 'FirstInitialLastName' 
 		Path               = ''
+		## PSADSync will automatically exclude creating new users that match any user 
+		## termination values. If the user would like to exclude any other employees for some reason
+		## add the field name and value(s) here.
+		Exclude            = @{ 
+			FieldValueSettings = @{
+				CsvField = $null
+				CsvValue = $null
+			}
+		}
 	}
 }
