@@ -1320,9 +1320,9 @@ function Invoke-AdSync {
 									$logEntry = $false
 									$attribMismatches | foreach {
 										$logAttribs = @{
-											CSVAttributeName  = [string]($_.CSVField.Keys)
+											CSVAttributeName  = 'AttributeChange - {0}' -f [string]($_.CSVField.Keys)
 											CSVAttributeValue = [string]($_.CSVField.Values)
-											ADAttributeName   = [string]($_.ActiveDirectoryAttribute.Keys)
+											ADAttributeName   = 'AttributeChange - {0}' -f [string]($_.ActiveDirectoryAttribute.Keys)
 											ADAttributeValue  = [string]($_.ActiveDirectoryAttribute.Values)
 											Message           = $null
 										}
@@ -1387,7 +1387,7 @@ function Invoke-AdSync {
 									CSVAttributeValue = 'NewUserCreated'
 									ADAttributeName   = 'NewUserCreated'
 									ADAttributeValue  = 'NewUserCreated'
-									Message           = "UserName: [$($newUser.Name)] - Password: [$($newUserPw)]"
+									Message           = "UserName: [$($newAdUser.Name)] - Password: [$($newAdUser.Password)]"
 								}
 								$csvIdValue = ($csvIds | foreach { $csvUser.($_.Field) })
 							} else {

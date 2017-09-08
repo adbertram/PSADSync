@@ -2072,7 +2072,12 @@ InModuleScope $ThisModuleName {
 			$true
 		}
 
-		mock 'New-CompanyAdUser'
+		mock 'New-CompanyAdUser' {
+			[pscustomobject]@{
+				Name = 'username'
+				Password = 'passwordhere'
+			}
+		}
 
 		mock 'Get-AdUser' {
 			[pscustomobject]@{
@@ -2442,17 +2447,14 @@ InModuleScope $ThisModuleName {
 									Assert-MockCalled @assMParams
 								}
 
-								if ($parameters.ContainsKey('CreateNewUsers')) {
+								if ($parameters.ContainsKey('UserMatchMap')) {
 									context 'when creating new users' {
 
 										context 'when the user is not excluded' {
 
 											mock 'TestShouldCreateNewUser' {
-												$false
+												$true
 											}
-										
-											$parameters = @{}
-											$result = & $commandName @parameters
 										
 											$null = & $commandName @parameters
 										
@@ -2473,6 +2475,25 @@ InModuleScope $ThisModuleName {
 												}
 												Assert-MockCalled @params
 											}
+										
+											it 'should record the expected attributes to the log file' {
+
+												$assMParams = @{
+													CommandName = 'WriteLog'
+													Times = 1
+													Exactly = $true
+													ParameterFilter = {
+														Write-Host ($PSBoundParameters.Attributes | Out-String)
+														$PSBoundParameters.Attributes.CSVAttributeName  -eq 'NewUserCreated' -and
+														$PSBoundParameters.Attributes.CSVAttributeValue -eq 'NewUserCreated' -and
+														$PSBoundParameters.Attributes.ADAttributeName   -eq 'NewUserCreated' -and
+														$PSBoundParameters.Attributes.ADAttributeValue  -eq 'NewUserCreated' -and
+														$PSBoundParameters.Attributes.Message -eq 'UserName: [username] - Password: [passwordhere]'
+													}
+												}
+												Assert-MockCalled @assMParams
+											}
+											
 										}
 
 										context 'when the user is excluded' {
@@ -2552,27 +2573,27 @@ InModuleScope $ThisModuleName {
 									}
 
 									$pfilter1 = {
-										$PSBoundParameters.Attributes.CSVAttributeName  -eq '1' -and
+										$PSBoundParameters.Attributes.CSVAttributeName  -eq 'AttributeChange - 1' -and
 										$PSBoundParameters.Attributes.CSVAttributeValue -eq '2' -and
-										$PSBoundParameters.Attributes.ADAttributeName   -eq '3' -and
+										$PSBoundParameters.Attributes.ADAttributeName   -eq 'AttributeChange - 3' -and
 										$PSBoundParameters.Attributes.ADAttributeValue  -eq '4'
 									}
 
 									Assert-MockCalled @assMParams -Times 1 -ParameterFilter $pfilter1
 
 									$pfilter2 = {
-										$PSBoundParameters.Attributes.CSVAttributeName  -eq '7' -and
+										$PSBoundParameters.Attributes.CSVAttributeName  -eq 'AttributeChange - 7' -and
 										$PSBoundParameters.Attributes.CSVAttributeValue -eq '8' -and
-										$PSBoundParameters.Attributes.ADAttributeName   -eq '9' -and
+										$PSBoundParameters.Attributes.ADAttributeName   -eq 'AttributeChange - 9' -and
 										$PSBoundParameters.Attributes.ADAttributeValue  -eq '10'
 									}
 
 									Assert-MockCalled @assMParams -Times 1 -ParameterFilter $pfilter2
 
 									$pfilter3 = {
-										$PSBoundParameters.Attributes.CSVAttributeName  -notin '1', '7' -and
+										$PSBoundParameters.Attributes.CSVAttributeName  -notin 'AttributeChange - 1', 'AttributeChange - 7' -and
 										$PSBoundParameters.Attributes.CSVAttributeValue -notin '2', '8' -and
-										$PSBoundParameters.Attributes.ADAttributeName   -notin '3', '9' -and
+										$PSBoundParameters.Attributes.ADAttributeName   -notin 'AttributeChange - 3', 'AttributeChange - 9' -and
 										$PSBoundParameters.Attributes.ADAttributeValue  -notin '4', '10'
 									}
 
