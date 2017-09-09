@@ -431,17 +431,17 @@ function New-CompanyAdUser {
 			if ($_.Value -is 'string') {
 				$adAttribName = $_.Value
 			} else {
-				$adAttribName = EvaluateCsvFieldCondition -Condition $_.Value -CsvUser $CsvUser
+				$adAttribName = EvaluateFieldCondition -Condition $_.Value -Type 'CSV'
 			}
 
 			if ($_.Key -is 'string') {
 				$key = $_.Key
 			} else {
-				$key = EvaluateCsvFieldCondition -Condition $_.Key -CsvUser $CsvUser
+				$key = EvaluateFieldCondition -Condition $_.Key -Type 'CSV'
 			}
 			
 			if ($FieldValueMap -and $FieldValueMap.ContainsKey($key)) {
-				$adAttribValue = EvaluateCsvFieldCondition -Condition $FieldValueMap.$key -CsvUser $CsvUser 
+				$adAttribValue = EvaluateFieldCondition -Condition $FieldValueMap.$key  -Type 'CSV'
 			} else {
 				$adAttribValue = $CsvUser.$key
 			}
@@ -453,13 +453,13 @@ function New-CompanyAdUser {
 			if ($_.Value -is 'string') {
 				$adAttribName = $_.Value
 			} else {
-				$adAttribName = EvaluateCsvFieldCondition -Condition $_.Value -CsvUser $CsvUser
+				$adAttribName = EvaluateFieldCondition -Condition $_.Value -CsvUser $CsvUser
 			}
 			
 			if ($_.Key -is 'string') {
 				$key = $_.Key	
 			} else {
-				$key = EvaluateCsvFieldCondition -Condition $_.Key -CsvUser $CsvUser
+				$key = EvaluateFieldCondition -Condition $_.Key -CsvUser $CsvUser
 			}
 			$adAttribValue = $CsvUser.$key
 			$otherAttribs.$adAttribName = $adAttribValue
@@ -641,7 +641,7 @@ function FindUserMatch {
 					## { if ($_.'NICK_NAME') { 'NICK_NAME' } else { 'FIRST_NAME'} }
 
 					## 'NICK_NAME'
-					$csvProp = EvaluateCsvFieldCondition -Condition $k -CsvUser $CsvUser
+					$csvProp = EvaluateFieldCondition -Condition $k -CsvUser $CsvUser
 
 				} else {
 					$csvProp = $k
@@ -680,24 +680,34 @@ function FindUserMatch {
 	}
 }
 
-function EvaluateCsvFieldCondition {
+function EvaluateFieldCondition {
 	[OutputType('string')]
-	[CmdletBinding()]
+	[CmdletBinding(DefaultParameterSetName = 'CSVUser')]
 	param
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
 		[scriptblock]$Condition,
 
-		[Parameter(Mandatory)]
+		[Parameter(Mandatory, ParameterSetName = 'CSVUser')]
 		[ValidateNotNullOrEmpty()]
-		[pscustomobject]$CsvUser
+		[pscustomobject]$CsvUser,
+
+		[Parameter(Mandatory, ParameterSetName = 'ADUser')]
+		[ValidateNotNullOrEmpty()]
+		[object]$AdUser
 	)
 
-	$csvFieldScript = $Condition.ToString() -replace '\$_', '$CsvUser'
-	& ([scriptblock]::Create($csvFieldScript))
+	if ($PSBoundParameters.ContainsKey('CsvUser')) {
+		$replace = '$CsvUser'
+	} elseif ($PSBoundParameters.ContainsKey('AdUser')) {
+		$replace = 'ADUser'
+	}
 	
-}	
+	$fieldScript = $Condition.ToString() -replace '\$_', $replace
+	& ([scriptblock]::Create($fieldScript))
+	
+}
 
 function FindAttributeMismatch {
 	[OutputType([hashtable])]
@@ -722,7 +732,7 @@ function FindAttributeMismatch {
 	Write-Verbose -Message "Starting AD attribute mismatch check..."
 	$FieldSyncMap.GetEnumerator().foreach({
 			if ($_.Key -is 'scriptblock') {
-				$csvFieldName = EvaluateCsvFieldCondition -Condition $_.Key -CsvUser $CsvUser
+				$csvFieldName = EvaluateFieldCondition -Condition $_.Key -CsvUser $CsvUser
 			} else {
 				$csvFieldName = $_.Key
 			}
@@ -900,7 +910,11 @@ function InvokeUserTermination {
 	(
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[object]$AdUser	
+		[object]$AdUser,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[scriptblock]$UserTerminationAction
 	)
 
 	switch ((GetPsAdSyncConfiguration).UserTermination.Action) {
@@ -908,6 +922,12 @@ function InvokeUserTermination {
 			if ($PSCmdlet.ShouldProcess("AD User [$($AdUser.Name)]", 'Disable')) {
 				Disable-AdAccount -Identity $AdUser.samAccountName -Confirm:$false	
 			}
+		}
+		'Custom' {
+			if (-not $PSBoundParameters.ContainsKey('UserTerminationAction')) {
+				throw 'Custom user termination action chosen in configuration but no custom action was specified.'
+			}
+			& $
 		}
 		default {
 			throw "Unrecognized user termination action: [$_]"
@@ -1209,6 +1229,10 @@ function Invoke-AdSync {
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
+		[scriptblock]$UserTerminationAction,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
 		[switch]$ReportOnly,
 
 		[Parameter()]
@@ -1299,7 +1323,13 @@ function Invoke-AdSync {
 							## User termination check
 							if ((TestIsUserTerminationEnabled) -and (TestUserTerminated -CsvUser $csvUser)) {
 								if (-not $ReportOnly.IsPresent) {
-									InvokeUserTermination -AdUser $adUserMatch.MatchedAduser
+									$termParams = @{
+										AdUser = $adUserMatch.MatchedAduser
+									}
+									if ($PSBoundParameters.ContainsKey('UserTerminationAction')) {
+										$termParams.UserTerminationAction = $UserTerminationAction
+									}
+									InvokeUserTermination @termParams
 								}
 
 								$logAttribs = @{

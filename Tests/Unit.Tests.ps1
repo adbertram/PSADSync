@@ -2483,7 +2483,6 @@ InModuleScope $ThisModuleName {
 													Times = 1
 													Exactly = $true
 													ParameterFilter = {
-														Write-Host ($PSBoundParameters.Attributes | Out-String)
 														$PSBoundParameters.Attributes.CSVAttributeName  -eq 'NewUserCreated' -and
 														$PSBoundParameters.Attributes.CSVAttributeValue -eq 'NewUserCreated' -and
 														$PSBoundParameters.Attributes.ADAttributeName   -eq 'NewUserCreated' -and

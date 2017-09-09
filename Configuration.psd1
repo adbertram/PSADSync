@@ -20,7 +20,10 @@
 			CsvField = 'Status'
 			CsvValue = '0', '2'
 		}
-		Action             = 'Disable' ## This will leave the account where it is and just disable it
+		## This will leave the account where it is and just disable it. This can be Disable or Custom. If Custom, user MUST
+		## provide a UserTeminationAction scriptblock to Invoke-AdSync representing the code to execute when a user
+		## needs to be terminated.
+		Action             = 'Disable'
 	}
 	NewUserCreation = @{
 		## Available options are FirstInitialLastName,FirstNameLastName,FirstNameDotLastName,LastNameFirstTwoFirstNameChars
