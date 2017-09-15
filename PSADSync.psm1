@@ -58,7 +58,8 @@ function ConvertToSchemaAttributeType {
 				if (-not (Get-Variable -Name 'countryCodes' -Scope Script -ErrorAction Ignore)) {
 					$script:countryCodes = Get-AvailableCountryCodes
 				}
-				if (-not ($code = @($script:countryCodes).where({ $_.activeDirectoryName -eq $AttributeValue}))) {
+				## ie. match on United States or just US
+				if (-not ($code = @($script:countryCodes).where({ $_.activeDirectoryName -eq $AttributeValue -or $_.alpha2 -eq $AttributeValue}))) {
 					throw "Country code for name [$($AttributeValue)] could not be found."
 				}
 				$code.Numeric
