@@ -1362,6 +1362,25 @@ InModuleScope $ThisModuleName {
 		
 		$commandName = 'ConvertToSchemaAttributeType'
 		$script:command = Get-Command -Name $commandName
+
+		mock 'Get-AvailableCountryCodes' {
+			[pscustomobject]@{
+				shortName           = "Ukraine"
+				fullName            = $null
+				activeDirectoryName = "Ukraine"
+				alpha2              = "UA"
+				alpha3              = "UKR"
+				numeric             = 804
+			}
+			[pscustomobject]@{
+				shortName           = "United States of America"
+				fullName            = "the United States of America"
+				activeDirectoryName = "United States"
+				alpha2              = "US"
+				alpha3              = "USA"
+				numeric             = 840
+			}
+		}
 	
 		$testCases = @(
 			@{
@@ -1493,6 +1512,42 @@ InModuleScope $ThisModuleName {
 				it "should return [$($expected.Output.Value)]" {
 					$result | should bein $expected.Output.Value
 				}
+			}
+		}
+
+		context 'when converting country code' {
+
+			context 'when the country code is found' {
+			
+				$parameters = @{
+					AttributeName = 'countryCode'
+					AttributeValue = 'United States'
+					Action = 'Read'
+				}
+				$result = & $commandName @parameters
+
+				it "should return 1 object" {
+					@($result).Count | should be 1
+				}
+
+				it "should return [840]" {
+					$result | should be 840
+				}
+			
+			}
+
+			context 'when the country code is not found' {
+			
+				$parameters = @{
+					AttributeName = 'countryCode'
+					AttributeValue = 'noworkie'
+					Action = 'Read'
+				}
+				
+				it 'should throw an exception when the countryCode could not be found' {
+					{ & $commandName @parameters } | should throw 'could not be found'
+				}
+			
 			}
 		}
 	}

@@ -53,6 +53,16 @@ function ConvertToSchemaAttributeType {
 					}
 				}
 			}
+			'countryCode' {
+				## Load once only
+				if (-not (Get-Variable -Name 'countryCodes' -Scope Script -ErrorAction Ignore)) {
+					$script:countryCodes = Get-AvailableCountryCodes
+				}
+				if (-not ($code = @($script:countryCodes).where({ $_.activeDirectoryName -eq $AttributeValue}))) {
+					throw "Country code for name [$($AttributeValue)] could not be found."
+				}
+				$code.Numeric
+			}
 			default {
 				## Remove any special characters
 				$AttributeValue
@@ -62,7 +72,6 @@ function ConvertToSchemaAttributeType {
 		## If $AttributeValue is null, return an emptry string to prevent any references to the value from failing
 		''
 	}
-
 }
 
 function CleanAdAccountName {
@@ -230,6 +239,20 @@ function Get-AvailableAdUserAttribute {
 		
 		[pscustomobject]$output
 	}
+}
+
+# .ExternalHelp PSADSync-Help.xml
+function Get-AvailableCountryCodes {
+	[OutputType('pscustomobject')]
+	[CmdletBinding()]
+	param
+	()
+
+	$ErrorActionPreference = 'Stop'
+
+	$countryCodes = Import-PowerShellDataFile -Path "$PSScriptRoot\CountryCodeMap.psd1"
+	$countryCodes.Countries
+	
 }
 
 function TestIsValidAdAttribute {
