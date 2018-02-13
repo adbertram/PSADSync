@@ -3,15 +3,15 @@ $ErrorActionPreference = 'Stop'
 try {
 
 	$provParams = @{
-		Name = 'NuGet'
+		Name           = 'NuGet'
 		MinimumVersion = '2.8.5.208'
-		Force = $true
+		Force          = $true
 	}
 
 	$null = Install-PackageProvider @provParams
 	$null = Import-PackageProvider @provParams
 
-	$requiredModules = @('Pester','PowerShellGet','PSScriptAnalyzer')
+	$requiredModules = @('Pester', 'PowerShellGet', 'PSScriptAnalyzer', 'PackageManagement')
 	foreach ($m in $requiredModules) {
 		Write-Host "Installing [$($m)] module..."
 		Install-Module -Name $m -Force -Confirm:$false
