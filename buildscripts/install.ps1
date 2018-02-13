@@ -11,7 +11,7 @@ try {
 	$null = Install-PackageProvider @provParams
 	$null = Import-PackageProvider @provParams
 
-	$requiredModules = @('Pester', 'PowerShellGet', 'PSScriptAnalyzer', 'PackageManagement')
+	$requiredModules = @('Pester', 'PackageManagement', 'PowerShellGet', 'PSScriptAnalyzer')
 	foreach ($m in $requiredModules) {
 		Write-Host "Installing [$($m)] module..."
 		Install-Module -Name $m -Force -Confirm:$false
