@@ -1,5 +1,5 @@
 Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
-########################################################################
+
 function GetPsAdSyncConfiguration {
 	[OutputType('hashtable')]
 	[CmdletBinding()]
