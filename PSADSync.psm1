@@ -1505,7 +1505,7 @@ function Invoke-AdSync {
 		} catch {
 			Write-Error -Message "Function: $($MyInvocation.MyCommand.Name) Error: $($_.Exception.Message)"
 		} finally {
-			Remove-Variable -Scope Script -Name adUsers
+			Remove-Variable -Scope Script -Name adUsers -ErrorAction Ignore
 		}
 	}
 }
