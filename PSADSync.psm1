@@ -64,8 +64,18 @@ function ConvertToSchemaAttributeType {
 				}
 				$code.Numeric
 			}
+			'manager' {
+				## Assume the Manager field is "<First Name> <Last Name>"
+				$managerFirstName = $AttributeValue.Split(' ')[0]
+				$managerLastName = $AttributeValue.Split(' ')[1]
+				## Find the DN
+				if (-not ($managerUser = $script:adUsers | where {$_.GivenName -eq $managerFirstName -and $_.sn -eq $managerLastName})) {
+					throw 'Could not find manager distinguished name.'
+				} else {
+					$managerUser.DistinguishedName
+				}
+			}
 			default {
-				## Remove any special characters
 				$AttributeValue
 			}
 		}
@@ -451,7 +461,7 @@ function New-CompanyAdUser {
 	}
 	$secPw = ConvertTo-SecureString -String $pw -AsPlainText -Force
 	$otherAttribs = @{}
-	$FieldSyncMap.GetEnumerator().foreach({
+	$FieldSyncMap.GetEnumerator().where({ $_.Value -notin 'sn', 'GivenName' }).foreach({
 			if ($_.Value -is 'string') {
 				$adAttribName = $_.Value
 			} else {
@@ -469,8 +479,12 @@ function New-CompanyAdUser {
 			} else {
 				$adAttribValue = $CsvUser.$key
 			}
-
-			$otherAttribs.$adAttribName = $adAttribValue
+			$convertParams = @{
+				AttributeName  = $adAttribName
+				AttributeValue = $adAttribValue
+				Action         = 'Set'
+			}
+			$otherAttribs.$adAttribName = (ConvertToSchemaAttributeType @convertParams)
 		})
 
 	$FieldMatchMap.GetEnumerator().foreach({
@@ -486,7 +500,12 @@ function New-CompanyAdUser {
 				$key = EvaluateFieldCondition -Condition $_.Key -CsvUser $CsvUser
 			}
 			$adAttribValue = $CsvUser.$key
-			$otherAttribs.$adAttribName = $adAttribValue
+			$convertParams = @{
+				AttributeName  = $adAttribName
+				AttributeValue = $adAttribValue
+				Action         = 'Read'
+			}
+			$otherAttribs.$adAttribName = (ConvertToSchemaAttributeType @convertParams)
 		})
 
 	$newAdUserParams.OtherAttributes = $otherAttribs
@@ -495,6 +514,7 @@ function New-CompanyAdUser {
 		throw "The user to be created [$($userName)] already exists."
 	} else {
 		if ($PSCmdlet.ShouldProcess("User: [$($userName)] AD attribs: [$($newAdUserParams | Out-String; $newAdUserParams.OtherAttributes | Out-String)]", 'New AD User')) {
+			Write-Verbose -Message 'Creating new AD user...'
 			if ($newUser = New-ADUser @newAdUserParams) {
 				Set-ADAccountPassword -Identity $newUser.DistinguishedName -Reset -NewPassword $secPw
 				$newUser | Add-Member -MemberType NoteProperty -Name 'Password' -Force -Value $pw -PassThru
@@ -997,11 +1017,7 @@ function TestIsUserCreationEnabled {
 	param
 	()
 
-	if ((GetPsAdSyncConfiguration).UserCreation.Enabled) {
-		$true
-	} else {
-		$false
-	}
+	(GetPsAdSyncConfiguration).UserCreation.Enabled
 }
 
 function SyncCompanyUser {
