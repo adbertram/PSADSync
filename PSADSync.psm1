@@ -65,14 +65,18 @@ function ConvertToSchemaAttributeType {
 				$code.Numeric
 			}
 			'manager' {
-				## Assume the Manager field is "<First Name> <Last Name>"
-				$managerFirstName = $AttributeValue.Split(' ')[0]
-				$managerLastName = $AttributeValue.Split(' ')[1]
-				## Find the DN
-				if (-not ($managerUser = $script:adUsers | where {$_.GivenName -eq $managerFirstName -and $_.sn -eq $managerLastName})) {
-					throw 'Could not find manager distinguished name.'
+				if ($AttributeValue -notmatch '^(?:(?<cn>CN=(?<name>[^,]*)),)?(?:(?<path>(?:(?:CN|OU)=[^,]+,?)+),)?(?<domain>(?:DC=[^,]+,?)+)$') {
+					## Assume the Manager field is "<First Name> <Last Name>"
+					$managerFirstName = $AttributeValue.Split(' ')[0]
+					$managerLastName = $AttributeValue.Split(' ')[1]
+					## Find the DN
+					if (-not ($managerUser = $script:adUsers | where {$_.GivenName -eq $managerFirstName -and $_.sn -eq $managerLastName})) {
+						throw 'Could not find manager distinguished name.'
+					} else {
+						$managerUser.DistinguishedName
+					}
 				} else {
-					$managerUser.DistinguishedName
+					$AttributeValue
 				}
 			}
 			default {
@@ -791,9 +795,16 @@ function FindAttributeMismatch {
 					AttributeValue = $adAttribValue
 					Action         = 'Read'
 				}
-			
 
 				$adAttribValue = ConvertToSchemaAttributeType @adConvertParams
+
+				$csvConvertParams = @{
+					AttributeName  = $csvFieldName
+					AttributeValue = $csvAttribValue
+					Action         = 'Read'
+				}
+
+				$csvAttribValue = ConvertToSchemaAttributeType @csvConvertParams
 				Write-Verbose -Message "Comparing AD attribute value [$($adattribValue)] with CSV value [$($csvAttribValue)]..."
 			
 				## Compare the two property values and return the AD attribute name and value to be synced
@@ -804,6 +815,8 @@ function FindAttributeMismatch {
 						ADShouldBe               = @{ $adAttribName = $csvAttribValue }
 					}
 					Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]."
+				} else {
+					Write-Verbose -Message "AD <--> CSV attribute [$($csvFieldName)] are in sync."
 				}
 			}
 		})
@@ -1491,6 +1504,8 @@ function Invoke-AdSync {
 				})
 		} catch {
 			Write-Error -Message "Function: $($MyInvocation.MyCommand.Name) Error: $($_.Exception.Message)"
+		} finally {
+			Remove-Variable -Scope Script -Name adUsers
 		}
 	}
 }
