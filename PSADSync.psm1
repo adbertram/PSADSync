@@ -491,18 +491,16 @@ function New-CompanyAdUser {
 
 	$newAdUserParams.OtherAttributes = $otherAttribs
 
-	if ($PSCmdlet.ShouldProcess("User: [$($userName)] AD attribs: [$($newAdUserParams | Out-String; $newAdUserParams.OtherAttributes | Out-String)]", 'New AD User')) {
-		if (Get-AdUser -Filter "samAccountName -eq '$userName'") {
-			throw "The user to be created [$($userName)] already exists."
-		} else {
+	if (Get-AdUser -Filter "samAccountName -eq '$userName'") {
+		throw "The user to be created [$($userName)] already exists."
+	} else {
+		if ($PSCmdlet.ShouldProcess("User: [$($userName)] AD attribs: [$($newAdUserParams | Out-String; $newAdUserParams.OtherAttributes | Out-String)]", 'New AD User')) {
 			if ($newUser = New-ADUser @newAdUserParams) {
 				Set-ADAccountPassword -Identity $newUser.DistinguishedName -Reset -NewPassword $secPw
 				$newUser | Add-Member -MemberType NoteProperty -Name 'Password' -Force -Value $pw -PassThru
 			}
 		}
-		
 	}
-	
 }
 
 function TestFieldMapIsValid {
