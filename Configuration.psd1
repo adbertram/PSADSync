@@ -26,6 +26,7 @@
 		Action             = 'Disable'
 	}
 	NewUserCreation = @{
+		Enabled = $true
 		## Available options are FirstInitialLastName,FirstNameLastName,FirstNameDotLastName,LastNameFirstTwoFirstNameChars
 		AccountNamePattern = 'FirstInitialLastName' 
 		Path               = ''
