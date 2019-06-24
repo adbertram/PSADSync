@@ -1,7 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<helpItems schema="maml" xmlns="http://msh">
+<helpItems schema="maml" 
+	xmlns="http://msh">
 	<!--Edited with: SAPIEN PowerShell HelpWriter 2017 v2.1.35-->
-	<command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+	<command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" 
+		xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" 
+		xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
 		<!--Command-->
 		<command:details>
 			<command:name>Invoke-AdSync</command:name>
@@ -83,35 +86,6 @@
 						<maml:para>This parameter is useful when the CSV file has values that you'd like to exclude completely from the sync.</maml:para>
 					</maml:description>
 					<command:parameterValue required="false" variableLength="false">hashtable</command:parameterValue>
-					<dev:defaultValue></dev:defaultValue>
-				</command:parameter>
-			</command:syntaxItem>
-			<command:syntaxItem parametersetname="CreateNewUsers">
-				<!--NAME: CreateNewUsers-->
-				<maml:name>Invoke-AdSync</maml:name>
-				<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
-					<maml:name>CreateNewUsers</maml:name>
-					<maml:description>
-						<maml:para>An optional switch parameter to create all users in the CSV file in which a match could not be found. By default, Invoke-AdSync only changes attributes on existing Active Directory users.</maml:para>
-					</maml:description>
-					<command:parameterValue required="false" variableLength="false">switch</command:parameterValue>
-					<dev:defaultValue></dev:defaultValue>
-				</command:parameter>
-				<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
-					<maml:name>UserMatchMap</maml:name>
-					<maml:description>
-						<maml:para>An mandatory hashtable parameter to be used when creating new Active Directory users. Since a 1:1 match cannot be found using the FieldMatchMap parameter, Invoke-AdSync needs another way to make this match. The values in this hashtable will be used to dynamically build a samAccountName attribute for the soon-to-be-created Active Directory user.</maml:para>
-						<maml:para>This hashtable needs to know the first name and last name of an employee from the CSV. It is meant to map the 'First name'  and 'Last name' fields in the CSV file with the AD user's givenName and surName attributes.</maml:para>
-					</maml:description>
-					<command:parameterValue required="true" variableLength="false">hashtable</command:parameterValue>
-					<dev:defaultValue></dev:defaultValue>
-				</command:parameter>
-				<command:parameter required="true" globbing="false" pipelineInput="false" variableLength="false" position="named">
-					<maml:name>UserNamePattern</maml:name>
-					<maml:description>
-						<maml:para>To create new users, the samAccountName attribute must be created. This string parameter allows the user to define the pattern in which it will be created. Available options are FirstInitialLastName, FirstNameLastName, FirstNameDotLastName,LastNameFirstTwoFirstNameChars.</maml:para>
-					</maml:description>
-					<command:parameterValue required="true" variableLength="false">string</command:parameterValue>
 					<dev:defaultValue></dev:defaultValue>
 				</command:parameter>
 			</command:syntaxItem>
@@ -213,8 +187,7 @@
 			<command:example>
 				<maml:title>EXAMPLE 1 - Performing Simple String Match and Sync</maml:title>
 				<maml:introduction>
-					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found however, the function would then read the 'givenName' and 'surName` attributes on each AD account. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user.
-===========</maml:para>
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found however, the function would then read the 'givenName' and 'surName` attributes on each AD account. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user. ===========</maml:para>
 				</maml:introduction>
 				<dev:code>===========
 PS&gt; Import-Csv -Path C:\CsvUsers.csv
@@ -238,8 +211,7 @@ C:\PS&gt; Invoke-AdSync @parameters</dev:code>
 			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
 				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 2 - Performing Simple String Match</maml:title>
 				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
-					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found however, the function would write the CSV fields, their values along with the AD user attribute names and values that are out of sync to the log file PSADSync.csv located in the same folder in which the function was executed.
-===========</maml:para>
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found however, the function would write the CSV fields, their values along with the AD user attribute names and values that are out of sync to the log file PSADSync.csv located in the same folder in which the function was executed. ===========</maml:para>
 				</maml:introduction>
 				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
 PS&gt; Import-Csv -Path C:\CsvUsers.csv
@@ -265,8 +237,7 @@ C:\PS&gt; Invoke-AdSync @parameters</dev:code>
 			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
 				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 3 - Performing Simple String Match to Create New User Accounts</maml:title>
 				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
-					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would then assume the 'FirstN` CSV field is the users's first name and the 'LastN` CSV field is the user's last name. It would then combine these two strings creating AD user accounts with the samAccountName of 'abertram' and 'jjones' based on the UserNamePattern specified. Once username has been assembled, it would then create both of these users with the appropriate samAccountName with a givenName and surName mapped appropriately.
-===========</maml:para>
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would then assume the 'FirstN` CSV field is the users's first name and the 'LastN` CSV field is the user's last name. It would then combine these two strings creating AD user accounts with the samAccountName of 'abertram' and 'jjones' based on the UserNamePattern specified. Once username has been assembled, it would then create both of these users with the appropriate samAccountName with a givenName and surName mapped appropriately. ===========</maml:para>
 				</maml:introduction>
 				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
 PS&gt; Import-Csv -Path C:\CsvUsers.csv
@@ -293,8 +264,7 @@ C:\PS&gt; Invoke-AdSync @parameters</dev:code>
 			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
 				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 4 - Performing a Simple String Match and Sync with a Fallback Identifier</maml:title>
 				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
-					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would then attempt to perform the same match on the CSV field 'id' with the AD user attibute 'employeeId'. If still not found, it would do nothing. If found however, the function would then read the 'givenName' and 'surName` attributes on each AD account. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user.
-===========</maml:para>
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would then attempt to perform the same match on the CSV field 'id' with the AD user attibute 'employeeId'. If still not found, it would do nothing. If found however, the function would then read the 'givenName' and 'surName` attributes on each AD account. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user. ===========</maml:para>
 				</maml:introduction>
 				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
 PS&gt; Import-Csv -Path C:\CsvUsers.csv
@@ -322,8 +292,7 @@ C:\PS&gt; Invoke-AdSync @parameters</dev:code>
 				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 5 - Performing a Conditional String Match</maml:title>
 				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
 					<maml:para>If the 'usrname' field in a CSV row is blank, this example would attempt to find the Active Directory users with a samAccountName of '1'  based on the CSV field 'id' and a samAccountName of 'abertram' based on the CSV field 'userName'. If the 'username' value is not blank, it would attemp to find the Active Directory users with a samAccountName of 'userName'.</maml:para>
-					<maml:para>If a match was not found, it would do nothing. If found however, the function would then read the 'givenName' and 'surName` attributes on each AD account. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user.
-===========</maml:para>
+					<maml:para>If a match was not found, it would do nothing. If found however, the function would then read the 'givenName' and 'surName` attributes on each AD account. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user. ===========</maml:para>
 				</maml:introduction>
 				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
 PS&gt; Import-Csv -Path C:\CsvUsers.csv
@@ -350,8 +319,7 @@ C:\PS&gt; Invoke-AdSync @parameters</dev:code>
 			<command:example xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
 				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 6 - Performing a Simple String Match and a Conditional Sync</maml:title>
 				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
-					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found however, the function would then check to see if the 'NickName' field in the CSV was populated. If so, it would map the 'NickName' field to the 'givenName' AD attribute. If not, it would map the 'FirstName' field to the 'givenName' AD attribute. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user.
-===========</maml:para>
+					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found however, the function would then check to see if the 'NickName' field in the CSV was populated. If so, it would map the 'NickName' field to the 'givenName' AD attribute. If not, it would map the 'FirstName' field to the 'givenName' AD attribute. If either differed from givenName 'Adam' surName: 'Bertram' or givenName: 'Joe' surName: 'Jones', it would attempt to write these values to each AD user. ===========</maml:para>
 				</maml:introduction>
 				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
 PS&gt; Import-Csv -Path C:\CsvUsers.csv
@@ -378,8 +346,7 @@ C:\PS&gt; Invoke-AdSync @parameters</dev:code>
 				<maml:title xmlns:maml="http://schemas.microsoft.com/maml/2004/10">EXAMPLE 7 - Performing a Simple String Match and Sync Using a Conditional Value</maml:title>
 				<maml:introduction xmlns:maml="http://schemas.microsoft.com/maml/2004/10">
 					<maml:para>This example would attempt to find the Active Directory users with a samAccountName of 'abertram' and 'jjones' based on the CSV value 'userName'. If a match was not found, it would do nothing. If found, it would map the 'Supervisor' CSV field to the 'manager' AD attribute. If differed from 'CN=jjones,DC=lab,DC=local' in the AD user manager attribute, it would attempt to write this values to each AD user.</maml:para>
-					<maml:para>This example uses the `FieldValueMap` to dynamically replace a CSV field value with the result of an expression.
-===========</maml:para>
+					<maml:para>This example uses the `FieldValueMap` to dynamically replace a CSV field value with the result of an expression. ===========</maml:para>
 				</maml:introduction>
 				<dev:code xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">===========
 PS&gt; Import-Csv -Path C:\CsvUsers.csv
@@ -387,8 +354,7 @@ FirstName    LastName    NickName userName  id  Supervisor      SupervisorId
 Adam           Bertram        ace            abertram    1    'Joey Jones'    2
 Joe               Jones             Joey          jjones         2
 
-PS&gt; (Get-AdUser -Filter "EmployeeId -eq '2'").DistinguishedName
-CN=jjones,DC=lab,DC=local
+PS&gt; (Get-AdUser -Filter "EmployeeId -eq '2'").DistinguishedName CN=jjones,DC=lab,DC=local
 
 $parameters = @{
     CsvFilePath = 'C:\CsvUsers.csv'
@@ -410,7 +376,9 @@ C:\PS&gt; Invoke-AdSync @parameters</dev:code>
 		</command:examples>
 	</command:command>
 	<!--Edited with: SAPIEN PowerShell HelpWriter 2017 v2.1.34-->
-	<command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+	<command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" 
+		xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" 
+		xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
 		<!--Command-->
 		<command:details>
 			<command:name>Get-AvailableAdUserAttribute</command:name>
@@ -454,7 +422,9 @@ C:\PS&gt; Invoke-AdSync @parameters</dev:code>
 		</command:examples>
 	</command:command>
 	<!--Edited with: SAPIEN PowerShell HelpWriter 2017 v2.1.34-->
-	<command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+	<command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" 
+		xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" 
+		xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
 		<!--Command-->
 		<command:details>
 			<command:name>Get-AvailableCountryCodes</command:name>

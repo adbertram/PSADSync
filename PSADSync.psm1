@@ -64,8 +64,22 @@ function ConvertToSchemaAttributeType {
 				}
 				$code.Numeric
 			}
+			'manager' {
+				if ($AttributeValue -notmatch '^(?:(?<cn>CN=(?<name>[^,]*)),)?(?:(?<path>(?:(?:CN|OU)=[^,]+,?)+),)?(?<domain>(?:DC=[^,]+,?)+)$') {
+					## Assume the Manager field is "<First Name> <Last Name>"
+					$managerFirstName = $AttributeValue.Split(' ')[0]
+					$managerLastName = $AttributeValue.Split(' ')[1]
+					## Find the DN
+					if (-not ($managerUser = $script:adUsers | where {$_.GivenName -eq $managerFirstName -and $_.sn -eq $managerLastName})) {
+						throw 'Could not find manager distinguished name.'
+					} else {
+						$managerUser.DistinguishedName
+					}
+				} else {
+					$AttributeValue
+				}
+			}
 			default {
-				## Remove any special characters
 				$AttributeValue
 			}
 		}
@@ -451,7 +465,7 @@ function New-CompanyAdUser {
 	}
 	$secPw = ConvertTo-SecureString -String $pw -AsPlainText -Force
 	$otherAttribs = @{}
-	$FieldSyncMap.GetEnumerator().foreach({
+	$FieldSyncMap.GetEnumerator().where({ $_.Value -notin 'sn', 'GivenName' }).foreach({
 			if ($_.Value -is 'string') {
 				$adAttribName = $_.Value
 			} else {
@@ -469,8 +483,12 @@ function New-CompanyAdUser {
 			} else {
 				$adAttribValue = $CsvUser.$key
 			}
-
-			$otherAttribs.$adAttribName = $adAttribValue
+			$convertParams = @{
+				AttributeName  = $adAttribName
+				AttributeValue = $adAttribValue
+				Action         = 'Set'
+			}
+			$otherAttribs.$adAttribName = (ConvertToSchemaAttributeType @convertParams)
 		})
 
 	$FieldMatchMap.GetEnumerator().foreach({
@@ -486,23 +504,27 @@ function New-CompanyAdUser {
 				$key = EvaluateFieldCondition -Condition $_.Key -CsvUser $CsvUser
 			}
 			$adAttribValue = $CsvUser.$key
-			$otherAttribs.$adAttribName = $adAttribValue
+			$convertParams = @{
+				AttributeName  = $adAttribName
+				AttributeValue = $adAttribValue
+				Action         = 'Read'
+			}
+			$otherAttribs.$adAttribName = (ConvertToSchemaAttributeType @convertParams)
 		})
 
 	$newAdUserParams.OtherAttributes = $otherAttribs
 
-	if ($PSCmdlet.ShouldProcess("User: [$($userName)] AD attribs: [$($newAdUserParams | Out-String; $newAdUserParams.OtherAttributes | Out-String)]", 'New AD User')) {
-		if (Get-AdUser -Filter "samAccountName -eq '$userName'") {
-			throw "The user to be created [$($userName)] already exists."
-		} else {
+	if (Get-AdUser -Filter "samAccountName -eq '$userName'") {
+		throw "The user to be created [$($userName)] already exists."
+	} else {
+		if ($PSCmdlet.ShouldProcess("User: [$($userName)] AD attribs: [$($newAdUserParams | Out-String; $newAdUserParams.OtherAttributes | Out-String)]", 'New AD User')) {
+			Write-Verbose -Message 'Creating new AD user...'
 			if ($newUser = New-ADUser @newAdUserParams) {
 				Set-ADAccountPassword -Identity $newUser.DistinguishedName -Reset -NewPassword $secPw
 				$newUser | Add-Member -MemberType NoteProperty -Name 'Password' -Force -Value $pw -PassThru
 			}
 		}
-		
 	}
-	
 }
 
 function TestFieldMapIsValid {
@@ -773,9 +795,16 @@ function FindAttributeMismatch {
 					AttributeValue = $adAttribValue
 					Action         = 'Read'
 				}
-			
 
 				$adAttribValue = ConvertToSchemaAttributeType @adConvertParams
+
+				$csvConvertParams = @{
+					AttributeName  = $csvFieldName
+					AttributeValue = $csvAttribValue
+					Action         = 'Read'
+				}
+
+				$csvAttribValue = ConvertToSchemaAttributeType @csvConvertParams
 				Write-Verbose -Message "Comparing AD attribute value [$($adattribValue)] with CSV value [$($csvAttribValue)]..."
 			
 				## Compare the two property values and return the AD attribute name and value to be synced
@@ -786,6 +815,8 @@ function FindAttributeMismatch {
 						ADShouldBe               = @{ $adAttribName = $csvAttribValue }
 					}
 					Write-Verbose -Message "AD attribute mismatch found on AD attribute: [$($adAttribName)]."
+				} else {
+					Write-Verbose -Message "AD <--> CSV attribute [$($csvFieldName)] are in sync."
 				}
 			}
 		})
@@ -999,11 +1030,7 @@ function TestIsUserCreationEnabled {
 	param
 	()
 
-	if ((GetPsAdSyncConfiguration).UserCreation.Enabled) {
-		$true
-	} else {
-		$false
-	}
+	(GetPsAdSyncConfiguration).UserCreation.Enabled
 }
 
 function SyncCompanyUser {
@@ -1477,6 +1504,8 @@ function Invoke-AdSync {
 				})
 		} catch {
 			Write-Error -Message "Function: $($MyInvocation.MyCommand.Name) Error: $($_.Exception.Message)"
+		} finally {
+			Remove-Variable -Scope Script -Name adUsers -ErrorAction Ignore
 		}
 	}
 }
