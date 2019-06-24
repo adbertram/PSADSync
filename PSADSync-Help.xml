@@ -164,9 +164,25 @@
 				<maml:name>Exclude</maml:name>
 				<maml:description>
 					<maml:para>An optional hashtable parameter representing any CSV users that need to be excluded from the sync. The key value will be the CSV field name while the hashtable value will be the value of the CSV field to exclude.</maml:para>
-					<maml:para>This parameter is useful when the CSV file has values that you'd like to exclude completely from the sync.</maml:para>
 				</maml:description>
 				<command:parameterValue required="false" variableLength="false">hashtable</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>logFilePath</maml:name>
+				<maml:description>
+					<maml:para>An optional parameter for specifying the file path for the log output.  By default, this is located in the PSADSync module root directory.</maml:para>
+				</maml:description>
+				<command:parameterValue required="false" variableLength="false">string</command:parameterValue>
+				<dev:defaultValue></dev:defaultValue>
+			</command:parameter>
+			<command:parameter required="false" globbing="false" pipelineInput="false" variableLength="false" position="named">
+				<maml:name>logOverwrite</maml:name>
+				<maml:description>
+					<maml:para>An optional parameter for overwriting the log file on each run.  By default, the log items are appended to the original log.</maml:para>
+					<maml:para>This parameter is useful while testing to speed up manual log parsing on individual runs of Invoke-ADSync</maml:para>
+				</maml:description>
+				<command:parameterValue required="false" variableLength="false">switch</command:parameterValue>
 				<dev:defaultValue></dev:defaultValue>
 			</command:parameter>
 		</command:parameters>

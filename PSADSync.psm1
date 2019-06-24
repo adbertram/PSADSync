@@ -1081,7 +1081,10 @@ function WriteLog {
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Attributes
+		[hashtable]$Attributes,
+
+		[Parameter()]
+		[switch]$Overwrite
 	)
 	
 	$ErrorActionPreference = 'Stop'
@@ -1091,7 +1094,12 @@ function WriteLog {
 	$Attributes['CsvIdentifierField'] = $CsvIdentifierField
 	$Attributes['Time'] = $time
 	
-	([pscustomobject]$Attributes) | Export-Csv -Path $FilePath -Append -NoTypeInformation -Confirm:$false
+	if (!($Overwrite)) {
+		([pscustomobject]$Attributes) | Export-Csv -Path $FilePath -Append -NoTypeInformation -Confirm:$false
+	} else {
+		([pscustomobject]$Attributes) | Export-Csv -Path $FilePath -NoTypeInformation -Confirm:$false
+	}
+
 
 }
 
@@ -1288,10 +1296,24 @@ function Invoke-AdSync {
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Exclude
+		[hashtable]$Exclude,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$logFilePath,
+
+		[Parameter()]
+		[switch]$logOverwrite
 	)
 	begin {
 		$ErrorActionPreference = 'Stop'
+		$logParams = @{}
+		if ($logFilePath) {
+			$logParams["FilePath"] = $logFilePath
+		}
+		if ($logOverwrite) {
+			$logParams["Overwrite"] = $true
+		}
 	}
 	process {
 		try {
@@ -1407,7 +1429,7 @@ function Invoke-AdSync {
 											ADAttributeValue  = [string]($_.ActiveDirectoryAttribute.Values)
 											Message           = $null
 										}
-										WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs	
+										WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs @logParams 
 									}
 									
 									if (-not $ReportOnly.IsPresent) {
@@ -1497,7 +1519,7 @@ function Invoke-AdSync {
 						}
 					} finally {
 						if ($logEntry) {
-							WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
+							WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs @logParams 
 						}
 						$rowsProcessed++
 					}
