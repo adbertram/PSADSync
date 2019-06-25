@@ -2952,10 +2952,8 @@ InModuleScope $ThisModuleName {
 					}
 					UserTermination = @{
 						FieldValueSettings = @{
-							FieldValueSettings = @{
-								CsvField = 'Status'
-								CsvValue = 0, 2
-							}
+							CsvField = 'Status'
+							CsvValue = 0, 2
 						}
 					}
 				}
