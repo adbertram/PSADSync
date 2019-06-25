@@ -2,17 +2,20 @@ $ErrorActionPreference = 'Stop'
 
 try {
 
-	$manifestFilePath = "$env:APPVEYOR_BUILD_FOLDER\PSAdSync.psd1"
+	$manifestFilePath = "$env:APPVEYOR_BUILD_FOLDER\PSADSync.psd1"
 	$manifestContent = Get-Content -Path $manifestFilePath -Raw
 
 	## Update the module version based on the build version and limit exported functions
+	$publicFunctions = Get-ChildItem -Path "$env:APPVEYOR_BUILD_FOLDER\Public" | Select-Object -ExpandProperty BaseName
+	$functionsToExport = ($publicFunctions | foreach { "'$_'" }) -join ','
 	$replacements = @{
-		"ModuleVersion = '.*'" = "ModuleVersion = '$env:APPVEYOR_BUILD_VERSION'"
-		"FunctionsToExport = '\*'" = "FunctionsToExport = 'Invoke-AdSync','Get-AvailableAdUserAttribute'"
+		"ModuleVersion\s+=\s+'\*'"     = "ModuleVersion = '$env:APPVEYOR_BUILD_VERSION'"
+		"FunctionsToExport\s+=\s+'\*'" = "FunctionsToExport = $functionsToExport"
 	}		
 
 	$replacements.GetEnumerator() | foreach {
-		$manifestContent = $manifestContent -replace $_.Key,$_.Value
+		Write-Host "Replacing [$($_.Key)] with [$($_.Value)]..."
+		$manifestContent = $manifestContent -replace $_.Key, $_.Value
 	}
 
 	$manifestContent | Set-Content -Path $manifestFilePath
