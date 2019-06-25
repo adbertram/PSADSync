@@ -1,6 +1,6 @@
 @{
 	RootModule        = 'PSADSync.psm1'
-	ModuleVersion     = '*'
+	ModuleVersion     = '1.0'
 	GUID              = 'ea8b8286-a4ae-4c52-822e-3a6dc264859e'
 	Author            = 'Adam Bertram'
 	CompanyName       = 'Adam the Automator, LLC'
