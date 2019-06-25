@@ -202,7 +202,7 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			(Compare-Object $script:csvUsersNullConvert.'AD_LOGON' $result.'AD_LOGON').InputObject | should benullorempty
+			Compare-Object $script:csvUsersNullConvert.'AD_LOGON' $result.'AD_LOGON' | should benullorempty
 		}
 
 		it 'when excluding 1 col, should return all expected users: <TestName>' -TestCases $testCases.Exclude1Col {
@@ -210,7 +210,7 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			(Compare-Object @('foo2', 'notinAD', 'null') $result.'AD_LOGON').InputObject | should benullorempty
+			Compare-Object @('foo2', 'notinAD', 'null') $result.'AD_LOGON' | should benullorempty
 		}
 	
 		it 'when excluding 2 cols, should return all expected users: <TestName>' -TestCases $testCases.Exclude2Cols {
@@ -218,7 +218,7 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			(Compare-Object @('notinAD', 'null') $result.'AD_LOGON').InputObject | should benullorempty
+			Compare-Object @('notinAD', 'null') $result.'AD_LOGON' | should benullorempty
 		}
 	}
 

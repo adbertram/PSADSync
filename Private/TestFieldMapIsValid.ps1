@@ -81,7 +81,7 @@ function TestFieldMapIsValid {
 		}
 		'UserMatch' {
 			$mapHt = $UserMatchMap.Clone()
-			if (($UserMatchMap.Keys | Where-Object { $_ -in @('FirstName', 'LastName') }).Count -ne 2) {
+			if (@($UserMatchMap.Keys | Where-Object { $_ -in @('FirstName', 'LastName') }).Count -ne 2) {
 				$result = $false
 			}
 		}

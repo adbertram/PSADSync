@@ -112,22 +112,22 @@ function NewRandomPassword {
 			}
 			# Randomize one char from each group
 			Foreach($Group in $CharGroups) {
-				if($Password.Count -lt $PasswordLength) {
+				if(@($Password).Count -lt $PasswordLength) {
 					$Index = Get-Seed
 					While ($Password.ContainsKey($Index)){
 						$Index = Get-Seed                        
 					}
-					$Password.Add($Index, $Group[((Get-Seed) % $Group.Count)])
+					$Password.Add($Index, $Group[((Get-Seed) % @($Group).Count)])
 				}
 			}
 
 			# Fill out with chars from $AllChars
-			for($i=$Password.Count; $i -lt $PasswordLength; $i++) {
+			for($i=@($Password).Count; $i -lt $PasswordLength; $i++) {
 				$Index = Get-Seed
 				While ($Password.ContainsKey($Index)){
 					$Index = Get-Seed                        
 				}
-				$Password.Add($Index, $AllChars[((Get-Seed) % $AllChars.Count)])
+				$Password.Add($Index, $AllChars[((Get-Seed) % @($AllChars).Count)])
 			}
 			Write-Output -InputObject $(-join ($Password.GetEnumerator() | Sort-Object -Property Name | Select-Object -ExpandProperty Value))
 		}
