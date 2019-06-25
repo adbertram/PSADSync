@@ -1345,7 +1345,9 @@ InModuleScope $ThisModuleName {
 				context 'when the attribute does not exist' {
 
 					mock 'Get-AvailableAdUserAttribute' {
-						@('notinhere')
+						[pscustomobject]@{
+							'ValidName' = 'NOTattribName'
+						}
 					}
 	
 					$result = & $commandName @parameters
@@ -1950,7 +1952,7 @@ InModuleScope $ThisModuleName {
 
 					$assMParams = @{
 						CommandName = 'SetAdUser'
-						Times = @($funcParams.Attributes).Count
+						Times = @($funcParams.ActiveDirectoryAttributes).Count
 						Exactly = $true
 						ParameterFilter = {
 							foreach ($i in $expectedParams.Parameters) {
@@ -2942,6 +2944,16 @@ InModuleScope $ThisModuleName {
 				@{
 					NewUserCreation = @{
 						Exclude = @{
+							FieldValueSettings = @{
+								CsvField = 'Status'
+								CsvValue = 0, 2
+							}
+						}
+					}
+				},
+				@{
+					UserTermination = @{
+						FieldValueSettings = @{
 							FieldValueSettings = @{
 								CsvField = 'Status'
 								CsvValue = 0, 2
