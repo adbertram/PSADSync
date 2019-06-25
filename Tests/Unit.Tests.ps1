@@ -2950,8 +2950,6 @@ InModuleScope $ThisModuleName {
 							}
 						}
 					}
-				},
-				@{
 					UserTermination = @{
 						FieldValueSettings = @{
 							FieldValueSettings = @{
