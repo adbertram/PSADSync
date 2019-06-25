@@ -4,6 +4,7 @@ function GetPsAdSyncConfiguration {
 	param
 	()
 
-	Import-PowerShellDataFile -Path "$PSScriptRoot\Configuration.psd1"
+	$parentFolder = $PSScriptRoot | Split-Path -Parent
+	Import-PowerShellDataFile -Path "$parentFolder\Configuration.psd1"
 
 }
