@@ -10,8 +10,3 @@ test_script:
 - ps: .\buildscripts\test.ps1
 after_test:
 - ps: .\buildscripts\publish.ps1
-
-notifications:
-  - provider: Slack
-    incoming_webhook:
-      secure: 0SXYOxoVQQeHXAdongVM4NBe7RMvYqowUywID9d1zpyIAM5Qa7cL9GeSFLc0mfGeSVVdL0c44XhEtei7PEHnsHdN057VRixyBqBRLBc5QAo=
