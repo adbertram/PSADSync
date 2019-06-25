@@ -4,10 +4,6 @@ Set-StrictMode -Version Latest
 
 Add-Type -AssemblyName 'System.DirectoryServices.AccountManagement'
 
-$script:baseUrl = 'https://api.trello.com/1'
-$script:ProjectName = 'PowerTrello'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
 # Get public and private function definition files.
 $Public = @(Get-ChildItem -Path $PSScriptRoot\Public\*.ps1 -ErrorAction SilentlyContinue)
 $Private = @(Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction SilentlyContinue)
