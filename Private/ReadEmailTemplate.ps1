@@ -8,7 +8,8 @@ function ReadEmailTemplate {
 		[string]$Name	
 	)
 	
-	if ($template = Get-ChildItem -Path "$PSScriptRoot\EmailTemplates" -Filter "$Name.txt") {
+	$parentFolder = $PSScriptRoot | Split-Path -Parent
+	if ($template = Get-ChildItem -Path (Join-Path -Path $parentFolder -ChildPath 'EmailTemplates') -Filter "$Name.txt") {
 		Get-Content -Path $template.FullName -Raw
 	}
 }
