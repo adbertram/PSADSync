@@ -2006,6 +2006,7 @@ InModuleScope $ThisModuleName {
 	
 		$testCases = @{
 			All = $parameterSets
+			Overwrite = $parameterSets.where({ $_.PSObject.Properties.Name -contains 'Overwrite' })
 		}
 	
 		it 'should export a CSV to the expected path: <TestName>' -TestCases $testCases.All {
@@ -2038,7 +2039,7 @@ InModuleScope $ThisModuleName {
 			Assert-MockCalled @assMParams
 		}
 
-		it 'should overwrite the CSV if the switch is applied: <TestName>' -TestCases $testCases.All {
+		it 'should overwrite the CSV if the switch is applied: <TestName>' -TestCases $testCases.Overwrite {
 			param($FilePath, $CSVIdentifierValue, $CSVIdentifierField, $Attributes, $Overwrite)
 
  			& $commandName @PSBoundParameters
