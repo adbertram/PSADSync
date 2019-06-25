@@ -2006,7 +2006,7 @@ InModuleScope $ThisModuleName {
 	
 		$testCases = @{
 			All = $parameterSets
-			Overwrite = $parameterSets.where({ $_.PSObject.Properties.Name -contains 'Overwrite' })
+			Overwrite = $parameterSets.where({ $_.ContainsKey('Overwrite') })
 		}
 	
 		it 'should export a CSV to the expected path: <TestName>' -TestCases $testCases.All {
