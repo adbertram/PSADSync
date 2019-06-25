@@ -17,7 +17,10 @@ function WriteLog {
 
 		[Parameter(Mandatory)]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Attributes
+		[hashtable]$Attributes,
+
+		[Parameter()]
+		[switch]$Overwrite
 	)
 	
 	$ErrorActionPreference = 'Stop'
@@ -27,6 +30,9 @@ function WriteLog {
 	$Attributes['CsvIdentifierField'] = $CsvIdentifierField
 	$Attributes['Time'] = $time
 	
-	([pscustomobject]$Attributes) | Export-Csv -Path $FilePath -Append -NoTypeInformation -Confirm:$false
-
+	if (!($Overwrite)) {
+		([pscustomobject]$Attributes) | Export-Csv -Path $FilePath -Append -NoTypeInformation -Confirm:$false
+	} else {
+		([pscustomobject]$Attributes) | Export-Csv -Path $FilePath -NoTypeInformation -Confirm:$false
+	}
 }

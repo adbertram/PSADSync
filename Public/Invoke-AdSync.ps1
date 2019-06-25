@@ -39,10 +39,24 @@ function Invoke-AdSync {
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[hashtable]$Exclude
+		[hashtable]$Exclude,
+
+		[Parameter()]
+		[ValidateNotNullOrEmpty()]
+		[string]$LogFilePath,
+
+		[Parameter()]
+		[switch]$LogOverwrite
 	)
 	begin {
 		$ErrorActionPreference = 'Stop'
+		$logParams = @{ }
+		if ($PSBoundParameters.ContainsKey('LogFilePath')) {
+			$logParams["FilePath"] = $LogFilePath
+		}
+		if ($PSBoundParameters.ContainsKey('LogOverwrite')) {
+			$logParams["Overwrite"] = $true
+		}
 	}
 	process {
 		try {
@@ -158,7 +172,7 @@ function Invoke-AdSync {
 											ADAttributeValue  = [string]($_.ActiveDirectoryAttribute.Values)
 											Message           = $null
 										}
-										WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs	
+										WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs @logParams 
 									}
 									
 									if (-not $ReportOnly.IsPresent) {
@@ -248,7 +262,7 @@ function Invoke-AdSync {
 						}
 					} finally {
 						if ($logEntry) {
-							WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs
+							WriteLog -CsvIdentifierField $csvIdField -CsvIdentifierValue $csvIdValue -Attributes $logAttribs @logParams 
 						}
 						$rowsProcessed++
 					}

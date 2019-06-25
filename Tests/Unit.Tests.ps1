@@ -1988,6 +1988,19 @@ InModuleScope $ThisModuleName {
 					CSVAttributeValue = 123
 				}
 				TestName = 'Standard'
+			},
+			@{
+				FilePath = 'C:\log.csv'
+				CSVIdentifierValue = 'username'
+				CSVIdentifierField = 'employeeid'
+				Attributes = @{ 
+					ADAttributeName = 'EmployeeId'
+					ADAttributeValue = $null
+					CSVAttributeName = 'PERSON_NUM'
+					CSVAttributeValue = 123
+				}
+				Overwrite = $true
+				TestName = 'Overwrite'
 			}
 		)
 	
@@ -2021,6 +2034,21 @@ InModuleScope $ThisModuleName {
 				Exactly = $true
 				Scope = 'It'
 				ParameterFilter = { $Append }
+			}
+			Assert-MockCalled @assMParams
+		}
+
+		it 'should overwrite the CSV if the switch is applied: <TestName>' -TestCases $testCases.All {
+			param($FilePath, $CSVIdentifierValue, $CSVIdentifierField, $Attributes, $Overwrite)
+
+ 			& $commandName @PSBoundParameters
+
+ 			$assMParams = @{
+				CommandName = 'Export-Csv'
+				Times = 1
+				Exactly = $true
+				Scope = 'It'
+				ParameterFilter = {!($Append)}
 			}
 			Assert-MockCalled @assMParams
 		}
