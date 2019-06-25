@@ -1256,7 +1256,7 @@ InModuleScope $ThisModuleName {
 				Parameters = @{
 					AdUser = $script:AdUserNoMisMatch
 					CsvUser = $script:csvUserNoMisMatch
-					FieldSyncMap = @{ { $null } = 'OtherAttrib' }
+					FieldSyncMap = @{ { $null } = 'otherattribmap' }
 				}
 			}
 		)
