@@ -10,7 +10,7 @@ describe 'Module-level tests' {
 	
 	it 'should validate the module manifest' {
 	
-		{ Test-ModuleManifest -Path $ThisModule -ErrorAction Stop } | should not throw
+		{ Test-ModuleManifest -Path $ThisModule -ErrorAction Stop } | should -not throw
 	}
 
 	it 'should pass all analyzer rules' {
@@ -236,19 +236,6 @@ InModuleScope $ThisModuleName {
 		
 		$commandName = 'TestCsvHeaderExists'
 		$script:command = Get-Command -Name $commandName
-	
-		#region Mocks
-		mock 'GetCsvColumnHeaders' {
-			'nothinghere', 'nope'
-		} -ParameterFilter { $CsvFilePath -eq 'C:\foofail.csv' }
-
-		mock 'GetCsvColumnHeaders' {
-			'Header', 'a', 'b', 'c', 'd', 'e'
-		} -ParameterFilter { $CsvFilePath -eq 'C:\foopass.csv' }
-
-		mock 'ParseScriptBlockHeaders' {
-			'Header', 'a', 'b', 'c', 'd', 'e'
-		}
 
 		$testCases = @(
 			@{
@@ -338,6 +325,20 @@ InModuleScope $ThisModuleName {
 			$expected = $testCase.Expected
 	
 			context $testCase.Label {
+
+                #region Mocks
+                mock 'GetCsvColumnHeaders' {
+                    'nothinghere', 'nope'
+                } -ParameterFilter { $CsvFilePath -eq 'C:\foofail.csv' }
+
+                mock 'GetCsvColumnHeaders' {
+                    'Header', 'a', 'b', 'c', 'd', 'e'
+                } -ParameterFilter { $CsvFilePath -eq 'C:\foopass.csv' }
+
+                mock 'ParseScriptBlockHeaders' {
+                    'Header', 'a', 'b', 'c', 'd', 'e'
+                }
+                #endregion
 	
 				$result = & $commandName @parameters
 
