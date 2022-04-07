@@ -43,17 +43,14 @@ function Invoke-AdSync {
 
 		[Parameter()]
 		[ValidateNotNullOrEmpty()]
-		[string]$LogFilePath,
+		[string]$LogFilePath = "PSAdSync_$(get-date -Format 'MMddyy_hhmmss').log",
 
 		[Parameter()]
 		[switch]$LogOverwrite
 	)
 	begin {
 		$ErrorActionPreference = 'Stop'
-		$logParams = @{ }
-		if ($PSBoundParameters.ContainsKey('LogFilePath')) {
-			$logParams["FilePath"] = $LogFilePath
-		}
+		$logParams = @{ "FilePath" = $LogFilePath }
 		if ($PSBoundParameters.ContainsKey('LogOverwrite')) {
 			$logParams["Overwrite"] = $true
 		}
