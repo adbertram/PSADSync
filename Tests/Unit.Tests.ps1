@@ -24,7 +24,7 @@ describe 'Module-level tests' {
 			'PSAvoidUsingConvertToSecureStringWithPlainText'
 		)
 
-		Invoke-ScriptAnalyzer -Path $PSScriptRoot -ExcludeRule $excludedRules -Severity Error | Select-Object -ExpandProperty RuleName | should benullorempty
+		Invoke-ScriptAnalyzer -Path $PSScriptRoot -ExcludeRule $excludedRules -Severity Error | Select-Object -ExpandProperty RuleName | should -benullorempty
 	}
 }
 
@@ -202,7 +202,7 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			Compare-Object $script:csvUsersNullConvert.'AD_LOGON' $result.'AD_LOGON' | should benullorempty
+			Compare-Object $script:csvUsersNullConvert.'AD_LOGON' $result.'AD_LOGON' | should -benullorempty
 		}
 
 		it 'when excluding 1 col, should return all expected users: <TestName>' -TestCases $testCases.Exclude1Col {
@@ -210,7 +210,7 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			Compare-Object @('foo2', 'notinAD', 'null') $result.'AD_LOGON' | should benullorempty
+			Compare-Object @('foo2', 'notinAD', 'null') $result.'AD_LOGON' | should -benullorempty
 		}
 	
 		it 'when excluding 2 cols, should return all expected users: <TestName>' -TestCases $testCases.Exclude2Cols {
@@ -218,26 +218,16 @@ InModuleScope $ThisModuleName {
 		
 			$result = & $commandName @PSBoundParameters
 
-			Compare-Object @('notinAD', 'null') $result.'AD_LOGON' | should benullorempty
+			Compare-Object @('notinAD', 'null') $result.'AD_LOGON' | should -benullorempty
 		}
 	}
 
 	describe 'GetCsvColumnHeaders' {
-		
-		#region Mocks
-		mock 'Get-Content' {
-			@(
-				'"Header1","Header2","Header3"'
-				'"Value1","Value2","Value3"'
-				'"Value4","Value5","Value6"'
-			)
-		}
-		#endregion
 
 		it 'should return expected headers' {
 		
-			$result = & GetCsvColumnHeaders -CsvFilePath 'foo.csv'
-			Compare-Object $result @('Header1', 'Header2', 'Header3') | should benullorempty
+			$result = & GetCsvColumnHeaders -CsvFilePath "$PSScriptRoot\TestUsers.csv"
+			Compare-Object $result @("csvEmployeeIdField","csvsamAccountNameIdField","csvAccountExpiresSyncField","csvManagerIdSyncField","csvFirstNameSyncField","csvLastNameSyncField","csvNickNameSyncField","csvManagerSyncField") | should -benullorempty
 		}
 		
 	}
@@ -362,15 +352,15 @@ InModuleScope $ThisModuleName {
 				}
 
 				it "should return [$($expected.Output.ReturnValue)]" {
-					$result | should be $expected.Output.ReturnValue
+					$result | should -be $expected.Output.ReturnValue
 				}
 
 				it "should return [$($expected.Output.ObjectCount)] object(s)" {
-					@($result).Count | should be $expected.Output.ObjectCount
+					@($result).Count | should -be $expected.Output.ObjectCount
 				}
 
 				it 'should return the same object type in OutputType()' {
-					$result | should beoftype $script:command.OutputType.Name
+					$result | should -beoftype $script:command.OutputType.Name
 				}
 			}
 		}
@@ -429,7 +419,7 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @parameters
 
 				it "should return [$($expected.Output.ObjectCount)] objects" {
-					$result.Count | should be $expected.Output.ObjectCount	
+					$result.Count | should -be $expected.Output.ObjectCount	
 				}
 	
 			}
@@ -614,7 +604,7 @@ InModuleScope $ThisModuleName {
 			it 'should return the expected number of objects: <TestName>' -TestCases $testCases.NoMatch {
 				param($AdUsers, $CsvUser, $FieldMatchMap)
 			
-				& $commandName @PSBoundParameters | should benullorempty
+				& $commandName @PSBoundParameters | should -benullorempty
 			}
 		}
 
@@ -624,7 +614,7 @@ InModuleScope $ThisModuleName {
 				param($AdUsers, $CsvUser, $FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
-				@($result).Count | should be 1
+				@($result).Count | should -be 1
 			}
 
 			it 'should find matches as expected and return the expected property values: <TestName>' -TestCases $testCases.MatchOnOneId {
@@ -632,9 +622,9 @@ InModuleScope $ThisModuleName {
 			
 				$result = & $commandName @PSBoundParameters
 
-				$result.MatchedAdUser.EmployeeId | should be 123
-				$result.CSVAttemptedMatchIds | should be 'AD_LOGON'
-				$result.ADAttemptedMatchIds | should be 'samAccountName'
+				$result.MatchedAdUser.EmployeeId | should -be 123
+				$result.CSVAttemptedMatchIds | should -be 'AD_LOGON'
+				$result.ADAttemptedMatchIds | should -be 'samAccountName'
 
 			}
 		}
@@ -656,7 +646,7 @@ InModuleScope $ThisModuleName {
 				param($AdUsers, $CsvUser, $FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
-				@($result).Count | should be 1
+				@($result).Count | should -be 1
 			}
 
 			it 'should find matches as expected and return the expected property values: <TestName>' -TestCases $testCases.MatchOnAllIds {
@@ -664,9 +654,9 @@ InModuleScope $ThisModuleName {
 			
 				$result = & $commandName @PSBoundParameters
 
-				$result.MatchedAdUser.EmployeeId | should be 123
-				$result.CSVAttemptedMatchIds | should be 'PERSON_NUM'
-				$result.ADAttemptedMatchIds | should be 'employeeid'
+				$result.MatchedAdUser.EmployeeId | should -be 123
+				$result.CSVAttemptedMatchIds | should -be 'PERSON_NUM'
+				$result.ADAttemptedMatchIds | should -be 'employeeid'
 
 			}
 		}
@@ -677,9 +667,9 @@ InModuleScope $ThisModuleName {
 				param($AdUsers, $CsvUser, $FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
-				$result.MatchedAdUser.samAccountName | should be 'foo'
-				$result.CSVAttemptedMatchIds | should be 'PERSON_NUM,AD_LOGON'
-				$result.ADAttemptedMatchIds | should be 'EmployeeId,samAccountName'
+				$result.MatchedAdUser.samAccountName | should -be 'foo'
+				$result.CSVAttemptedMatchIds | should -be 'PERSON_NUM,AD_LOGON'
+				$result.ADAttemptedMatchIds | should -be 'EmployeeId,samAccountName'
 			}
 
 		}
@@ -691,10 +681,10 @@ InModuleScope $ThisModuleName {
 			
 				$result = & $commandName @PSBoundParameters
 				@($result.MatchedAdUser).foreach({
-						$_.PSObject.Properties.Name -contains 'EmployeeId' | should be $true
+						$_.PSObject.Properties.Name -contains 'EmployeeId' | should -be $true
 					})
-				$result.CSVAttemptedMatchIds | should be 'PERSON_NUM'
-				$result.ADAttemptedMatchIds | should be 'employeeId'
+				$result.CSVAttemptedMatchIds | should -be 'PERSON_NUM'
+				$result.ADAttemptedMatchIds | should -be 'employeeId'
 			}
 		
 		}
@@ -705,7 +695,7 @@ InModuleScope $ThisModuleName {
 				param($AdUsers, $CsvUser, $FieldMatchMap)
 
 				$result = & $commandName @PSBoundParameters
-				@($result).Count | should be 1
+				@($result).Count | should -be 1
 
 			}
 
@@ -713,11 +703,11 @@ InModuleScope $ThisModuleName {
 				param($AdUsers, $CsvUser, $FieldMatchMap)
 			
 				$result = & $commandName @PSBoundParameters
-				$result.MatchedAdUser.EmployeeId | should be 123
-				$result.MatchedAdUser.givenName | should be 'adfirstname1'
-				$result.MatchedAdUser.surName | should be 'adlastname1'
-				$result.CSVAttemptedMatchIds | should be 'FIRST_NAME,LAST_NAME'
-				$result.ADAttemptedMatchIds | should be 'givenName,surName'
+				$result.MatchedAdUser.EmployeeId | should -be 123
+				$result.MatchedAdUser.givenName | should -be 'adfirstname1'
+				$result.MatchedAdUser.surName | should -be 'adlastname1'
+				$result.CSVAttemptedMatchIds | should -be 'FIRST_NAME,LAST_NAME'
+				$result.ADAttemptedMatchIds | should -be 'givenName,surName'
 			}
 
 		}
@@ -728,7 +718,7 @@ InModuleScope $ThisModuleName {
 				param($AdUsers, $CsvUser, $FieldMatchMap)
 
 				$result = & $commandName @PSBoundParameters
-				@($result).Count | should be 1
+				@($result).Count | should -be 1
 
 			}
 
@@ -738,11 +728,11 @@ InModuleScope $ThisModuleName {
 					param($AdUsers, $FieldMatchMap)
 				
 					$result = & $commandName @PSBoundParameters -CsvUser $script:firstLastNickMatchCsvUserId2
-					$result.MatchedAdUser.EmployeeId | should be 999
-					$result.MatchedAdUser.givenName | should be 'adfirstnamex'
-					$result.MatchedAdUser.surName | should be 'adlastnamex'
-					$result.CSVAttemptedMatchIds | should be 'FIRST_NAME,LAST_NAME'
-					$result.ADAttemptedMatchIds | should be 'givenName,surName'
+					$result.MatchedAdUser.EmployeeId | should -be 999
+					$result.MatchedAdUser.givenName | should -be 'adfirstnamex'
+					$result.MatchedAdUser.surName | should -be 'adlastnamex'
+					$result.CSVAttemptedMatchIds | should -be 'FIRST_NAME,LAST_NAME'
+					$result.ADAttemptedMatchIds | should -be 'givenName,surName'
 				}
 				
 			}
@@ -753,11 +743,11 @@ InModuleScope $ThisModuleName {
 					param($AdUsers, $FieldMatchMap)
 				
 					$result = & $commandName @PSBoundParameters -CsvUser $script:firstLastNickMatchCsvUserId
-					$result.MatchedAdUser.EmployeeId | should be 999
-					$result.MatchedAdUser.givenName | should be 'adfirstnamex'
-					$result.MatchedAdUser.surName | should be 'adlastnamex'
-					$result.CSVAttemptedMatchIds | should be 'NICK_NAME,LAST_NAME'
-					$result.ADAttemptedMatchIds | should be 'givenName,surName'
+					$result.MatchedAdUser.EmployeeId | should -be 999
+					$result.MatchedAdUser.givenName | should -be 'adfirstnamex'
+					$result.MatchedAdUser.surName | should -be 'adlastnamex'
+					$result.CSVAttemptedMatchIds | should -be 'NICK_NAME,LAST_NAME'
+					$result.ADAttemptedMatchIds | should -be 'givenName,surName'
 				}
 				$script:firstLastNickMatchCsvUserId
 			}
@@ -916,15 +906,15 @@ InModuleScope $ThisModuleName {
 					$result = & $commandName @parameters
 
 					it "should return [$($expected.Output.ObjectCount)] object(s)" {
-						@($result).Count | should be $expected.Output.ObjectCount
+						@($result).Count | should -be $expected.Output.ObjectCount
 					}
 
 					it 'should return the same object type in OutputType()' {
-						$result | should beoftype $script:command.OutputType.Name
+						$result | should -beoftype $script:command.OutputType.Name
 					}
 
 					it "should return [$($expected.Output.Value)]" {
-						$result | should be $expected.Output.Value
+						$result | should -be $expected.Output.Value
 					}
 				}
 			}
@@ -1088,11 +1078,11 @@ InModuleScope $ThisModuleName {
 					}
 
 					it "should return Microsoft.ActiveDirectory.Management.ADUser" {
-						$result | should beofType 'Microsoft.ActiveDirectory.Management.ADUser'
+						$result | should -beofType 'Microsoft.ActiveDirectory.Management.ADUser'
 					}
 
 					it 'should return the expected new password' {
-						$result.Password | should be 'randompwhere'
+						$result.Password | should -be 'randompwhere'
 					}
 				}
 			}
@@ -1185,7 +1175,7 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @parameters
 
 				it "should return [$($expected.ShouldReturn)]" {
-					$result | should be $expected.ShouldReturn
+					$result | should -be $expected.ShouldReturn
 				}
 
 			}
@@ -1272,7 +1262,7 @@ InModuleScope $ThisModuleName {
 
 						it 'should return nothing' {
 						
-							& $commandName @parameters | should benullorempty
+							& $commandName @parameters | should -benullorempty
 						}
 					
 					}
@@ -1284,7 +1274,7 @@ InModuleScope $ThisModuleName {
 						$result = & $commandName @parameters
 
 						it 'should return nothing' {
-							$result | should benullorempty
+							$result | should -benullorempty
 						}
 
 					}
@@ -1296,11 +1286,11 @@ InModuleScope $ThisModuleName {
 						$result = & $commandName @parameters
 						
 						it 'should return the expected objects' {
-							@($result).Count | should be 1
-							$result | should beoftype 'hashtable'
-							$result.ActiveDirectoryAttribute.otherattribmap | should benullorempty
-							$result.CSVField.OtherAttrib | should be 'x'
-							$result.ADShouldBe.otherattribmap | should be 'x'
+							@($result).Count | should -be 1
+							$result | should -beoftype 'hashtable'
+							$result.ActiveDirectoryAttribute.otherattribmap | should -benullorempty
+							$result.CSVField.OtherAttrib | should -be 'x'
+							$result.ADShouldBe.otherattribmap | should -be 'x'
 						}
 					}
 				}
@@ -1338,7 +1328,7 @@ InModuleScope $ThisModuleName {
 					$result = & $commandName @parameters
 	
 					it 'should return $true' {
-						$result | should be $true
+						$result | should -be $true
 					}
 				}
 	
@@ -1353,7 +1343,7 @@ InModuleScope $ThisModuleName {
 					$result = & $commandName @parameters
 	
 					it 'should return $false' {
-						$result | should be $false
+						$result | should -be $false
 					}
 				}
 			}
@@ -1508,11 +1498,11 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @parameters
 
 				it "should return [$($expected.Output.ObjectCount)] object(s)" {
-					@($result).Count | should be $expected.Output.ObjectCount
+					@($result).Count | should -be $expected.Output.ObjectCount
 				}
 
 				it "should return [$($expected.Output.Value)]" {
-					$result | should bein $expected.Output.Value
+					$result | should -bein $expected.Output.Value
 				}
 			}
 		}
@@ -1529,11 +1519,11 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @parameters
 
 				it "should return 1 object" {
-					@($result).Count | should be 1
+					@($result).Count | should -be 1
 				}
 
 				it "should return [840]" {
-					$result | should be 840
+					$result | should -be 840
 				}
 			
 			}
@@ -1576,7 +1566,7 @@ InModuleScope $ThisModuleName {
 			$result = & $commandName @parameters
 	
 			it 'should return nothing' {
-				$result | should benullorempty
+				$result | should -benullorempty
 			}
 	
 		}
@@ -1599,7 +1589,7 @@ InModuleScope $ThisModuleName {
 			$result = & $commandName @parameters
 
 			it 'should return nothing' {
-				$result | should benullorempty
+				$result | should -benullorempty
 			}
 		
 		}
@@ -1622,7 +1612,7 @@ InModuleScope $ThisModuleName {
 			$result = & $commandName @parameters
 
 			it 'should return the manager email address' {
-				$result | should be 'bsmith@company.local'
+				$result | should -be 'bsmith@company.local'
 			}
 		
 		}
@@ -1658,11 +1648,11 @@ InModuleScope $ThisModuleName {
 			$result = & $commandName @parameters
 	
 			it 'should return the expected number of objects' {
-				@($result).Count | should be 1
+				@($result).Count | should -be 1
 			}
 	
 			it 'should return the same object type in OutputType()' {
-				$result | should beoftype $command.OutputType.Name
+				$result | should -beoftype $command.OutputType.Name
 			}
 	
 		}
@@ -1676,7 +1666,7 @@ InModuleScope $ThisModuleName {
 			$result = & $commandName @parameters
 
 			it 'should return nothing' {
-				$result | should benullorempty
+				$result | should -benullorempty
 			}
 		
 		}
@@ -1761,7 +1751,7 @@ InModuleScope $ThisModuleName {
 			}
 
 			it 'should return nothing' {
-				$result | should benullorempty
+				$result | should -benullorempty
 			}
 		
 		}
@@ -1810,7 +1800,7 @@ InModuleScope $ThisModuleName {
 		it 'returns nothing' -TestCases $testCases.All {
 			param($Identity, $ActiveDirectoryAttributes)
 
-			& $commandName @PSBoundParameters -Confirm:$false | should benullorempty
+			& $commandName @PSBoundParameters -Confirm:$false | should -benullorempty
 		}
 
 		it 'should set the expected attribute' -TestCases $testCases.All {
@@ -1923,7 +1913,7 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @funcParams
 	
 				it 'should return nothing' {
-					$result | should benullorempty
+					$result | should -benullorempty
 				}
 	
 				it 'should change only those attributes in the Attributes parameter' {
@@ -2457,7 +2447,7 @@ InModuleScope $ThisModuleName {
 					$result = & $commandName @parameters
 					
 					it 'should return nothing' {
-						$result | should benullorempty
+						$result | should -benullorempty
 					}
 					
 					context 'when a user match cannot be found' {
@@ -2800,7 +2790,7 @@ InModuleScope $ThisModuleName {
 
 								mock 'InvokeUserTermination'
 
-								context 'when the user should be terminated' {
+								context 'when the user should -be terminated' {
 
 									mock 'TestUserTerminated' {
 										$true
@@ -2890,7 +2880,7 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @parameters
 	
 				it 'should return nothing' {
-					$result | should benullorempty
+					$result | should -benullorempty
 				}
 
 				it 'should disable the AD account' {
@@ -2926,15 +2916,15 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @parameters
 
 				it 'should return the expected number of objects' {
-					@($result).Count | should be 1
+					@($result).Count | should -be 1
 				}
 	
 				it 'should return the same object type in OutputType()' {
-					$result | should beoftype $command.OutputType.Name
+					$result | should -beoftype $command.OutputType.Name
 				}
 
 				it 'should return $true' {
-					$result | should be $true
+					$result | should -be $true
 				}
 		
 			}
@@ -2950,15 +2940,15 @@ InModuleScope $ThisModuleName {
 				$result = & $commandName @parameters
 
 				it 'should return the expected number of objects' {
-					@($result).Count | should be 1
+					@($result).Count | should -be 1
 				}
 	
 				it 'should return the same object type in OutputType()' {
-					$result | should beoftype $command.OutputType.Name
+					$result | should -beoftype $command.OutputType.Name
 				}
 
 				it 'should return $true' {
-					$result | should be $false
+					$result | should -be $false
 				}
 		
 			}
@@ -3011,7 +3001,7 @@ InModuleScope $ThisModuleName {
 						$result = & $commandName @parameters
 
 						it 'should return $true' {
-							$result | should be $true
+							$result | should -be $true
 						}
 				
 					}
@@ -3027,7 +3017,7 @@ InModuleScope $ThisModuleName {
 						$result = & $commandName @parameters
 
 						it 'should return $false' {
-							$result | should be $false
+							$result | should -be $false
 						}
 				
 					}
@@ -3049,15 +3039,15 @@ InModuleScope $ThisModuleName {
 					$result = & $commandName @parameters
 
 					it 'should return the expected number of objects' {
-						@($result).Count | should be 1
+						@($result).Count | should -be 1
 					}
 	
 					it 'should return the same object type in OutputType()' {
-						$result | should beoftype $command.OutputType.Name
+						$result | should -beoftype $command.OutputType.Name
 					}
 
 					it 'should return $false' {
-						$result | should be $false
+						$result | should -be $false
 			
 					}
 	
@@ -3081,7 +3071,7 @@ InModuleScope $ThisModuleName {
 					$result = & $commandName @parameters
 
 					it 'should return $true' {
-						$result | should be $true
+						$result | should -be $true
 					}
 				
 				}
@@ -3097,7 +3087,7 @@ InModuleScope $ThisModuleName {
 					$result = & $commandName @parameters
 
 					it 'should return $false' {
-						$result | should be $false
+						$result | should -be $false
 					}
 				
 				}
